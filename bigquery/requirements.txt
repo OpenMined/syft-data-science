@@ -1,0 +1,11 @@
+fastapi
+pandas
+
+syft-extras @ ../../syft-extras
+# syft-event @ ../../syft-extras/syft-event
+# syft-files @ ../../syft-extras/syft-files
+# syft-requests @ ../../syft-extras/syft-requests
+# syft-rpc @ ../../syft-extras/syft-rpc
+
+syft-rds @ ../syft-rds
+uvicorn
