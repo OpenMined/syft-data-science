@@ -28,7 +28,7 @@ def get_connection(context: BaseRPCContext) -> sqlite3.Connection:
     return conn
 
 
-class BaseDatabase(BaseModel):
+class BaseQueryEngine(BaseModel):
     # this is to allow the connection to be excluded from the model
     class Config:
         arbitrary_types_allowed = True

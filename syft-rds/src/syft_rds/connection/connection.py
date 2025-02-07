@@ -38,11 +38,9 @@ class DevRPCConnection(RPCConnection):
         )
         local_path = SyftBoxURL(url).to_local_path(client.workspace.datasites)
         handler = self._app._SyftEvents__rpc.get(local_path)
-        kwargs = func_args_from_request(handler, syft_request)
-        
-        
         if handler is None:
-            raise ValueError(f"No handler found for URL: {url}")
+            raise ValueError(f"No handler found for URL: {url}, got {self._app._SyftEvents__rpc.keys()}")
+        kwargs = func_args_from_request(handler, syft_request)
     
         response = handler(**kwargs)
         return response
