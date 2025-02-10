@@ -1,0 +1,53 @@
+version = 1
+requires-python = ">=3.12"
+
+[[package]]
+name = "exp"
+version = "0.1.0"
+source = { virtual = "." }
+dependencies = [
+    { name = "protobuf" },
+    { name = "pycapnp" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "protobuf", specifier = ">=5.29.3" },
+    { name = "pycapnp", specifier = ">=2.0.0" },
+]
+
+[[package]]
+name = "protobuf"
+version = "5.29.3"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/f7/d1/e0a911544ca9993e0f17ce6d3cc0932752356c1b0a834397f28e63479344/protobuf-5.29.3.tar.gz", hash = "sha256:5da0f41edaf117bde316404bad1a486cb4ededf8e4a54891296f648e8e076620", size = 424945 }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/dc/7a/1e38f3cafa022f477ca0f57a1f49962f21ad25850c3ca0acd3b9d0091518/protobuf-5.29.3-cp310-abi3-win32.whl", hash = "sha256:3ea51771449e1035f26069c4c7fd51fba990d07bc55ba80701c78f886bf9c888", size = 422708 },
+    { url = "https://files.pythonhosted.org/packages/61/fa/aae8e10512b83de633f2646506a6d835b151edf4b30d18d73afd01447253/protobuf-5.29.3-cp310-abi3-win_amd64.whl", hash = "sha256:a4fa6f80816a9a0678429e84973f2f98cbc218cca434abe8db2ad0bffc98503a", size = 434508 },
+    { url = "https://files.pythonhosted.org/packages/dd/04/3eaedc2ba17a088961d0e3bd396eac764450f431621b58a04ce898acd126/protobuf-5.29.3-cp38-abi3-macosx_10_9_universal2.whl", hash = "sha256:a8434404bbf139aa9e1300dbf989667a83d42ddda9153d8ab76e0d5dcaca484e", size = 417825 },
+    { url = "https://files.pythonhosted.org/packages/4f/06/7c467744d23c3979ce250397e26d8ad8eeb2bea7b18ca12ad58313c1b8d5/protobuf-5.29.3-cp38-abi3-manylinux2014_aarch64.whl", hash = "sha256:daaf63f70f25e8689c072cfad4334ca0ac1d1e05a92fc15c54eb9cf23c3efd84", size = 319573 },
+    { url = "https://files.pythonhosted.org/packages/a8/45/2ebbde52ad2be18d3675b6bee50e68cd73c9e0654de77d595540b5129df8/protobuf-5.29.3-cp38-abi3-manylinux2014_x86_64.whl", hash = "sha256:c027e08a08be10b67c06bf2370b99c811c466398c357e615ca88c91c07f0910f", size = 319672 },
+    { url = "https://files.pythonhosted.org/packages/fd/b2/ab07b09e0f6d143dfb839693aa05765257bceaa13d03bf1a696b78323e7a/protobuf-5.29.3-py3-none-any.whl", hash = "sha256:0a18ed4a24198528f2333802eb075e59dea9d679ab7a6c5efb017a59004d849f", size = 172550 },
+]
+
+[[package]]
+name = "pycapnp"
+version = "2.0.0"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/9b/fb/54b46b52c1fa2acd9afd81bd05810c61bb1b05c6084c9625b64bc6d41843/pycapnp-2.0.0.tar.gz", hash = "sha256:503ab9b7b16773590ee226f2460408972c6b1c2cb2d819037115b919bef682be", size = 574848 }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/ce/d5/0ee84de3ce34a86c373b6cfbea17d5486c2ca942d51efa99a0069723c1e3/pycapnp-2.0.0-cp312-cp312-macosx_10_9_x86_64.whl", hash = "sha256:0c111ef96676df25b8afef98f369d45f838ad4434e2898e48199eb43ef704efe", size = 1645816 },
+    { url = "https://files.pythonhosted.org/packages/35/1e/580572083165ba791fac5ae2d8917facb94db6e3f0500421673f55165dac/pycapnp-2.0.0-cp312-cp312-macosx_11_0_arm64.whl", hash = "sha256:0d18906eb1fd1b9f206d93a9591ceedce1d52e7766b66e68f271453f104e9dca", size = 1507892 },
+    { url = "https://files.pythonhosted.org/packages/d7/ed/46b3cc5d32c525b6a3acb67eb43de2cec692a62775ec1ab66dafe2b7d6ad/pycapnp-2.0.0-cp312-cp312-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:f5d1ed365ab1beabb8838068907a7190cc0b6f16de3499d783627e670fcc0eb2", size = 4707960 },
+    { url = "https://files.pythonhosted.org/packages/8e/51/0a0a4d4e44138adb84959478ea4966196c5ad32022f768b9b64d1590cb3e/pycapnp-2.0.0-cp312-cp312-manylinux_2_17_i686.manylinux2014_i686.whl", hash = "sha256:495b39a7aa2629931bbca27ad743ce591c6c41e8f81792276be424742d9cd1c1", size = 4791780 },
+    { url = "https://files.pythonhosted.org/packages/28/71/2b59c6ddb253b25b3d01ee6f7b32b0297ac205c7272beeb6d13399054430/pycapnp-2.0.0-cp312-cp312-manylinux_2_17_ppc64le.manylinux2014_ppc64le.whl", hash = "sha256:50e814fbde072dcc3d868b5b5cbb9b7a66a70bff9ad03942f3be9baf3ca1cfc6", size = 4961068 },
+    { url = "https://files.pythonhosted.org/packages/c3/b8/b64fdefa59d6d2802b5ee0a9439396c23a3e5954da6909be81f2722a234c/pycapnp-2.0.0-cp312-cp312-manylinux_2_17_s390x.manylinux2014_s390x.whl", hash = "sha256:920fdda62d5fdef7a48339104dff0ceb9dcc21b138491f854457ba3a3d4d63ec", size = 4872917 },
+    { url = "https://files.pythonhosted.org/packages/c8/55/867595f575eb6cb3662e9a0b50a24b4be42df86f2938003e586f6c81606f/pycapnp-2.0.0-cp312-cp312-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:3f9142eb4714c152b09dda0b055ea9dd43fd8fd894132e7eb4fa235fb4915edd", size = 4912169 },
+    { url = "https://files.pythonhosted.org/packages/e4/11/0d36b45e5005ecdf8510081d16c6fb7b22b49651f64af36d138df97980cc/pycapnp-2.0.0-cp312-cp312-musllinux_1_1_aarch64.whl", hash = "sha256:c98f1d0c4d32109d03e42828ce3c65236afc895033633cbed3ca092993702e7b", size = 5201744 },
+    { url = "https://files.pythonhosted.org/packages/05/29/ad1357998656b7141939e55bb3aea727c7a5478026feed7f8ee8cf52c935/pycapnp-2.0.0-cp312-cp312-musllinux_1_1_i686.whl", hash = "sha256:4d3250c1875a309d67551843cd8bf3c5e7fccf159b7f5c118a92aee36c0e871c", size = 5351113 },
+    { url = "https://files.pythonhosted.org/packages/5a/b1/f4c442907948a29b6427dd7436f31d3732bb0d77f5c1dbcad749ba56dac0/pycapnp-2.0.0-cp312-cp312-musllinux_1_1_ppc64le.whl", hash = "sha256:174e6babe01f5507111c0ed226cd0b5e9325a9d2850751cfe4a57c1670f13881", size = 5472055 },
+    { url = "https://files.pythonhosted.org/packages/c1/06/a6eceb8b8015f518c0ccae1de5d1a6e18ed73b62b4b111aff54ce5f4f566/pycapnp-2.0.0-cp312-cp312-musllinux_1_1_s390x.whl", hash = "sha256:ed38ece414341285695526792e020f391f29f5064b2126d0367c8bdeef28e3e9", size = 5395743 },
+    { url = "https://files.pythonhosted.org/packages/e7/b0/63f2b0327853ae08158de61b4dfc7fa43ae5a5c00f1d28f769e7c30cdf55/pycapnp-2.0.0-cp312-cp312-musllinux_1_1_x86_64.whl", hash = "sha256:8a20b7dc55ef83a1fa446bf12680bce25caeb8f81788b623b072c3ec820db50d", size = 5405076 },
+    { url = "https://files.pythonhosted.org/packages/7d/24/e025dd95f1abf34e373fbab8841ac8e5fa62afe3af4a4b0c61bd01354400/pycapnp-2.0.0-cp312-cp312-win32.whl", hash = "sha256:145eea66233fb5ac9152cd1c06b999ddb691815126f87f5cc37b9cda5d569f8a", size = 1030361 },
+    { url = "https://files.pythonhosted.org/packages/3f/70/a71108ee9d4db9a027b665a2c383202407207174f1956195d5be45aca705/pycapnp-2.0.0-cp312-cp312-win_amd64.whl", hash = "sha256:b8b03000769b29b36a8810f458b931f0f706f42027ee6676821eff28092d7734", size = 1135121 },
+]

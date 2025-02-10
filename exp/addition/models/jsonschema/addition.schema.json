@@ -1,0 +1,16 @@
+{
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "title": "Addition",
+    "type": "object",
+    "properties": {
+      "a": {
+        "type": "integer",
+        "format": "int32"
+      },
+      "b": {
+        "type": "integer",
+        "format": "int32"
+      }
+    },
+    "required": ["a", "b"]
+  }
