@@ -1,4 +1,4 @@
-from typing import List
+from typing import ClassVar, List
 from pydantic import BaseModel, Field
 from syft_rds.db.db import BaseQueryEngine
 from syft_rds.service.context import BaseRPCContext
@@ -7,6 +7,7 @@ from syft_rds.models.base_model import Item
 
 class BaseService(BaseModel):
     db: BaseQueryEngine
+    item_type: ClassVar[type[Item]]
     
     
     def create_item(self, x: BaseModel) -> Item:
@@ -19,6 +20,6 @@ class BaseService(BaseModel):
     
     @classmethod
     def from_context(cls, context: BaseRPCContext):
-        return cls(db=BaseQueryEngine.from_context(context))
+        return cls(db=BaseQueryEngine.from_context(context, item_type=cls.item_type))
     
     
