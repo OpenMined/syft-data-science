@@ -1,0 +1,5 @@
+build:
+    docker build -t syft_runtime .
+
+run:
+    syft_runtime
