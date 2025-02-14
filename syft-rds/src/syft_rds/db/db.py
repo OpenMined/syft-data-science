@@ -1,25 +1,23 @@
 import json
 from pathlib import Path
 from uuid import UUID
-from pydantic import BaseModel, Field
+from pydantic import BaseModel
 import sqlite3
 
-from syft_rds.models.code import Code
-from syft_rds.models.dataset import Dataset
-from syft_rds.models.base_model import Item
+from syft_rds.models.base_model import Item, StorableItemRegistry
 from syft_rds.service.context import BaseRPCContext
 
 
 def get_item_paths(context: BaseRPCContext):
     # TODO: automatically register items by default on definition
-    STORABLE_ITEMS = [Dataset, Code]
+    # STORABLE_ITEMS = [Dataset, Code, Request]
     return {
         item.cls_name: context.client.my_datasite
         / "apps"
         / context.box.app_name
         / "items"
         / item.cls_name
-        for item in STORABLE_ITEMS
+        for item in StorableItemRegistry.items
     }
 
 

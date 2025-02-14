@@ -8,7 +8,7 @@ from syft_rds.models.base_model import Item
 
 class MultiFileDBEngine(BaseQueryEngine):
     
-    item_type: ClassVar[type[Item]]
+    item_type: type[Item]
     
     @property
     def data_dir(self) -> Path:
@@ -23,11 +23,13 @@ class MultiFileDBEngine(BaseQueryEngine):
                 items.append(self.item_type.model_validate(item_data))
         return items
         
-    def create_item(self, item: Item) -> UUID:
+    def create_item(self, item: Item) -> Item:
         item_path = self.data_dir / f"{item.uid}.json"
         item_path.parent.mkdir(parents=True, exist_ok=True)
+        print("writing to", item_path)
         with open(item_path, "w") as f:
             f.write(item.model_dump_json(indent=2))
+        return item
     
     def get_item(self, uid: UUID) -> Item | None:
         item_path = self.data_dir / f"{uid}.json"
