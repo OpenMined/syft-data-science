@@ -3,11 +3,18 @@ from uuid import UUID
 
 from pydantic import BaseModel
 from syft_event import SyftEvents
+
 from syft_rds.client.connection import get_connection
 from syft_rds.client.exceptions import RDSValidationError
 from syft_rds.client.rpc_client import RPCClient
 from syft_rds.client.utils import PathLike
-from syft_rds.models.models import Job, JobCreate, UserCodeCreate
+from syft_rds.models.models import (
+    GetAllRequest,
+    GetOneRequest,
+    Job,
+    JobCreate,
+    UserCodeCreate,
+)
 
 
 def init_session(host: str, mock_server: SyftEvents | None = None) -> "RDSClient":
@@ -122,17 +129,10 @@ class JobRDSClient(RDSClientModule):
             )
 
     def get_all(self) -> list[Job]:
-        return self.rpc.jobs.get_all()
+        return self.rpc.jobs.get_all(GetAllRequest())
 
-    def get(self, uid: UUID | None = None, name: str | None = None) -> Job:
-        if uid and name:
-            raise RDSValidationError(
-                "You must provide either a uid or a name, not both."
-            )
-        if uid is not None:
-            return self.rpc.jobs.get(uid)
-        elif name is not None:
-            return self.rpc.jobs.get_one(name)
+    def get(self, uid: UUID) -> Job:
+        return self.rpc.jobs.get_one(GetOneRequest(uid=uid))
 
 
 class RuntimeRDSClient(RDSClientModule):

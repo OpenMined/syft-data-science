@@ -2,8 +2,9 @@ from pathlib import Path
 from typing import Self
 from uuid import UUID
 
-from pydantic import Field
-from syft_rds.models.base import ItemBase, ItemBaseCreate
+from pydantic import BaseModel, Field
+
+from syft_rds.models.base import ItemBase, ItemBaseCreate, ItemBaseUpdate
 
 
 class UserCode(ItemBase):
@@ -14,6 +15,11 @@ class UserCode(ItemBase):
 class UserCodeCreate(ItemBaseCreate[UserCode]):
     name: str = "My UserCode"
     path: Path
+    dataset_id: UUID
+
+
+class UserCodeUpdate(ItemBaseUpdate[UserCode]):
+    pass
 
 
 class Job(ItemBase):
@@ -47,6 +53,10 @@ class JobCreate(ItemBaseCreate[Job]):
         pass
 
 
+class JobUpdate(ItemBaseUpdate[Job]):
+    pass
+
+
 class Runtime(ItemBase):
     name: str
     description: str
@@ -59,6 +69,10 @@ class RuntimeCreate(ItemBaseCreate[Runtime]):
     tags: list[str] = Field(default_factory=list)
 
 
+class RuntimeUpdate(ItemBaseUpdate[Runtime]):
+    pass
+
+
 class Dataset(ItemBase):
     name: str
     description: str
@@ -69,3 +83,15 @@ class DatasetCreate(ItemBaseCreate[Dataset]):
     name: str
     description: str
     tags: list[str] = Field(default_factory=list)
+
+
+class DatasetUpdate(ItemBaseUpdate[Dataset]):
+    pass
+
+
+class GetOneRequest(BaseModel):
+    uid: UUID | None = None
+
+
+class GetAllRequest(BaseModel):
+    pass

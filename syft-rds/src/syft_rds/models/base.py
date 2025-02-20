@@ -48,7 +48,7 @@ class ItemBaseUpdate(BaseModel, Generic[T]):
     def get_target_model(cls) -> Type[T]:
         return cls.__bases__[0].__pydantic_generic_metadata__["args"][0]  # type: ignore
 
-    def update_item(self, item: T) -> T:
+    def apply_to(self, item: T) -> T:
         update_dict = self.model_dump(exclude_unset=True)
         updated = item.model_copy(update=update_dict)
         updated.updated_at = _utcnow()

@@ -3,9 +3,12 @@ from types import MethodType
 from loguru import logger
 from syft_core import Client, SyftClientConfig
 from syft_event import SyftEvents
-from syft_rds.server.jobs import job_router
+
 from syft_rds.server.router import RPCRouter
-from syft_rds.server.user_code import user_code_router
+from syft_rds.server.routers.dataset_router import dataset_router
+from syft_rds.server.routers.job_router import job_router
+from syft_rds.server.routers.runtime_router import runtime_router
+from syft_rds.server.routers.user_code_router import user_code_router
 
 APP_NAME = "RDS"
 
@@ -27,6 +30,8 @@ def create_app(client: Client | None = None) -> SyftEvents:
 
     rds_app.include_router(job_router, prefix="/job")
     rds_app.include_router(user_code_router, prefix="/user_code")
+    rds_app.include_router(runtime_router, prefix="/runtime")
+    rds_app.include_router(dataset_router, prefix="/dataset")
 
     return rds_app
 

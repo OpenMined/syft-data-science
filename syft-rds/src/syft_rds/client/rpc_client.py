@@ -1,17 +1,24 @@
-from typing import TYPE_CHECKING
-from uuid import UUID
+from typing import TYPE_CHECKING, ClassVar, Generic, TypeVar
 
 from pydantic import BaseModel
+
 from syft_rds.client.connection import RPCConnection
+from syft_rds.models.base import ItemBase, ItemBaseCreate, ItemBaseUpdate
 from syft_rds.models.models import (
     Dataset,
     DatasetCreate,
+    DatasetUpdate,
+    GetAllRequest,
+    GetOneRequest,
     Job,
     JobCreate,
+    JobUpdate,
     Runtime,
     RuntimeCreate,
+    RuntimeUpdate,
     UserCode,
     UserCodeCreate,
+    UserCodeUpdate,
 )
 
 if TYPE_CHECKING:
@@ -43,51 +50,38 @@ class RPCClient(RPCClientModule):
         self.dataset = DatasetRPCClient(self.config, self.connection)
 
 
-class JobRPCClient(RPCClientModule):
-    def create(self, item: JobCreate) -> Job:
-        return self._send("job/create", item)
-
-    def get(self, uid: UUID) -> Job:
-        pass
-
-    def get_one(self, name: str | None = None) -> Job:
-        pass
-
-    def get_all(self, name: str | None = None) -> list[Job]:
-        pass
+T = TypeVar("T", bound=ItemBase)
+CreateT = TypeVar("CreateT", bound=ItemBaseCreate)
+UpdateT = TypeVar("UpdateT", bound=ItemBaseUpdate)
 
 
-class UserCodeRPCClient(RPCClientModule):
-    def create(self, item: UserCodeCreate) -> UserCode:
-        return self._send("user_code/create", item)
+class CRUDRPCClient(RPCClientModule, Generic[T, CreateT, UpdateT]):
+    MODULE_NAME: ClassVar[str]
 
-    def get(self, uid: UUID) -> UserCode:
-        pass
+    def create(self, item: CreateT) -> T:
+        return self._send(f"{self.MODULE_NAME}/create", item)
 
+    def get_one(self, request: GetOneRequest) -> T:
+        return self._send(f"{self.MODULE_NAME}/get_one", request)
 
-class RuntimeRPCClient(RPCClientModule):
-    def create(self, item: RuntimeCreate) -> Runtime:
-        pass
+    def get_all(self, request: GetAllRequest) -> list[T]:
+        return self._send(f"{self.MODULE_NAME}/get_all", request)
 
-    def get(self, uid: UUID) -> Runtime:
-        pass
-
-    def get_one(self, name: str | None = None) -> Runtime:
-        pass
-
-    def get_all(self, name: str | None = None) -> list[Runtime]:
-        pass
+    def update(self, item: UpdateT) -> T:
+        return self._send(f"{self.MODULE_NAME}/update", item)
 
 
-class DatasetRPCClient(RPCClientModule):
-    def create(self, item: DatasetCreate) -> Dataset:
-        pass
+class JobRPCClient(CRUDRPCClient[Job, JobCreate, JobUpdate]):
+    MODULE_NAME = "job"
 
-    def get(self, uid: UUID) -> Dataset:
-        pass
 
-    def get_one(self, name: str | None = None) -> Dataset:
-        pass
+class UserCodeRPCClient(CRUDRPCClient[UserCode, UserCodeCreate, UserCodeUpdate]):
+    MODULE_NAME = "user_code"
 
-    def get_all(self, name: str | None = None) -> list[Dataset]:
-        pass
+
+class RuntimeRPCClient(CRUDRPCClient[Runtime, RuntimeCreate, RuntimeUpdate]):
+    MODULE_NAME = "runtime"
+
+
+class DatasetRPCClient(CRUDRPCClient[Dataset, DatasetCreate, DatasetUpdate]):
+    MODULE_NAME = "dataset"
