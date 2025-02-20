@@ -6,27 +6,19 @@ import time
 from typing import Callable, Protocol, Tuple, Optional, TextIO
 
 import typer
-from rich import print
 from rich.console import Console
 from rich.panel import Panel
 from rich.live import Live
 from rich.spinner import Spinner
 from pydantic import BaseModel, Field
 
-# Add imports for Jupyter UI
-try:
-    from IPython.display import display, HTML, clear_output
-    from ipywidgets import HTML as HTMLWidget
-    from ipywidgets import Layout, Output, VBox, HBox, Label, IntProgress
+import ipywidgets as widgets
+from IPython.display import display
 
-    JUPYTER_AVAILABLE = True
-except ImportError:
-    JUPYTER_AVAILABLE = False
+# Since we're importing ipywidgets directly, we can assume Jupyter is available
+JUPYTER_AVAILABLE = True
 
 DEFAULT_OUTPUT_DIR = "/output"
-
-console = Console()
-app = typer.Typer()
 
 
 class CodeRuntime(str, enum.Enum):
@@ -88,15 +80,11 @@ class FileOutputHandler(JobOutputHandler):
 
     def on_job_start(self, config: JobConfig) -> None:
         self.config = config
-        self.open_files(config.logs_dir)
+        self.stdout_file = (config.logs_dir / "stdout.log").open("w")
+        self.stderr_file = (config.logs_dir / "stderr.log").open("w")
         self.on_job_progress(stdout="Starting job...\n", stderr="Starting job...\n")
 
-    def open_files(self, logs_dir: Path) -> None:
-        self.stdout_file = (logs_dir / "stdout.log").open("w")
-        self.stderr_file = (logs_dir / "stderr.log").open("w")
-
     def on_job_progress(self, stdout: str, stderr: str) -> None:
-        """Write output to log files"""
         if stdout:
             self.stdout_file.write(stdout)
             self.stdout_file.flush()
@@ -112,7 +100,6 @@ class FileOutputHandler(JobOutputHandler):
         self.close()
 
     def close(self) -> None:
-        """Close log files"""
         self.stdout_file.close()
         self.stderr_file.close()
 
@@ -122,7 +109,8 @@ class RichConsoleUI(JobOutputHandler):
 
     def __init__(self):
         self.console = Console()
-        self.live: Optional[Live] = None
+        spinner = Spinner("dots")
+        self.live = Live(spinner, refresh_per_second=10)
 
     def on_job_start(self, config: JobConfig) -> None:
         if config.data_path.is_file():
@@ -131,7 +119,6 @@ class RichConsoleUI(JobOutputHandler):
             )
         else:
             data_mount_display = config.data_mount_dir
-
         self.console.print(
             Panel.fit(
                 "\n".join(
@@ -148,9 +135,6 @@ class RichConsoleUI(JobOutputHandler):
                 border_style="cyan",
             )
         )
-
-        spinner = Spinner("dots")
-        self.live = Live(spinner, refresh_per_second=10)
         self.live.start()
         self.live.console.print("[bold cyan]Running job...[/]")
 
@@ -175,6 +159,90 @@ class RichConsoleUI(JobOutputHandler):
             self.console.print(
                 f"\n[bold red]Job failed with return code {return_code}[/]"
             )
+
+
+class JupyterWidgetHandler(JobOutputHandler):
+    """Handles job output display using Jupyter widgets"""
+
+    def __init__(self):
+        # Create widgets
+        self.output_widget = widgets.Output(
+            layout={"border": "1px solid #ddd", "padding": "10px", "margin": "5px 0"}
+        )
+        self.status_widget = widgets.HTML(
+            value="<b style='color: #7F7F7F'>Initializing...</b>",
+            layout={"margin": "5px 0"},
+        )
+        self.progress_bar = widgets.FloatProgress(
+            value=0,
+            min=0,
+            max=100,
+            description="Progress:",
+            bar_style="info",
+            orientation="horizontal",
+            layout={"width": "50%", "margin": "10px 0"},
+        )
+
+        # Arrange widgets vertically
+        self.container = widgets.VBox(
+            [self.status_widget, self.progress_bar, self.output_widget]
+        )
+        display(self.container)
+
+    def on_job_start(self, config: JobConfig) -> None:
+        """Display job configuration in Jupyter"""
+        self.status_widget.value = "<b style='color: #36A2EB'>Running job...</b>"
+        self.progress_bar.bar_style = "info"
+        self.progress_bar.value = 0
+
+        with self.output_widget:
+            console = Console()
+            if config.data_path.is_file():
+                data_mount_display = str(
+                    Path(config.data_mount_dir) / config.data_path.name
+                )
+            else:
+                data_mount_display = config.data_mount_dir
+
+            console.print(
+                Panel.fit(
+                    "\n".join(
+                        [
+                            "[bold green]Starting job[/]",
+                            f"[bold white]Function:[/] [cyan]{config.function_folder}[/] → [dim]/code[/]",
+                            f"[bold white]Args:[/] [cyan]{' '.join(config.args)}[/] → [dim]/code[/]",
+                            f"[bold white]Dataset:[/]  [cyan]{config.data_path}[/] → [dim]{data_mount_display}[/]",
+                            f"[bold white]Output:[/]   [cyan]{config.output_dir}[/] → [dim]{DEFAULT_OUTPUT_DIR}[/]",
+                            f"[bold white]Timeout:[/]  [cyan]{config.timeout}s[/]",
+                        ]
+                    ),
+                    title="[bold]Job Configuration",
+                    border_style="cyan",
+                )
+            )
+
+    def on_job_progress(self, stdout: str, stderr: str) -> None:
+        """Update job progress in Jupyter widgets"""
+        if stdout or stderr:
+            with self.output_widget:
+                if stdout:
+                    print(stdout, end="")
+                if stderr:
+                    print(f"\033[91m{stderr}\033[0m", end="")
+            # Update progress bar for some visual feedback
+            self.progress_bar.value = min(self.progress_bar.value + 1, 95)
+
+    def on_job_completion(self, return_code: int) -> None:
+        """Display job completion status in Jupyter"""
+        self.progress_bar.value = 100
+        if return_code == 0:
+            self.status_widget.value = (
+                "<b style='color: #2ECC71'>✓ Job completed successfully!</b>"
+            )
+            self.progress_bar.bar_style = "success"
+        else:
+            self.status_widget.value = f"<b style='color: #E74C3C'>✗ Job failed with return code {return_code}</b>"
+            self.progress_bar.bar_style = "danger"
 
 
 class DockerRunner:
@@ -279,63 +347,4 @@ class DockerRunner:
         for handler in self.handlers:
             handler.on_job_completion(process.returncode)
 
-        return config.job_path, process.returncode
-
-
-@app.command()
-def main(name: str):
-    print(f"Hello {name}")
-
-
-@app.command()
-def run(
-    function_folder: Path,
-    args: list[str],
-    data_path: Path,
-    runtime: CodeRuntime = CodeRuntime.python,
-    job_folder: Path | None = None,
-    timeout: int = 1,
-    data_mount_dir: str = "/data",
-    ui: str = "rich",  # Add UI selection parameter
-    output_handle: Optional[Output] = None,  # Add output handle parameter
-) -> Tuple[Path, int | None]:
-    """
-    Run a Docker container with strict security constraints
-
-    Args:
-        function_folder: Path to the function code directory
-        data_path: Path to the dataset directory
-        job_folder: Path to store job outputs (default: auto-generated)
-        timeout: Maximum execution time in seconds (default: 1 second)
-        data_mount_path: Mount path for data inside container (default: /data)
-        ui: UI type to use ("rich" or "jupyter", default: "rich")
-        output_handle: Optional output handle for Jupyter UI (default: None)
-
-    Returns:
-        Tuple containing:
-        - Path to the job output directory
-        - Return code from the Docker container (None if job was interrupted)
-    """
-    config = JobConfig(
-        function_folder=function_folder,
-        args=args,
-        data_path=data_path,
-        runtime=runtime,
-        job_folder=job_folder,
-        timeout=timeout,
-        data_mount_dir=data_mount_dir,
-    )
-
-    # Select UI based on parameter and environment
-    if ui == "jupyter" and JUPYTER_AVAILABLE:
-        runner = DockerRunner(ui=JupyterUI(handle=output_handle))
-    else:
-        runner = DockerRunner(ui=RichConsoleUI())
-
-    return runner.run(config)
-
-
-# if __name__ == "__main__":
-#     job_path, rc = run_docker_job("ds/function1", "do/dataset1", timeout=20)
-#     print(f"Job path: {job_path}")
-#     print(f"Return code: {rc}")
+        return process.returncode
