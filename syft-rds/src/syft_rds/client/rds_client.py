@@ -4,17 +4,17 @@ from syft_rds.client.rpc_client import RPCClient
 class RDSClient:
     def __init__(self, host: str):
         self.rpc_client = RPCClient(host)
-        self.jobs = JobRDSClient(host, self.rpc_client)
-        self.dataset = DatasetRDSClient(host, self.rpc_client)
+        self.jobs = JobsService(host, self.rpc_client)
+        self.dataset = DatasetService(host, self.rpc_client)
 
 
-class RDSClientModule:
+class BaseService:
     def __init__(self, host: str, rpc_client: RPCClient):
         self.host = host
         self.rpc_client = rpc_client
 
 
-class JobRDSClient(RDSClientModule):
+class JobsService(BaseService):
     def submit(self, job_id):
         prompt = input(f"Are you sure you want to approve job {job_id}? (yes/no): ")
         if prompt.lower() != "yes":
@@ -25,7 +25,7 @@ class JobRDSClient(RDSClientModule):
         return self.rpc_client.jobs.create(job_id)
 
 
-class DatasetRDSClient(RDSClientModule):
+class DatasetService(BaseService):
     def create(self, dataset_name: str):
         print(f"creating dataset with name {dataset_name}")
 
