@@ -1,6 +1,6 @@
 from abc import ABC
 from datetime import datetime, timezone
-from typing import Generic, Type, TypeVar
+from typing import Any, Generic, Self, Type, TypeVar
 from uuid import UUID, uuid4
 
 from pydantic import BaseModel, Field
@@ -20,6 +20,12 @@ class ItemBase(BaseModel, ABC):
     @classmethod
     def type_name(cls) -> str:
         return cls.__name__.lower()
+
+    def clear_cache(self):
+        self._client_cache.clear()
+
+    def reload_cache(self, client: Any) -> Self:
+        raise NotImplementedError
 
 
 T = TypeVar("T", bound=ItemBase)

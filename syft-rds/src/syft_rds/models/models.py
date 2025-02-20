@@ -12,19 +12,13 @@ class UserCode(ItemBase):
     path: Path
     dataset_id: UUID
 
-    @property
-    def dataset(self) -> Dataset:
-        if self.dataset_id in self._client_cache:
-            return self._client_cache[self.dataset_id]
-        else:
-            raise Exception("Dataset not found")
-
 
 class Job(ItemBase):
     name: str
     description: str
     runtime: str
     user_code_id: UUID
+    output_path: Path
     tags: list[str] = Field(default_factory=list)
 
     @property
@@ -46,6 +40,7 @@ class JobCreate(ItemBaseCreate[Job]):
     description: str
     runtime: str
     user_code_id: UUID
+    output_path: Path
     tags: list[str] = Field(default_factory=list)
 
     @classmethod
@@ -55,3 +50,15 @@ class JobCreate(ItemBaseCreate[Job]):
     @classmethod
     def from_func(cls, func: callable) -> Self:
         pass
+
+
+class Runtime(ItemBase):
+    name: str
+    description: str
+    tags: list[str] = Field(default_factory=list)
+
+
+class RuntimeCreate(ItemBaseCreate[Runtime]):
+    name: str
+    description: str
+    tags: list[str] = Field(default_factory=list)

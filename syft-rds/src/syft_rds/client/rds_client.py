@@ -1,32 +1,35 @@
 from uuid import UUID
 
+from pydantic import BaseModel
+
+from syft_rds.client.exceptions import RDSValidationError
 from syft_rds.client.rpc_client import RPCClient
+from syft_rds.client.utils import PathLike
 from syft_rds.models.models import Job, JobCreate, UserCodeCreate
 
 
-class ClientError(Exception):
-    pass
-
-
-class ClientValidationError(ClientError):
-    pass
-
-
 def init_session(host: str) -> "RDSClient":
-    return RDSClient(host)
+    config = RDSClientConfig(
+        host=host,
+    )
+    return RDSClient(config)
+
+
+class RDSClientConfig(BaseModel):
+    host: str
 
 
 class RDSClientModule:
-    def __init__(self, host: str):
-        self.host = host
-        self.jobs = JobRDSClient(self.host)
-        self.rpc = RPCClient(self.host)
+    def __init__(self, config: RDSClientConfig, rpc_client: RPCClient | None = None):
+        self.config = config
+        self.rpc = rpc_client or RPCClient(config)
 
 
 class RDSClient(RDSClientModule):
-    def __init__(self, host: str):
-        super().__init__(host)
-        self.jobs = JobRDSClient(self.host)
+    def __init__(self, config: RDSClientConfig):
+        super().__init__(config)
+        self.jobs = JobRDSClient(self.config, self.rpc)
+        self.runtime = RuntimeRDSClient(self.config, self.rpc)
 
 
 class JobRDSClient(RDSClient):
@@ -35,7 +38,8 @@ class JobRDSClient(RDSClient):
         name: str,
         description: str | None = None,
         runtime: str | None = None,
-        user_code_path: str | None = None,
+        user_code_path: PathLike | None = None,
+        output_path: PathLike | None = None,
         function: callable | None = None,
         function_args: list = None,
         function_kwargs: dict = None,
@@ -58,6 +62,7 @@ class JobRDSClient(RDSClient):
             runtime=runtime,
             user_code_id=user_code.uid,
             tags=tags,
+            output_path=output_path,
         )
         job = self.rpc.jobs.create(job_create)
         job._client_cache[user_code.uid] = user_code
@@ -87,7 +92,7 @@ class JobRDSClient(RDSClient):
             )
 
         else:
-            raise ClientValidationError(
+            raise RDSValidationError(
                 "You must provide either a user_code_path or a function, function_args, and function_kwargs"
             )
 
@@ -96,7 +101,7 @@ class JobRDSClient(RDSClient):
 
     def get(self, uid: UUID | None = None, name: str | None = None) -> Job:
         if uid and name:
-            raise ClientValidationError(
+            raise RDSValidationError(
                 "You must provide either a uid or a name, not both."
             )
         if uid is not None:
@@ -105,9 +110,9 @@ class JobRDSClient(RDSClient):
             return self.rpc.jobs.get_one(name)
 
 
-# client = init_session("alice@openmined.org")
-# client.jobs.submit(
-#     name="My Job",
-#     function=client.functions.search_keywords,
-#     function_kwargs={"keywords": ["openmined", "syft", "pysyft"]},
-# )
+class RuntimeRDSClient(RDSClient):
+    def get_all(self) -> list[str]:
+        return self.rpc.runtime.get_all()
+
+    def create(self, name: str) -> str:
+        return self.rpc.runtime.create(name)
