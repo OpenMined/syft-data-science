@@ -37,12 +37,12 @@ run-jupyter jupyter_args="":
 
 
 [group('rds-client')]
-run-client:
+run-rds-client:
     cd syft-rds && uv sync
     uv run notebooks/rds-client-test.py
 
 [group('rds-clei')]
-run-server:
+run-rds-server:
     cd syft-rds && uv sync
     uv run notebooks/rds-data-server.py
 

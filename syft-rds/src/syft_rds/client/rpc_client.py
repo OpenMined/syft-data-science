@@ -25,19 +25,19 @@ class BaseRPCClient(ABC):  # our API = RPCClient which , but what's the
         self.host = host
         self.syftbox_client = Client.load()
 
-    def create(self, resource_id: str) -> bool:
+    def create(self, resource) -> bool:
         """Create a new resource."""
         pass
 
-    def get(self, resource_id: str):
+    def get(self, resource):
         """Get a specific resource."""
         pass
 
-    def delete(self, resource_id: str) -> bool:
+    def delete(self, resource) -> bool:
         """Delete a specific resource."""
         pass
 
-    def update(self, resource_id: str, data) -> bool:
+    def update(self, resource, data) -> bool:
         """Update a specific resource."""
         pass
 
