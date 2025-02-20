@@ -7,7 +7,11 @@ requires-python = ">=3.9"
 dependencies = [
     "pydantic[email]>=2.10.4",
     "typing-extensions>=4.12.2",
+    "syft-core",
 ]
+
+[tool.uv.sources]
+syft-core = { git = "https://github.com/OpenMined/syft-extras.git", subdirectory = "packages/syft-core", branch = "main" }
 
 [build-system]
 requires = ["hatchling"]
