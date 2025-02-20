@@ -15,5 +15,9 @@ class Dataset(CreateDataset):
     created_at: str = Field(description="Timestamp when the dataset was created.")
 
 
+class UpdateDataset(BaseModel):
+    pass
+
+
 class DatasetResponse(BaseModel):
     msg: str = Field(description="Response message.")

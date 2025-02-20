@@ -7,6 +7,7 @@ from loguru import logger
 from syft_event import SyftEvents
 from syft_event.types import Request
 from syft_rds.store.rds_store import RDSStore
+from syft_rds.consts import APP_NAME
 
 from syft_rds.services.dataset.dataset_model import (
     CreateDataset,
@@ -15,10 +16,8 @@ from syft_rds.services.dataset.dataset_model import (
 )
 
 
-APP_NAME = "dataset"
-
 box = SyftEvents(APP_NAME)
-dataset_store = RDSStore(APP_NAME)
+dataset_store = RDSStore(Path(APP_NAME) / "rpc/dataset")
 
 
 def convert_mock_to_syftbox_path(mock_data_path: str, dataset_id: UUID) -> str:
@@ -48,7 +47,7 @@ def convert_private_to_syftbox_path(private_data_path: str, dataset_id: UUID) ->
     return f"syft://private/{APP_NAME}/{str(dataset_id)}/{final_private_path.name}"
 
 
-@box.on_request("/create")
+@box.on_request("/dataset/create")
 def create(dataset: CreateDataset, ctx: Request) -> DatasetResponse:
     """Endpoint to create a new dataset."""
     dataset_id = uuid4()

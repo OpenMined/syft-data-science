@@ -12,9 +12,11 @@ dataset = CreateDataset(
 )
 
 future = rds_client.dataset.create(dataset)
-print(f"Future: {future}")
-print(f"Waiting for the response: {future.wait()}")
+print(f"future = {future}")
+try:
+    print(f"\nWaiting for the response: {future.wait(timeout=10)}")
+except Exception as e:
+    print(e)
 
-
-# client2: RDSClient = connect("yash@openmined.org")
-# client2.dataset.create(dataset)
+res = rds_client.dataset.get(future.id)
+print(res)
