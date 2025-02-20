@@ -8,14 +8,14 @@ user_code_router = RPCRouter()
 
 @user_code_router.on_request("/create")
 def create_usercode(item: UserCodeCreate) -> UserCode:
-    pass
+    return item.to_item()
 
 
 @user_code_router.on_request("/get")
-def get_job(uid: UUID) -> UserCode:
+def get_usercode(uid: UUID) -> UserCode:
     pass
 
 
 @user_code_router.on_request("/get_all")
-def get_all_jobs() -> list[UserCode]:
+def get_all_usercodes() -> list[UserCode]:
     pass

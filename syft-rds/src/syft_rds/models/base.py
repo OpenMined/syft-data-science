@@ -3,7 +3,7 @@ from datetime import datetime, timezone
 from typing import Any, Generic, Self, Type, TypeVar
 from uuid import UUID, uuid4
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, PrivateAttr
 
 
 def _utcnow():
@@ -15,7 +15,7 @@ class ItemBase(BaseModel, ABC):
     created_at: datetime = Field(default_factory=_utcnow)
     updated_at: datetime = Field(default_factory=_utcnow)
 
-    _client_cache: dict[UUID, "ItemBase"] = Field(default_factory=dict, exclude=True)
+    _client_cache: dict[UUID, "ItemBase"] = PrivateAttr(default_factory=dict)
 
     @classmethod
     def type_name(cls) -> str:
@@ -34,7 +34,7 @@ T = TypeVar("T", bound=ItemBase)
 class ItemBaseCreate(BaseModel, Generic[T]):
     @classmethod
     def get_target_model(cls) -> Type[T]:
-        return cls.__orig_bases__[0].__args__[0]
+        return cls.__bases__[0].__pydantic_generic_metadata__["args"][0]  # type: ignore
 
     def to_item(self) -> T:
         model_cls = self.get_target_model()
@@ -46,7 +46,7 @@ class ItemBaseUpdate(BaseModel, Generic[T]):
 
     @classmethod
     def get_target_model(cls) -> Type[T]:
-        return cls.__orig_bases__[0].__args__[0]
+        return cls.__bases__[0].__pydantic_generic_metadata__["args"][0]  # type: ignore
 
     def update_item(self, item: T) -> T:
         update_dict = self.model_dump(exclude_unset=True)

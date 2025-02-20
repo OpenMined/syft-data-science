@@ -3,22 +3,24 @@ from typing import Self
 from uuid import UUID
 
 from pydantic import Field
-
-from syft_rds.models.base import ItemBase, ItemBaseCreate, ItemBaseUpdate
+from syft_rds.models.base import ItemBase, ItemBaseCreate
 
 
 class UserCode(ItemBase):
     name: str
     path: Path
-    dataset_id: UUID
+
+
+class UserCodeCreate(ItemBaseCreate[UserCode]):
+    name: str = "My UserCode"
+    path: Path
 
 
 class Job(ItemBase):
     name: str
-    description: str
+    description: str | None = None
     runtime: str
     user_code_id: UUID
-    output_path: Path
     tags: list[str] = Field(default_factory=list)
 
     @property
@@ -29,18 +31,11 @@ class Job(ItemBase):
             raise Exception("UserCode not found")
 
 
-class UserCodeCreate(ItemBaseCreate[UserCode]):
-    name: str
-    path: Path
-    dataset_id: UUID
-
-
 class JobCreate(ItemBaseCreate[Job]):
     name: str
-    description: str
+    description: str | None = None
     runtime: str
     user_code_id: UUID
-    output_path: Path
     tags: list[str] = Field(default_factory=list)
 
     @classmethod
@@ -59,6 +54,18 @@ class Runtime(ItemBase):
 
 
 class RuntimeCreate(ItemBaseCreate[Runtime]):
+    name: str
+    description: str
+    tags: list[str] = Field(default_factory=list)
+
+
+class Dataset(ItemBase):
+    name: str
+    description: str
+    tags: list[str] = Field(default_factory=list)
+
+
+class DatasetCreate(ItemBaseCreate[Dataset]):
     name: str
     description: str
     tags: list[str] = Field(default_factory=list)
