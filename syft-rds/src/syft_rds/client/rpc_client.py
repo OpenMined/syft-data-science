@@ -1,0 +1,48 @@
+class RPCClient:
+    """
+    Implment the server-facing logic
+    """
+    def __init__(self, host: str):
+        self.host = host
+        print(f"Connecting to {host}")
+        self.jobs = JobRPCClient(host)
+        self.dataset = DatasetRPCClient(host)
+
+
+class RPCClientModule:
+    def __init__(self, host):
+        self.host = host
+
+
+class JobRPCClient(RPCClientModule):
+    def create(self, job_id):
+        print(f"Sending RPC request to {self.host} to create job {job_id}")
+
+    def get(self):
+        pass
+    
+    def get_all(self):
+        pass
+    
+    def delete(self):
+        pass
+    
+    def update(self):
+        pass
+
+
+class DatasetRPCClient(RPCClientModule):
+    def create():
+        pass
+
+    def get():
+        pass
+    
+    def get_all():
+        pass
+    
+    def delete():
+        pass
+    
+    def update():
+        pass
