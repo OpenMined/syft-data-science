@@ -41,7 +41,7 @@ run-rds-client:
     cd syft-rds && uv sync
     uv run notebooks/rds-client-test.py
 
-[group('rds-clei')]
+[group('rds-client')]
 run-rds-server:
     cd syft-rds && uv sync
     uv run notebooks/rds-data-server.py
