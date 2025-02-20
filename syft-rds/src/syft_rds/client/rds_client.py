@@ -4,17 +4,17 @@ from syft_rds.client.rpc_client import RPCClient
 class RDSClient:
     def __init__(self, host: str):
         self.rpc_client = RPCClient(host)
-        self.jobs = JobsService(host, self.rpc_client)
-        self.dataset = DatasetService(host, self.rpc_client)
+        self.jobs = JobsRDSClient(host, self.rpc_client)
+        self.dataset = DatasetRDSClient(host, self.rpc_client)
 
 
-class BaseService:
+class BaseRDSClient:
     def __init__(self, host: str, rpc_client: RPCClient):
         self.host = host
         self.rpc_client = rpc_client
 
 
-class JobsService(BaseService):
+class JobsRDSClient(BaseRDSClient):
     def submit(self, job_id):
         prompt = input(f"Are you sure you want to approve job {job_id}? (yes/no): ")
         if prompt.lower() != "yes":
@@ -25,10 +25,9 @@ class JobsService(BaseService):
         return self.rpc_client.jobs.create(job_id)
 
 
-class DatasetService(BaseService):
+class DatasetRDSClient(BaseRDSClient):
     def create(self, dataset_name: str):
         print(f"creating dataset with name {dataset_name}")
-
         return self.rpc_client.dataset.create(dataset_name)
 
 
@@ -38,5 +37,7 @@ def connect(host: str) -> RDSClient:
 
 if __name__ == "__main__":
     client: RDSClient = connect("rasswanth@openmined.org")
-    client.jobs.submit("abc123")
-    client.dataset.create("my very private dataset")
+    client2: RDSClient = connect("yash@openmined.org")
+
+    client.dataset.create("my very private dataset 1")
+    client2.dataset.create("my very private dataset 2")

@@ -11,8 +11,12 @@ class RPCClient:
         self.dataset = DatasetRPCClient(host)
 
 
-class BaseRPCClient(ABC):
-    """Base class for all RPC modules that communicate with the server."""
+class BaseRPCClient(ABC):  # our API = RPCClient which , but what's the
+    """
+    Base class for all RPC modules that
+    communicate with the server by sending RPC requests.
+    HAVE TO MAKE RPC CALL
+    """
 
     def __init__(self, host: str):
         self.host = host
@@ -24,10 +28,6 @@ class BaseRPCClient(ABC):
     def get(self, resource_id: str):
         """Get a specific resource."""
         pass
-
-    def get_all(self):
-        """Get all resources."""
-        return []
 
     def delete(self, resource_id: str) -> bool:
         """Delete a specific resource."""
@@ -48,3 +48,11 @@ class DatasetRPCClient(BaseRPCClient):
         print(
             f"Sending RPC request to {self.host} to create dataset with name {dataset_name}"
         )
+
+    def get_al(self, cache: bool = True):
+        """
+        Client choose to
+            Make RPC call to get_all (with an option).
+            Just do this locally
+        """
+        pass
