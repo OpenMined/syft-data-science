@@ -1,5 +1,8 @@
 from abc import ABC
 
+from syft_rpc import rpc
+from syft_core import Client
+
 
 class RPCClient:
     """Manages all RPC communications with the server."""
@@ -15,11 +18,12 @@ class BaseRPCClient(ABC):  # our API = RPCClient which , but what's the
     """
     Base class for all RPC modules that
     communicate with the server by sending RPC requests.
-    HAVE TO MAKE RPC CALL
+    Note that all basic CRUD operations below need to send RPC requests
     """
 
     def __init__(self, host: str):
         self.host = host
+        self.syftbox_client = Client.load()
 
     def create(self, resource_id: str) -> bool:
         """Create a new resource."""
@@ -33,7 +37,7 @@ class BaseRPCClient(ABC):  # our API = RPCClient which , but what's the
         """Delete a specific resource."""
         pass
 
-    def update(self, resource_id: str, data: dict) -> bool:
+    def update(self, resource_id: str, data) -> bool:
         """Update a specific resource."""
         pass
 
@@ -44,12 +48,19 @@ class JobRPCClient(BaseRPCClient):
 
 
 class DatasetRPCClient(BaseRPCClient):
-    def create(self, dataset_name):
+    def create(self, dataset):
+        rpc_url = rpc.make_url(self.host, "dataset", "create")
         print(
-            f"Sending RPC request to {self.host} to create dataset with name {dataset_name}"
+            f"Sending RPC request to {self.host} from {self.syftbox_client.email} to create dataset with name {dataset.name}"
+        )
+        print(f"rpc url: {rpc_url}")
+        return rpc.send(
+            client=self.syftbox_client,
+            url=rpc_url,
+            body=dataset,
         )
 
-    def get_al(self, cache: bool = True):
+    def get_all(self, cache: bool = True):
         """
         Client choose to
             Make RPC call to get_all (with an option).

@@ -1,0 +1,11 @@
+ID,Name,Age,Gender,Occupation,Income,Education,Marital Status,State
+1,John Doe,34,M,Engineer,55000,Bachelor's,Married,California
+2,Jane Smith,28,F,Teacher,43000,Master's,Single,New York
+3,Robert Johnson,45,M,Doctor,120000,Doctorate,Married,Texas
+4,Emily Davis,22,F,Student,0,Bachelor's,Single,Florida
+5,Michael Brown,50,M,Lawyer,98000,Doctorate,Married,Illinois
+6,Linda Wilson,37,F,Nurse,62000,Bachelor's,Married,Ohio
+7,David Martinez,29,M,Software Developer,67000,Bachelor's,Single,Washington
+8,Susan Garcia,41,F,Accountant,75000,Bachelor's,Married,Arizona
+9,James Anderson,33,M,Electrician,52000,High School,Single,Georgia
+10,Patricia Thomas,26,F,Marketing Specialist,48000,Bachelor's,Single,Colorado

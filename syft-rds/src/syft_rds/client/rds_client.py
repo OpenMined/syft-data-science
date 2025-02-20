@@ -1,4 +1,5 @@
 from syft_rds.client.rpc_client import RPCClient
+from syft_rds.services.dataset.dataset_model import CreateDataset
 
 
 class RDSClient:
@@ -26,18 +27,18 @@ class JobsRDSClient(BaseRDSClient):
 
 
 class DatasetRDSClient(BaseRDSClient):
-    def create(self, dataset_name: str):
-        print(f"creating dataset with name {dataset_name}")
-        return self.rpc_client.dataset.create(dataset_name)
+    def create(self, dataset: CreateDataset):
+        # client-facing part
+        prompt = input(
+            f"Are you sure you want to upload dataset '{dataset.name}'? (yes/no): "
+        )
+        if prompt.lower() != "yes":
+            print("Job approval cancelled")
+            return None
+
+        # server-facing (RPC) call
+        return self.rpc_client.dataset.create(dataset)
 
 
 def connect(host: str) -> RDSClient:
     return RDSClient(host)
-
-
-if __name__ == "__main__":
-    client: RDSClient = connect("rasswanth@openmined.org")
-    client2: RDSClient = connect("yash@openmined.org")
-
-    client.dataset.create("my very private dataset 1")
-    client2.dataset.create("my very private dataset 2")
