@@ -1,8 +1,11 @@
 import enum
+from pathlib import Path
 from time import sleep
 from typing import Iterable
 import uuid
 from pydantic import BaseModel, Field, Json, field_validator, model_validator
+
+from syft_runtime.main import CodeRuntime
 
 
 class JobErrorKind(str, enum.Enum):
@@ -35,12 +38,15 @@ class JobStatus(str, enum.Enum):
 
 
 class Dataset(BaseModel):
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
     name: str
     description: str = "No description"
     user_metadata: Json = {}
+    path: Path
 
 
 class Job(BaseModel):
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
     name: str = Field(
         default_factory=lambda: str(uuid.uuid4())
     )  # use a docker like name in the future
@@ -48,6 +54,7 @@ class Job(BaseModel):
     user_metadata: Json = {}
     status: JobStatus = JobStatus.draft
     error: JobErrorKind = JobErrorKind.no_error
+    user_code_id: str
 
     class Config:
         extra = "forbid"
@@ -95,21 +102,21 @@ class Job(BaseModel):
         return self
 
 
-class UserCode(BaseModel):
+class Code(BaseModel):
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
-    job_ids: list[str]
     dataset_id: str
     user_metadata: Json = {}
-
-
-jobs = [
-    Job(status=JobStatus.pending_code_review),
-    Job(status=JobStatus.job_run_finished),
-    Job(status=JobStatus.job_run_failed, error=JobErrorKind.failed_review),
-]
+    directory: Path
+    args: list[str] = ["ds.py"]
+    runtime: CodeRuntime = CodeRuntime.python
 
 
 def get_all(**kwargs):
+    jobs = [
+        Job(status=JobStatus.pending_code_review),
+        Job(status=JobStatus.job_run_finished),
+        Job(status=JobStatus.job_run_failed, error=JobErrorKind.failed_review),
+    ]
     for job in jobs:
         if all(getattr(job, k) == v for k, v in kwargs.items()):
             yield job
@@ -126,14 +133,14 @@ if __name__ == "__main__":
         # print(user_code) # code review
         job.add_to_queue()
 
-        # job is run by the runner
-        # polling the runner for the status
-        while job.status not in (
-            JobStatus.job_run_finished,
-            JobStatus.job_run_failed,
-        ):
-            # we can stream logs here
-            sleep(1)
+        # # job is run by the runner
+        # # polling the runner for the status
+        # while job.status not in (
+        #     JobStatus.job_run_finished,
+        #     JobStatus.job_run_failed,
+        # ):
+        #     # we can stream logs here
+        #     sleep(1)
 
         job.share_artifacts(  # auto share by default
             include=[  # include all by default

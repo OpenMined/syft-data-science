@@ -21,4 +21,12 @@ USER pythonuser
 
 ENV TIMEOUT=60
 
-ENTRYPOINT ["sh", "-c", "timeout ${TIMEOUT}s python main.py || echo \"Process timed out after ${TIMEOUT} seconds\""]
+# Add timeout message
+ENV TIMEOUT_MESSAGE="Process timed out."
+
+# Set up timeout handling
+ENTRYPOINT ["/bin/sh", "-c", "\
+    trap 'echo \"$TIMEOUT_MESSAGE\"' TERM; \
+    timeout -s TERM $TIMEOUT python \"$@\" || \
+    { test $? -eq 124 && echo \"$TIMEOUT_MESSAGE\" >&2 && exit 124; }", "--"]
+CMD []

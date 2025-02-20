@@ -5,6 +5,7 @@ description = "Add your description here"
 readme = "README.md"
 requires-python = ">=3.9"
 dependencies = [
+    "ipywidgets>=8.1.5",
     "pydantic[email]>=2.10.4",
     "syft-event",
     "typing-extensions>=4.12.2",
@@ -16,6 +17,7 @@ build-backend = "hatchling.build"
 
 [tool.uv.sources]
 syft-event = { git = "https://github.com/OpenMined/syft-extras.git", subdirectory = "packages/syft-event", rev = "main" }
+syft-runtime = { path = "../syft-runtime" }
 
 [dependency-groups]
 dev = [
