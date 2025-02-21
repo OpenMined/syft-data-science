@@ -30,7 +30,7 @@ def rds_client(syftbox_client: SyftBoxClient) -> RDSClient:
 
 
 def test_rdsclient_rpc_send(rds_client: RDSClient) -> None:
-    future = rds_client.dataset.create(
+    future = rds_client.data.create(
         name="Census Dataset",
         summary="My dataset is very private.",
         path="./data/census/private_census.csv",
