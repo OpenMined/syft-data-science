@@ -1,8 +1,11 @@
 import os
-from time import sleep
+
+DATA_DIR = os.environ["DATA_DIR"]
+OUTPUT_DIR = os.environ["OUTPUT_DIR"]
 
 
-data_dir = os.environ["DATA_DIR"]
-sleep(1)
-with open(os.path.join(data_dir, "data.csv"), "r") as f:
+with open(os.path.join(DATA_DIR, "data.csv"), "r") as f:
     print(f.read())
+
+with open(os.path.join(OUTPUT_DIR, "my_result.csv"), "w") as f:
+    f.write("Hello, world!")
