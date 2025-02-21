@@ -4,5 +4,5 @@ from syft_rds.client.interfaces.base import CRUDInterface
 
 
 class JobsInterface(CRUDInterface):
-    def __init__(self, host: str, client: SyftBoxClient):
-        super().__init__(host, client, "jobs")
+    def __init__(self, host: str, syftbox_client: SyftBoxClient):
+        super().__init__(host, syftbox_client, "jobs")

@@ -22,9 +22,9 @@ class CRUDInterface:
         client (Optional[Client]): An instance of the SyftBox Client. If None, it will be loaded from the default configuration.
     """
 
-    def __init__(self, host: str, client: SyftBoxClient, resource_type: str):
-        self.syftbox_client = client
+    def __init__(self, host: str, syftbox_client: SyftBoxClient, resource_type: str):
         self.host = host
+        self.syftbox_client = syftbox_client
         self.resource_type = resource_type
 
     def _create(self, body: BodyType):
@@ -35,6 +35,7 @@ class CRUDInterface:
             client=self.syftbox_client,
             url=rpc_url,
             body=body,
+            # method="POST",
         )
 
     def _get(self, dataset_id: str):
@@ -45,6 +46,7 @@ class CRUDInterface:
             client=self.syftbox_client,
             url=rpc_url,
             body=dataset_id,
+            # method="GET",
         )
 
     def _update(self, body: BodyType):
@@ -55,6 +57,7 @@ class CRUDInterface:
             client=self.syftbox_client,
             url=rpc_url,
             body=body,
+            # method="PUT",
         )
 
     def _delete(self, dataset_id: str):
@@ -65,4 +68,5 @@ class CRUDInterface:
             client=self.syftbox_client,
             url=rpc_url,
             body=dataset_id,
+            # method="DELETE",
         )

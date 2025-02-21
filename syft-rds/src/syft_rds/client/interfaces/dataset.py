@@ -2,7 +2,7 @@ from typing import Union
 
 from uuid import UUID
 
-from syft_core import Client
+from syft_core import Client as SyftBoxClient
 
 from syft_rds.client.interfaces.base import CRUDInterface
 from syft_rds.services.dataset.dataset_models import CreateDataset, UpdateDataset
@@ -22,8 +22,8 @@ class DatasetInterface(CRUDInterface):
         client (Optional[Client]): An instance of the SyftBox Client. If None, it will be loaded from the default configuration.
     """
 
-    def __init__(self, host: str, client: Client):
-        super().__init__(host, client, "dataset")
+    def __init__(self, host: str, syftbox_client: SyftBoxClient):
+        super().__init__(host, syftbox_client, "dataset")
 
     def create(self, create_dataset: CreateDataset):
         return super()._create(create_dataset)
