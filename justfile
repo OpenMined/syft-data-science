@@ -34,8 +34,3 @@ run-jupyter jupyter_args="":
 
     uv run --frozen --with "jupyterlab" \
         jupyter lab {{ jupyter_args }}
-
-[group('test')]
-test-rds-client:
-    cd syft-rds && uv sync
-    uv run pytest syft-rds/tests/integration/rdsclient_test.py -s
