@@ -34,14 +34,3 @@ run-jupyter jupyter_args="":
 
     uv run --frozen --with "jupyterlab" \
         jupyter lab {{ jupyter_args }}
-
-[group('rds-client')]
-run-rds-client:
-    cd syft-rds && uv sync
-    cd notebooks && uv run rds-client-test.py
-
-[group('rds-client')]
-run-rds-server:
-    cd syft-rds && uv sync
-    cd notebooks && uv run rds-data-server.py
-

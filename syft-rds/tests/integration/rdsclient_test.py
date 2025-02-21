@@ -1,5 +1,5 @@
 from syft_rds.client.rds_client import RDSClient, connect
-from syft_rds.services.dataset.dataset_model import CreateDataset
+from syft_rds.services.dataset.dataset_models import CreateDataset
 
 rds_client: RDSClient = connect("khoa@openmined.org")
 
@@ -12,11 +12,12 @@ dataset = CreateDataset(
 )
 
 future = rds_client.dataset.create(dataset)
+
 print(f"future = {future}")
 try:
-    print(f"\nWaiting for the response: {future.wait(timeout=10)}")
+    print(f"Waiting for the response: {future.wait(timeout=2)}")
 except Exception as e:
     print(e)
 
-res = rds_client.dataset.get(future.id)
-print(res)
+# res = rds_client.dataset.get(future.id)
+# print(res)

@@ -3,7 +3,7 @@ from typing_extensions import Union
 from uuid import UUID
 
 from syft_rds.client.interfaces.base import CRUDInterface
-from syft_rds.services.dataset.dataset_model import CreateDataset, UpdateDataset
+from syft_rds.services.dataset.dataset_models import CreateDataset, UpdateDataset
 
 
 class DatasetInterface(CRUDInterface):
