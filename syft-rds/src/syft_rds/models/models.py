@@ -1,3 +1,4 @@
+from enum import Enum
 from pathlib import Path
 from typing import Self
 from uuid import UUID
@@ -15,7 +16,6 @@ class UserCode(ItemBase):
 class UserCodeCreate(ItemBaseCreate[UserCode]):
     name: str = "My UserCode"
     path: Path
-    dataset_id: UUID
 
 
 class UserCodeUpdate(ItemBaseUpdate[UserCode]):
@@ -43,14 +43,6 @@ class JobCreate(ItemBaseCreate[Job]):
     runtime: str
     user_code_id: UUID
     tags: list[str] = Field(default_factory=list)
-
-    @classmethod
-    def from_code_str(cls, code: str) -> Self:
-        pass
-
-    @classmethod
-    def from_func(cls, func: callable) -> Self:
-        pass
 
 
 class JobUpdate(ItemBaseUpdate[Job]):

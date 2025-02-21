@@ -24,7 +24,6 @@ def create_app(client: Client | None = None) -> SyftEvents:
         for endpoint, func in router.routes.items():
             endpoint_with_prefix = f"{prefix}{endpoint}"
             _ = self.on_request(endpoint_with_prefix)(func)
-            logger.info(f"Added endpoint: {endpoint_with_prefix}")
 
     rds_app.include_router = MethodType(include_router, rds_app)
 
