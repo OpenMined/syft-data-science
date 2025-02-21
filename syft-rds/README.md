@@ -1,3 +1,0 @@
-- `cd syft_rds`, `uv venv`, `uv sync`
-- Run `uv run notebooks/rds-client-test.py` for the client part
-- Run the server part with `uv run notebooks/rds-data-server.py` for the server

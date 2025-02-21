@@ -1,18 +1,31 @@
-"""
-Base class for interfaces that handles RPC requests
-"""
+from loguru import logger
+from typing import Optional
 
 from syft_rpc import rpc
 from syft_core.url import SyftBoxURL
-from syft_rds.consts import APP_NAME
 from syft_rpc.rpc import BodyType
 from syft_core import Client
-from loguru import logger
+
+from syft_rds.consts import APP_NAME
 
 
 class CRUDInterface:
-    def __init__(self, host: str, resource_type: str):
-        self.syftbox_client = Client.load()
+    """A base interface for CRUD operations using SyftBox RPC.
+
+    This class provides a standardized way to perform Create, Read, Update, and Delete
+    operations through RPC calls using the SyftBox client.
+    All its 4 basic CRUD methods are private, always perform RPC calls and
+    should be called through the specific interfaces
+
+    Args:
+        host (str): The email of the remote datasite.
+        resource_type (str): The type of resource being managed (e.g., "dataset", "jobs", "code"...).
+        client (Optional[Client]): An instance of the SyftBox Client. If None, it will be loaded from the default configuration.
+    """
+
+    def __init__(self, host: str, resource_type: str, client: Optional[Client] = None):
+        if client is None:
+            self.syftbox_client = Client.load()
         self.host = host
         self.resource_type = resource_type
 

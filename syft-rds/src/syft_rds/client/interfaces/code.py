@@ -1,6 +1,10 @@
+from typing import Optional
+
+from syft_core import Client
+
 from syft_rds.client.interfaces.base import CRUDInterface
 
 
 class CodeInterface(CRUDInterface):
-    def __init__(self, host):
-        super().__init__(host, "code")
+    def __init__(self, host: str, client: Optional[Client] = None):
+        super().__init__(host, "code", client)

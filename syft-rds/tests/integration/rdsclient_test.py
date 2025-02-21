@@ -1,3 +1,5 @@
+from loguru import logger
+
 from syft_rds.client.rds_client import RDSClient, connect
 from syft_rds.services.dataset.dataset_models import CreateDataset
 
@@ -13,11 +15,11 @@ dataset = CreateDataset(
 
 future = rds_client.dataset.create(dataset)
 
-print(f"future = {future}")
+logger.debug(f"future = {future}")
 try:
-    print(f"Waiting for the response: {future.wait(timeout=2)}")
+    logger.debug(f"Waiting for the response: {future.wait(timeout=2)}")
 except Exception as e:
-    print(e)
+    logger.error(e)
 
 # res = rds_client.dataset.get(future.id)
 # print(res)
