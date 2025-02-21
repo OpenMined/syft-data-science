@@ -1,5 +1,4 @@
 from loguru import logger
-from typing import Optional
 
 from syft_rpc import rpc
 from syft_core.url import SyftBoxURL
@@ -23,9 +22,8 @@ class CRUDInterface:
         client (Optional[Client]): An instance of the SyftBox Client. If None, it will be loaded from the default configuration.
     """
 
-    def __init__(self, host: str, resource_type: str, client: Optional[Client] = None):
-        if client is None:
-            self.syftbox_client = Client.load()
+    def __init__(self, host: str, resource_type: str, client: Client):
+        self.syftbox_client = client
         self.host = host
         self.resource_type = resource_type
 

@@ -1,4 +1,4 @@
-from typing import Optional, Union
+from typing import Union
 
 from uuid import UUID
 
@@ -22,7 +22,7 @@ class DatasetInterface(CRUDInterface):
         client (Optional[Client]): An instance of the SyftBox Client. If None, it will be loaded from the default configuration.
     """
 
-    def __init__(self, host: str, client: Optional[Client] = None):
+    def __init__(self, host: str, client: Client):
         super().__init__(host, "dataset", client)
 
     def create(self, create_dataset: CreateDataset):

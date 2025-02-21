@@ -35,6 +35,6 @@ def test_rdsclient_rpc_send(host_syftbox_client):
     future = rds_client.dataset.create(dataset)
     logger.debug(f"future = {future}")
     try:
-        logger.debug(f"Waiting for the response: {future.wait(timeout=2)}")
+        logger.debug(f"Waiting for the response: {future.wait(timeout=10)}")
     except Exception as e:
         logger.error(e)
