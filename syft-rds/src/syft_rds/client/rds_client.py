@@ -1,15 +1,13 @@
-from syft_rds.client.interfaces.dataset import DatasetInterface
-from syft_rds.client.interfaces.jobs import JobsInterface
-from syft_rds.client.interfaces.runtime import RuntimeInterface
-from syft_rds.client.interfaces.code import CodeInterface
-
-
-def connect(host: str) -> "RDSClient":
-    return RDSClient(host)
+from syft_rds.client.interfaces import (
+    DatasetInterface,
+    JobsInterface,
+    RuntimeInterface,
+    CodeInterface,
+)
 
 
 class RDSClient:
-    def __init__(self, host):
+    def __init__(self, host: str):
         self.host = host
         self.dataset = DatasetInterface(host)
         self.runtime = RuntimeInterface(host)
