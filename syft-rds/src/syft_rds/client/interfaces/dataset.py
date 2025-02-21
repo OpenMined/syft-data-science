@@ -39,6 +39,9 @@ class DataInterface(CRUDInterface):
             on local SyftBox folder which will get synced
         Copy private data to the right place on local SyftBox folder (not synced)
             so the executor can pick them up
+
+        get_public_path_for_dataset_id
+        get_private_path_for_dataset_id
         """
         raise NotImplementedError
 

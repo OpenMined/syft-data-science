@@ -5,8 +5,6 @@ from syft_core import Client as SyftBoxClient
 from syft_rds.client.interfaces import (
     DataInterface,
     JobsInterface,
-    RuntimeInterface,
-    CodeInterface,
 )
 
 
@@ -18,6 +16,6 @@ class RDSClient:
         )
 
         self.data = DataInterface(self.host, self.syftbox_client)
-        self.runtime = RuntimeInterface(self.host, self.syftbox_client)
-        self.code = CodeInterface(self.host, self.syftbox_client)
         self.jobs = JobsInterface(self.host, self.syftbox_client)
+        # self.runtime = RuntimeInterface(self.host, self.syftbox_client)
+        # self.code = CodeInterface(self.host, self.syftbox_client)

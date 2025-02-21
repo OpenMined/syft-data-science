@@ -1,4 +1,5 @@
 from loguru import logger
+from abc import ABC
 
 from syft_rpc import rpc
 from syft_core.url import SyftBoxURL
@@ -8,7 +9,7 @@ from syft_core import Client as SyftBoxClient
 from syft_rds.consts import APP_NAME
 
 
-class CRUDInterface:
+class CRUDInterface(ABC):
     """A base interface for CRUD operations using SyftBox RPC.
 
     This class provides a standardized way to perform Create, Read, Update, and Delete
@@ -18,8 +19,9 @@ class CRUDInterface:
 
     Args:
         host (str): The email of the remote datasite.
+        client (SyftBoxClient): An instance of the SyftBox Client.
+            If None, it will be loaded from the default configuration.
         resource_type (str): The type of resource being managed (e.g., "dataset", "jobs", "code"...).
-        client (Optional[Client]): An instance of the SyftBox Client. If None, it will be loaded from the default configuration.
     """
 
     def __init__(self, host: str, syftbox_client: SyftBoxClient, resource_type: str):

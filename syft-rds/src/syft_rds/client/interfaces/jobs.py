@@ -16,12 +16,6 @@ class JobsInterface(CRUDInterface):
         runtime: str | None = None,
         tags: list[str] | None = None,
     ):
-        """
-        Generate the schema file and copy schema as well as mock data to the right place
-            on local SyftBox folder which will get synced
-        Copy private data to the right place on local SyftBox folder (not synced)
-            so the executor can pick them up
-        """
         job_create = JobCreate(
             name=name,
             description=description,
@@ -29,5 +23,4 @@ class JobsInterface(CRUDInterface):
             user_code_id=uuid4(),
             tags=tags,
         )
-
         return super()._create(job_create)
