@@ -43,7 +43,7 @@ def init_session(host: str, mock_server: SyftEvents | None = None) -> "RDSClient
 class RDSClientConfig(BaseModel):
     host: str
     app_name: str = "RDS"
-    default_runtime: str = "python-3.12"
+    default_runtime: str = "python"
 
     rpc_expiry: str = "5m"
     rpc_cache: bool = True
