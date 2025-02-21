@@ -7,8 +7,8 @@ dataset = CreateDataset(
     name="Census Dataset",
     description="Census Dataset for the year 1994",
     tags=["Census", "1994"],
-    private_data_path="/home/dk/Desktop/projects/OpenMined/RDS/rds/notebooks/data/census/private_census.csv",
-    mock_data_path="/home/dk/Desktop/projects/OpenMined/RDS/rds/notebooks/data/census/mock_census.csv",
+    private_data_path="./data/census/private_census.csv",
+    mock_data_path="./data/census/mock_census.csv",
 )
 
 future = rds_client.dataset.create(dataset)
