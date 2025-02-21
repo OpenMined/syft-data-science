@@ -34,26 +34,9 @@ class DataInterface(CRUDInterface):
         summary: Optional[str] = None,
         description_path: Optional[str] = None,
     ):
-        """
-        Generate the schema file and copy schema as well as mock data to the right place
-            on local SyftBox folder which will get synced
-        Copy private data to the right place on local SyftBox folder (not synced)
-            so the executor can pick them up
-
-        get_public_path_for_dataset_id
-        get_private_path_for_dataset_id
-        """
         raise NotImplementedError
 
     def get(self, dataset_id: Union[str, UUID]):
-        """
-        Offline first
-            - Check if the dataset is in the local SyftBox
-            - Fetch schema file dataset.schema.json
-            - Parse the schema and generate a pydantic model that can load the dataset
-            - dataset.mock returns a mock path
-            - dataset.private = dataset.private
-        """
         raise NotImplementedError
 
     def delete(self, dataset_id: Union[str, UUID]):
