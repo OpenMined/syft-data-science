@@ -6,7 +6,7 @@ from uuid import UUID
 from syft_core import Client as SyftBoxClient
 
 from syft_rds.client.interfaces.base import CRUDInterface
-from syft_rds.services.dataset.dataset_models import CreateDataset, UpdateDataset
+from syft_rds.services.dataset.dataset_models import UpdateDataset
 
 
 class DataInterface(CRUDInterface):
@@ -34,14 +34,13 @@ class DataInterface(CRUDInterface):
         summary: Optional[str] = None,
         description_path: Optional[str] = None,
     ):
-        create_dataset = CreateDataset(
-            name=name,
-            private_data_path=path,
-            mock_data_path=mock_path,
-            summary=summary,
-            description_path=description_path,
-        )
-        return super()._create(create_dataset)
+        """
+        Generate the schema file and copy schema as well as mock data to the right place
+            on local SyftBox folder which will get synced
+        Copy private data to the right place on local SyftBox folder (not synced)
+            so the executor can pick them up
+        """
+        raise NotImplementedError
 
     def get(self, dataset_id: Union[str, UUID]):
         """
@@ -52,10 +51,10 @@ class DataInterface(CRUDInterface):
             - dataset.mock returns a mock path
             - dataset.private = dataset.private
         """
-        return super()._get(str(dataset_id))
+        raise NotImplementedError
 
     def delete(self, dataset_id: Union[str, UUID]):
-        return super()._delete(str(dataset_id))
+        raise NotImplementedError
 
     def update(self, update_dataset: UpdateDataset):
-        return super()._update(update_dataset)
+        raise NotImplementedError
