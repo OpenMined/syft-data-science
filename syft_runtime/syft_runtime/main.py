@@ -1,0 +1,350 @@
+import enum
+import subprocess
+from pathlib import Path
+from datetime import datetime
+import time
+from typing import Callable, Protocol, Tuple, Optional, TextIO
+
+import typer
+from rich.console import Console
+from rich.panel import Panel
+from rich.live import Live
+from rich.spinner import Spinner
+from pydantic import BaseModel, Field
+
+import ipywidgets as widgets
+from IPython.display import display
+
+# Since we're importing ipywidgets directly, we can assume Jupyter is available
+JUPYTER_AVAILABLE = True
+
+DEFAULT_OUTPUT_DIR = "/output"
+
+
+class CodeRuntime(str, enum.Enum):
+    python = "python"
+    bash = "bash"
+    sql = "sql"
+
+
+class JobConfig(BaseModel):
+    """Configuration for a job run"""
+
+    function_folder: Path
+    args: list[str]
+    data_path: Path
+    runtime: CodeRuntime = CodeRuntime.python
+    job_folder: Optional[Path] = Field(
+        default_factory=lambda: Path("jobs") / datetime.now().strftime("%Y%m%d_%H%M%S")
+    )
+    timeout: int = 1
+    data_mount_dir: str = "/data"
+
+    @property
+    def job_path(self) -> Path:
+        """Derived path for job folder"""
+        return Path(self.job_folder)
+
+    @property
+    def logs_dir(self) -> Path:
+        """Derived path for logs directory"""
+        return self.job_path / "logs"
+
+    @property
+    def output_dir(self) -> Path:
+        """Derived path for output directory"""
+        return self.job_path / "output"
+
+
+class JobOutputHandler(Protocol):
+    """Protocol defining the interface for job output handling and display"""
+
+    def on_job_start(self, config: JobConfig) -> None:
+        """Display job configuration"""
+        pass
+
+    def on_job_progress(self, stdout: str, stderr: str) -> None:
+        """Display job progress"""
+        pass
+
+    def on_job_completion(self, return_code: int) -> None:
+        """Display job completion status"""
+        pass
+
+
+class FileOutputHandler(JobOutputHandler):
+    """Handles writing job output to log files"""
+
+    def __init__(self):
+        pass
+
+    def on_job_start(self, config: JobConfig) -> None:
+        self.config = config
+        self.stdout_file = (config.logs_dir / "stdout.log").open("w")
+        self.stderr_file = (config.logs_dir / "stderr.log").open("w")
+        self.on_job_progress(stdout="Starting job...\n", stderr="Starting job...\n")
+
+    def on_job_progress(self, stdout: str, stderr: str) -> None:
+        if stdout:
+            self.stdout_file.write(stdout)
+            self.stdout_file.flush()
+        if stderr:
+            self.stderr_file.write(stderr)
+            self.stderr_file.flush()
+
+    def on_job_completion(self, return_code: int) -> None:
+        self.on_job_progress(
+            stdout=f"Job completed with return code {return_code}\n",
+            stderr=f"Job completed with return code {return_code}\n",
+        )
+        self.close()
+
+    def close(self) -> None:
+        self.stdout_file.close()
+        self.stderr_file.close()
+
+
+class RichConsoleUI(JobOutputHandler):
+    """Rich console implementation of JobOutputHandler"""
+
+    def __init__(self):
+        self.console = Console()
+        spinner = Spinner("dots")
+        self.live = Live(spinner, refresh_per_second=10)
+
+    def on_job_start(self, config: JobConfig) -> None:
+        if config.data_path.is_file():
+            data_mount_display = str(
+                Path(config.data_mount_dir) / config.data_path.name
+            )
+        else:
+            data_mount_display = config.data_mount_dir
+        self.console.print(
+            Panel.fit(
+                "\n".join(
+                    [
+                        "[bold green]Starting job[/]",
+                        f"[bold white]Function:[/] [cyan]{config.function_folder}[/] → [dim]/code[/]",
+                        f"[bold white]Args:[/] [cyan]{' '.join(config.args)}[/] → [dim]/code[/]",
+                        f"[bold white]Dataset:[/]  [cyan]{config.data_path}[/] → [dim]{data_mount_display}[/]",
+                        f"[bold white]Output:[/]   [cyan]{config.output_dir}[/] → [dim]{DEFAULT_OUTPUT_DIR}[/]",
+                        f"[bold white]Timeout:[/]  [cyan]{config.timeout}s[/]",
+                    ]
+                ),
+                title="[bold]Job Configuration",
+                border_style="cyan",
+            )
+        )
+        self.live.start()
+        self.live.console.print("[bold cyan]Running job...[/]")
+
+    def on_job_progress(self, stdout: str, stderr: str) -> None:
+        # Update UI display
+        if not self.live:
+            return
+
+        if stdout:
+            self.live.console.print(stdout, end="")
+        if stderr:
+            self.live.console.print(f"[red]{stderr}[/]", end="")
+
+    def on_job_completion(self, return_code: int) -> None:
+        # Update UI display
+        if self.live:
+            self.live.stop()
+
+        if return_code == 0:
+            self.console.print(f"\n[bold green]Job completed successfully![/]")
+        else:
+            self.console.print(
+                f"\n[bold red]Job failed with return code {return_code}[/]"
+            )
+
+
+class JupyterWidgetHandler(JobOutputHandler):
+    """Handles job output display using Jupyter widgets"""
+
+    def __init__(self):
+        # Create widgets
+        self.output_widget = widgets.Output(
+            layout={"border": "1px solid #ddd", "padding": "10px", "margin": "5px 0"}
+        )
+        self.status_widget = widgets.HTML(
+            value="<b style='color: #7F7F7F'>Initializing...</b>",
+            layout={"margin": "5px 0"},
+        )
+        self.progress_bar = widgets.FloatProgress(
+            value=0,
+            min=0,
+            max=100,
+            description="Progress:",
+            bar_style="info",
+            orientation="horizontal",
+            layout={"width": "50%", "margin": "10px 0"},
+        )
+
+        # Arrange widgets vertically
+        self.container = widgets.VBox(
+            [self.status_widget, self.progress_bar, self.output_widget]
+        )
+        display(self.container)
+
+    def on_job_start(self, config: JobConfig) -> None:
+        """Display job configuration in Jupyter"""
+        self.status_widget.value = "<b style='color: #36A2EB'>Running job...</b>"
+        self.progress_bar.bar_style = "info"
+        self.progress_bar.value = 0
+
+        with self.output_widget:
+            console = Console()
+            if config.data_path.is_file():
+                data_mount_display = str(
+                    Path(config.data_mount_dir) / config.data_path.name
+                )
+            else:
+                data_mount_display = config.data_mount_dir
+
+            console.print(
+                Panel.fit(
+                    "\n".join(
+                        [
+                            "[bold green]Starting job[/]",
+                            f"[bold white]Function:[/] [cyan]{config.function_folder}[/] → [dim]/code[/]",
+                            f"[bold white]Args:[/] [cyan]{' '.join(config.args)}[/] → [dim]/code[/]",
+                            f"[bold white]Dataset:[/]  [cyan]{config.data_path}[/] → [dim]{data_mount_display}[/]",
+                            f"[bold white]Output:[/]   [cyan]{config.output_dir}[/] → [dim]{DEFAULT_OUTPUT_DIR}[/]",
+                            f"[bold white]Timeout:[/]  [cyan]{config.timeout}s[/]",
+                        ]
+                    ),
+                    title="[bold]Job Configuration",
+                    border_style="cyan",
+                )
+            )
+
+    def on_job_progress(self, stdout: str, stderr: str) -> None:
+        """Update job progress in Jupyter widgets"""
+        if stdout or stderr:
+            with self.output_widget:
+                if stdout:
+                    print(stdout, end="")
+                if stderr:
+                    print(f"\033[91m{stderr}\033[0m", end="")
+            # Update progress bar for some visual feedback
+            self.progress_bar.value = min(self.progress_bar.value + 1, 95)
+
+    def on_job_completion(self, return_code: int) -> None:
+        """Display job completion status in Jupyter"""
+        self.progress_bar.value = 100
+        if return_code == 0:
+            self.status_widget.value = (
+                "<b style='color: #2ECC71'>✓ Job completed successfully!</b>"
+            )
+            self.progress_bar.bar_style = "success"
+        else:
+            self.status_widget.value = f"<b style='color: #E74C3C'>✗ Job failed with return code {return_code}</b>"
+            self.progress_bar.bar_style = "danger"
+
+
+class DockerRunner:
+    """Handles running jobs in Docker containers with security constraints"""
+
+    def __init__(self, handlers: list[JobOutputHandler]):
+        self.handlers = handlers
+
+    def prepare_job_folders(self, config: JobConfig) -> None:
+        """Create necessary job folders"""
+        config.job_path.mkdir(parents=True, exist_ok=True)
+        config.logs_dir.mkdir(exist_ok=True)
+        config.output_dir.mkdir(exist_ok=True)
+
+    def validate_paths(self, config: JobConfig) -> None:
+        """Validate input paths exist"""
+        if not config.function_folder.exists():
+            raise typer.Abort(
+                f"Function folder {config.function_folder} does not exist"
+            )
+        if not config.data_path.exists():
+            raise typer.Abort(f"Dataset folder {config.data_path} does not exist")
+
+    def build_docker_command(self, config: JobConfig) -> list[str]:
+        """Build the Docker run command with security constraints"""
+        docker_mounts = [
+            "-v",
+            f"{Path(config.function_folder).absolute()}:/code:ro",
+            "-v",
+            f"{Path(config.data_path).absolute()}:{config.data_mount_dir}:ro",
+            "-v",
+            f"{config.output_dir.absolute()}:{DEFAULT_OUTPUT_DIR}:rw",
+        ]
+
+        return [
+            "docker",
+            "run",
+            "--rm",  # Remove container after completion
+            # Security constraints
+            "--cap-drop",
+            "ALL",  # Drop all capabilities
+            "--network",
+            "none",  # Disable networking
+            "--read-only",  # Read-only root filesystem
+            "--tmpfs",
+            "/tmp:size=16m,noexec,nosuid,nodev",  # Secure temp directory
+            # Resource limits
+            "--memory",
+            "1G",
+            "--cpus",
+            "1",
+            "--pids-limit",
+            "100",
+            "--ulimit",
+            "nproc=100:100",
+            "--ulimit",
+            "nofile=50:50",
+            "--ulimit",
+            "fsize=10000000:10000000",  # ~10MB file size limit
+            # Environment variables
+            "-e",
+            f"TIMEOUT={config.timeout}",
+            "-e",
+            f"DATA_DIR={config.data_mount_dir}",
+            "-e",
+            f"OUTPUT_DIR={DEFAULT_OUTPUT_DIR}",
+            *docker_mounts,
+            f"syft_{config.runtime.value}_runtime",
+            *config.args,
+        ]
+
+    def run(self, config: JobConfig) -> Tuple[Path, int | None]:
+        """Run a job in a Docker container"""
+        self.validate_paths(config)
+        self.prepare_job_folders(config)
+
+        for handler in self.handlers:
+            handler.on_job_start(config)
+
+        cmd = self.build_docker_command(config)
+        process = subprocess.Popen(
+            cmd,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+        )
+        # Stream output
+        while True:
+            stdout_line = process.stdout.readline()
+            stderr_line = process.stderr.readline()
+
+            for handler in self.handlers:
+                handler.on_job_progress(stdout_line, stderr_line)
+
+            if not stdout_line and not stderr_line and process.poll() is not None:
+                break
+
+            if not stdout_line and not stderr_line:
+                time.sleep(0.5)
+
+        process.wait()
+        for handler in self.handlers:
+            handler.on_job_completion(process.returncode)
+
+        return process.returncode
