@@ -37,7 +37,6 @@ class CRUDInterface(ABC):
             client=self.syftbox_client,
             url=rpc_url,
             body=body,
-            # method="POST",
         )
 
     def _get(self, dataset_id: str):
@@ -48,7 +47,6 @@ class CRUDInterface(ABC):
             client=self.syftbox_client,
             url=rpc_url,
             body=dataset_id,
-            # method="GET",
         )
 
     def _update(self, body: BodyType):
@@ -59,7 +57,6 @@ class CRUDInterface(ABC):
             client=self.syftbox_client,
             url=rpc_url,
             body=body,
-            # method="PUT",
         )
 
     def _delete(self, dataset_id: str):
@@ -70,5 +67,4 @@ class CRUDInterface(ABC):
             client=self.syftbox_client,
             url=rpc_url,
             body=dataset_id,
-            # method="DELETE",
         )

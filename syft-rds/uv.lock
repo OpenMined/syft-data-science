@@ -868,7 +868,6 @@ name = "syft-rds"
 version = "0.1.0"
 source = { editable = "." }
 dependencies = [
-    { name = "ipykernel" },
     { name = "loguru" },
     { name = "pydantic", extra = ["email"] },
     { name = "pyyaml" },
@@ -878,12 +877,12 @@ dependencies = [
 
 [package.dev-dependencies]
 dev = [
+    { name = "ipykernel" },
     { name = "pytest" },
 ]
 
 [package.metadata]
 requires-dist = [
-    { name = "ipykernel", specifier = ">=6.29.5" },
     { name = "loguru", specifier = ">=0.7.3" },
     { name = "pydantic", extras = ["email"], specifier = ">=2.10.4" },
     { name = "pyyaml", specifier = ">=6.0.2" },
@@ -892,7 +891,10 @@ requires-dist = [
 ]
 
 [package.metadata.requires-dev]
-dev = [{ name = "pytest", specifier = ">=8.3.4" }]
+dev = [
+    { name = "ipykernel", specifier = ">=6.29.5" },
+    { name = "pytest", specifier = ">=8.3.4" },
+]
 
 [[package]]
 name = "syft-rpc"
