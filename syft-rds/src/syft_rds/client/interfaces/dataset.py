@@ -9,7 +9,7 @@ from syft_rds.client.interfaces.base import CRUDInterface
 from syft_rds.services.dataset.dataset_models import UpdateDataset
 
 
-class DataInterface(CRUDInterface):
+class DatasetInterface(CRUDInterface):
     """Interface for managing dataset operations through RPC calls.
 
     This class extends CRUDInterface to provide specific functionalities for dataset

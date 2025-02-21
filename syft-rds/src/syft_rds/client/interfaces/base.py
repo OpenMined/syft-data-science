@@ -39,14 +39,14 @@ class CRUDInterface(ABC):
             body=body,
         )
 
-    def _get(self, dataset_id: str):
+    def _get(self, body: BodyType):
         endpoint = f"{self.resource_type}/get"
         rpc_url: SyftBoxURL = rpc.make_url(self.host, APP_NAME, endpoint)
         logger.debug(f"sending RPC request to {rpc_url}")
         return rpc.send(
             client=self.syftbox_client,
             url=rpc_url,
-            body=dataset_id,
+            body=body,
         )
 
     def _update(self, body: BodyType):
@@ -59,12 +59,12 @@ class CRUDInterface(ABC):
             body=body,
         )
 
-    def _delete(self, dataset_id: str):
+    def _delete(self, body: BodyType):
         endpoint = f"{self.resource_type}/delete"
         rpc_url: SyftBoxURL = rpc.make_url(self.host, APP_NAME, endpoint)
         logger.debug(f"sending RPC request to {rpc_url}")
         return rpc.send(
             client=self.syftbox_client,
             url=rpc_url,
-            body=dataset_id,
+            body=body,
         )
