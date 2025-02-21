@@ -4,10 +4,10 @@ from uuid import UUID
 
 class CreateDataset(BaseModel):
     name: str = Field(description="Name of the dataset.")
-    description: str = Field(description="Description of the dataset.")
-    tags: list[str] = Field(description="Tags for the dataset.")
     private_data_path: str = Field(description="Private path of the dataset.")
     mock_data_path: str = Field(description="Mock path of the dataset.")
+    summary: str | None = Field(description="Summary of the dataset.")
+    description_path: str | None = Field(description="Summary of the dataset.")
 
 
 class Dataset(CreateDataset):

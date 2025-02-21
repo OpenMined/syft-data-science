@@ -6,7 +6,6 @@ import json
 from syft_core import Client as SyftBoxClient
 from syft_core.config import SyftClientConfig
 from syft_rds.client.rds_client import RDSClient
-from syft_rds.services.dataset.dataset_models import CreateDataset
 
 
 SYFTBOX_CLIENT_EMAIL = "khoa@openmined.org"
@@ -31,15 +30,13 @@ def rds_client(syftbox_client: SyftBoxClient) -> RDSClient:
 
 
 def test_rdsclient_rpc_send(rds_client: RDSClient) -> None:
-    dataset = CreateDataset(
+    future = rds_client.dataset.create(
         name="Census Dataset",
-        description="Census Dataset for the year 1994",
-        tags=["Census", "1994"],
-        private_data_path="./data/census/private_census.csv",
-        mock_data_path="./data/census/mock_census.csv",
+        summary="My dataset is very private.",
+        path="./data/census/private_census.csv",
+        mock_path="./data/census/mock_census.csv",
+        description_path="Census Dataset for the year 1994",
     )
-
-    future = rds_client.dataset.create(dataset)
     logger.debug(f"{future = }")
 
     create_future_dir = Path(future.path)

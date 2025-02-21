@@ -1,4 +1,5 @@
-from typing import Union
+from typing import Union, Optional
+from pathlib import Path
 
 from uuid import UUID
 
@@ -25,7 +26,21 @@ class DatasetInterface(CRUDInterface):
     def __init__(self, host: str, syftbox_client: SyftBoxClient):
         super().__init__(host, syftbox_client, "dataset")
 
-    def create(self, create_dataset: CreateDataset):
+    def create(
+        self,
+        name: str,
+        path: Union[str, Path],
+        mock_path: Union[str, Path],
+        summary: Optional[str] = None,
+        description_path: Optional[str] = None,
+    ):
+        create_dataset = CreateDataset(
+            name=name,
+            private_data_path=path,
+            mock_data_path=mock_path,
+            summary=summary,
+            description_path=description_path,
+        )
         return super()._create(create_dataset)
 
     def get(self, dataset_id: Union[str, UUID]):
