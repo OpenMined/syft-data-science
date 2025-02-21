@@ -3,7 +3,7 @@ from loguru import logger
 from syft_rpc import rpc
 from syft_core.url import SyftBoxURL
 from syft_rpc.rpc import BodyType
-from syft_core import Client
+from syft_core import Client as SyftBoxClient
 
 from syft_rds.consts import APP_NAME
 
@@ -22,7 +22,7 @@ class CRUDInterface:
         client (Optional[Client]): An instance of the SyftBox Client. If None, it will be loaded from the default configuration.
     """
 
-    def __init__(self, host: str, resource_type: str, client: Client):
+    def __init__(self, host: str, client: SyftBoxClient, resource_type: str):
         self.syftbox_client = client
         self.host = host
         self.resource_type = resource_type

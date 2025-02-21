@@ -1,7 +1,8 @@
 from loguru import logger
 import pytest
 
-from syft_core import Client, SyftClientConfig
+from syft_core import Client as SyftBoxClient
+from syft_core.config import SyftClientConfig
 from syft_rds.client.rds_client import RDSClient
 from syft_rds.services.dataset.dataset_models import CreateDataset
 
@@ -12,7 +13,7 @@ TEST_EMAIL = "khoa@openmined.org"
 @pytest.fixture
 def host_syftbox_client(tmp_path):
     logger.debug(f"Creating a SyftBox client for testing at {tmp_path}")
-    return Client(
+    return SyftBoxClient(
         SyftClientConfig(
             email=TEST_EMAIL,
             client_url="http://localhost:5000",

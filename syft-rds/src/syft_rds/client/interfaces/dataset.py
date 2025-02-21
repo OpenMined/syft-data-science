@@ -23,7 +23,7 @@ class DatasetInterface(CRUDInterface):
     """
 
     def __init__(self, host: str, client: Client):
-        super().__init__(host, "dataset", client)
+        super().__init__(host, client, "dataset")
 
     def create(self, create_dataset: CreateDataset):
         return super()._create(create_dataset)

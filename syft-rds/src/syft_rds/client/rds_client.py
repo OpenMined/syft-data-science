@@ -1,6 +1,6 @@
 from typing import Optional
 
-from syft_core import Client
+from syft_core import Client as SyftBoxClient
 
 from syft_rds.client.interfaces import (
     DatasetInterface,
@@ -11,9 +11,9 @@ from syft_rds.client.interfaces import (
 
 
 class RDSClient:
-    def __init__(self, host: str, client: Optional[Client] = None):
+    def __init__(self, host: str, client: Optional[SyftBoxClient] = None):
         self.host = host
-        self.syftbox_client = client if client is not None else Client.load()
+        self.syftbox_client = client if client is not None else SyftBoxClient.load()
 
         self.dataset = DatasetInterface(self.host, self.syftbox_client)
         self.runtime = RuntimeInterface(self.host, self.syftbox_client)
