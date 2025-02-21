@@ -44,6 +44,14 @@ class DataInterface(CRUDInterface):
         return super()._create(create_dataset)
 
     def get(self, dataset_id: Union[str, UUID]):
+        """
+        Offline first
+            - Check if the dataset is in the local SyftBox
+            - Fetch schema file dataset.schema.json
+            - Parse the schema and generate a pydantic model that can load the dataset
+            - dataset.mock returns a mock path
+            - dataset.private = dataset.private
+        """
         return super()._get(str(dataset_id))
 
     def delete(self, dataset_id: Union[str, UUID]):

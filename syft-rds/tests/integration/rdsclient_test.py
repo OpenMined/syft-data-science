@@ -8,7 +8,7 @@ from syft_core.config import SyftClientConfig
 from syft_rds.client.rds_client import RDSClient
 
 
-SYFTBOX_CLIENT_EMAIL = "khoa@openmined.org"
+SYFTBOX_CLIENT_EMAIL = "test@openmined.org"
 HOST_EMAIL = "test@openmined.org"
 
 
