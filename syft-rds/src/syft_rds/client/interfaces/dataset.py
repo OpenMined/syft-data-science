@@ -1,12 +1,10 @@
 from typing import Union, Optional
 from pathlib import Path
 
-from uuid import UUID
 
 from syft_core import Client as SyftBoxClient
 
 from syft_rds.client.interfaces.base import CRUDInterface
-from syft_rds.services.dataset.dataset_models import UpdateDataset
 
 
 class DatasetInterface(CRUDInterface):
@@ -34,13 +32,4 @@ class DatasetInterface(CRUDInterface):
         summary: Optional[str] = None,
         description_path: Optional[str] = None,
     ):
-        raise NotImplementedError
-
-    def get(self, dataset_id: Union[str, UUID]):
-        raise NotImplementedError
-
-    def delete(self, dataset_id: Union[str, UUID]):
-        raise NotImplementedError
-
-    def update(self, update_dataset: UpdateDataset):
         raise NotImplementedError
