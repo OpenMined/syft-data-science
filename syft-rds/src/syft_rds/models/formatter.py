@@ -5,20 +5,32 @@ from pydantic import BaseModel
 
 
 class PydanticFormatter(ABC):
+    """Interface for Pydantic model formatters, to be used with PydanticFormatterMixin"""
+
     @abstractmethod
-    def format(self, model: BaseModel) -> str: ...
+    def format_str(self, model: BaseModel) -> str: ...
+
+    @abstractmethod
+    def format_repr(self, model: BaseModel) -> str: ...
 
 
 class DefaultPydanticFormatter(PydanticFormatter):
-    def format(self, model: BaseModel) -> str:
-        # Find BaseModel to get default __repr__ implementation
-        for cls in model.__class__.__mro__:
-            if cls is BaseModel:
-                return cls.__repr__.__get__(model, model.__class__)()
-        return str(model.model_dump_json())
+    """Use the default __str__ and __repr__ methods of Pydantic BaseModel"""
+
+    def format_str(self, model: BaseModel) -> str:
+        if not isinstance(model, BaseModel):
+            raise ValueError(f"Expected Pydantic model, got {type(model)}")
+        return BaseModel.__str__.__get__(model, model.__class__)()
+
+    def format_repr(self, model: BaseModel) -> str:
+        if not isinstance(model, BaseModel):
+            raise ValueError(f"Expected Pydantic model, got {type(model)}")
+        return BaseModel.__repr__.__get__(model, model.__class__)()
 
 
 class ANSIPydanticFormatter(PydanticFormatter):
+    """Format Pydantic models multiline string with ANSI colors"""
+
     def format_class_name(self, name: str) -> str:
         return f"\033[1;36m{name}\033[0m"
 
@@ -37,7 +49,7 @@ class ANSIPydanticFormatter(PydanticFormatter):
 
         return f"  {formatted_key}: {formatted_value}"
 
-    def format(self, model: BaseModel) -> str:
+    def format_str(self, model: BaseModel) -> str:
         header = self.format_class_name(model.__class__.__name__) + "\n"
 
         fields = model.model_dump(mode="json")
@@ -45,16 +57,20 @@ class ANSIPydanticFormatter(PydanticFormatter):
 
         return header + "\n".join(items)
 
+    def format_repr(self, model: BaseModel) -> str:
+        return self.format_str(model)
 
-class PydanticDisplayableMixin:
-    """Mixin to override __str__ and __repr__ methods of Pydantic models.
+
+class PydanticFormatterMixin:
+    """Mixin to override __str__ and __repr__ methods of Pydantic models, making it possible to
+    customize formatting for different models and switch based on context.
 
     In the future, this mixin can provide formatting options for jupyter notebooks, rich, etc.
 
     Usage:
     ```
     # Mixin goes first to override BaseModel methods
-    class MyModel(PydanticDisplayableMixin, BaseModel):
+    class MyModel(PydanticFormatterMixin, BaseModel):
         name: str
 
     model = MyModel(...)
@@ -62,7 +78,7 @@ class PydanticDisplayableMixin:
     print(model)
 
     # switch to pydantic default formatter
-    from .displayable import DefaultPydanticFormatter
+    from .formatter import DefaultPydanticFormatter
     model.set_display_formatter(DefaultPydanticFormatter())
     print(model)
     ```
@@ -79,7 +95,7 @@ class PydanticDisplayableMixin:
         return cls.__display_formatter__
 
     def __str__(self) -> str:
-        return self.__display_formatter__.format(self)
+        return self.__display_formatter__.format_str(self)
 
     def __repr__(self) -> str:
-        return self.__str__()
+        return self.__display_formatter__.format_repr(self)

@@ -5,14 +5,14 @@ from uuid import UUID, uuid4
 
 from pydantic import BaseModel, Field, PrivateAttr
 
-from syft_rds.models.displayable import PydanticDisplayableMixin
+from syft_rds.models.formatter import PydanticFormatterMixin
 
 
 def _utcnow():
     return datetime.now(tz=timezone.utc)
 
 
-class ItemBase(PydanticDisplayableMixin, BaseModel, ABC):
+class ItemBase(PydanticFormatterMixin, BaseModel, ABC):
     uid: UUID = Field(default_factory=uuid4)
     created_at: datetime = Field(default_factory=_utcnow)
     updated_at: datetime = Field(default_factory=_utcnow)
@@ -33,7 +33,7 @@ class ItemBase(PydanticDisplayableMixin, BaseModel, ABC):
 T = TypeVar("T", bound=ItemBase)
 
 
-class ItemBaseCreate(PydanticDisplayableMixin, BaseModel, Generic[T]):
+class ItemBaseCreate(PydanticFormatterMixin, BaseModel, Generic[T]):
     @classmethod
     def get_target_model(cls) -> Type[T]:
         return cls.__bases__[0].__pydantic_generic_metadata__["args"][0]  # type: ignore
@@ -43,7 +43,7 @@ class ItemBaseCreate(PydanticDisplayableMixin, BaseModel, Generic[T]):
         return model_cls(**self.model_dump())
 
 
-class ItemBaseUpdate(PydanticDisplayableMixin, BaseModel, Generic[T]):
+class ItemBaseUpdate(PydanticFormatterMixin, BaseModel, Generic[T]):
     uid: UUID
 
     @classmethod
