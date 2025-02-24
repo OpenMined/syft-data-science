@@ -11,6 +11,7 @@ from syft_rds.models.models import (
 )
 from syft_rds.client.rds_client import RDSClient
 
+
 def test_job_crud(rds_client: RDSClient):
     job_create = JobCreate(
         name="Test Job", runtime="python3.9", user_code_id=uuid4(), tags=["test"]
