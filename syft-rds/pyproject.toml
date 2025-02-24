@@ -8,6 +8,7 @@ dependencies = [
     "loguru>=0.7.3",
     "ipywidgets>=8.1.5",
     "pydantic[email]>=2.10.4",
+    "rich>=13.9.4",
     "syft-event",
     "typing-extensions>=4.12.2",
     "syft-runtime",
@@ -23,6 +24,7 @@ packages = ["src/syft_rds"]
 [tool.uv]
 dev-dependencies = [
     "pip>=25.0.1",
+    "pre-commit>=4.1.0",
     "pytest>=8.3.4",
 ]
 

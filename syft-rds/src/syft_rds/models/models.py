@@ -1,7 +1,6 @@
 from collections.abc import Iterable
 import enum
 from pathlib import Path
-from typing import Self
 from uuid import UUID
 import uuid
 
@@ -119,14 +118,6 @@ class JobCreate(ItemBaseCreate[Job]):
     runtime: str
     user_code_id: UUID
     tags: list[str] = Field(default_factory=list)
-
-    @classmethod
-    def from_code_str(cls, code: str) -> Self:
-        pass
-
-    @classmethod
-    def from_func(cls, func: callable) -> Self:
-        pass
 
 
 class JobUpdate(ItemBaseUpdate[Job]):

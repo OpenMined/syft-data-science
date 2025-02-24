@@ -1,7 +1,6 @@
 from types import MethodType
 
-from loguru import logger
-from syft_core import Client, SyftClientConfig
+from syft_core import Client
 from syft_event import SyftEvents
 
 from syft_rds.server.router import RPCRouter
@@ -24,7 +23,6 @@ def create_app(client: Client | None = None) -> SyftEvents:
         for endpoint, func in router.routes.items():
             endpoint_with_prefix = f"{prefix}{endpoint}"
             _ = self.on_request(endpoint_with_prefix)(func)
-            logger.info(f"Added endpoint: {endpoint_with_prefix}")
 
     rds_app.include_router = MethodType(include_router, rds_app)
 

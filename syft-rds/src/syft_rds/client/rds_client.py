@@ -79,7 +79,7 @@ class JobRDSClient(RDSClientModule):
         function_kwargs: dict = None,
         tags: list[str] | None = None,
     ) -> Job:
-        user_code_create = self._create_usercode_from_submit(
+        user_code_create = self._create_usercode(
             user_code_path=user_code_path,
             function=function,
             function_args=function_args,
@@ -101,7 +101,7 @@ class JobRDSClient(RDSClientModule):
 
         return job
 
-    def _create_usercode_from_submit(
+    def _create_usercode(
         self,
         user_code_path: str | None = None,
         function: Callable | None = None,
@@ -117,10 +117,8 @@ class JobRDSClient(RDSClientModule):
             and function_args is not None
             and function_kwargs is not None
         ):
-            user_code = UserCodeCreate.from_func(
-                function=function,
-                function_args=function_args,
-                function_kwargs=function_kwargs,
+            raise NotImplementedError(
+                "Creating UserCode from function is not implemented yet"
             )
 
         else:
