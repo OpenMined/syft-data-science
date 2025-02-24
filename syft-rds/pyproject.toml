@@ -8,6 +8,7 @@ dependencies = [
     "pydantic[email]>=2.10.4",
     "typing-extensions>=4.12.2",
     "syft-core",
+    "pyyaml>=6.0.2",
 ]
 
 [tool.uv.sources]
@@ -16,3 +17,8 @@ syft-core = { git = "https://github.com/OpenMined/syft-extras.git", subdirectory
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
+
+[dependency-groups]
+dev = [
+    "ipykernel>=6.29.5",
+]
