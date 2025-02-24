@@ -226,7 +226,7 @@ name = "ipykernel"
 version = "6.29.5"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "appnope", marker = "sys_platform == 'darwin'" },
+    { name = "appnope", marker = "platform_system == 'Darwin'" },
     { name = "comm" },
     { name = "debugpy" },
     { name = "ipython", version = "8.18.1", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.10'" },
@@ -780,7 +780,7 @@ wheels = [
 [[package]]
 name = "syft-core"
 version = "0.1.0"
-source = { git = "https://github.com/OpenMined/syft-extras.git?subdirectory=packages%2Fsyft-core&branch=main#146081074f1caf897ce190dae65fd4a79e38f7ac" }
+source = { git = "https://github.com/OpenMined/syft-extras.git?subdirectory=packages%2Fsyft-core&branch=main#196b87e3607f6d7c014d37bda3cf1a6987015f24" }
 dependencies = [
     { name = "pydantic", extra = ["email"] },
     { name = "typing-extensions" },

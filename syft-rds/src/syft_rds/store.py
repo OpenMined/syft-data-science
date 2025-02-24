@@ -1,12 +1,14 @@
+import yaml
 from functools import wraps
 from pathlib import Path
-from typing import Optional
-from uuid import UUID, uuid4
-
-import yaml
-from pydantic import BaseModel, Field
+from pydantic import BaseModel
+from pydantic import Field
 from syft_core import Client
-from syft_core.url import SyftBoxURL
+from typing import Generic
+from typing import Optional
+from typing import Type
+from typing import TypeVar
+from uuid import UUID, uuid4
 
 
 PERMS = """
@@ -18,8 +20,12 @@ PERMS = """
   user: '*'
 """
 
+S = TypeVar("S", bound="BaseSpec")
+
 
 class BaseSpec(BaseModel):
+    """Base specification class that all spec models must inherit from"""
+
     __spec_name__: str
     id: UUID = Field(default_factory=uuid4)
 
@@ -27,76 +33,32 @@ class BaseSpec(BaseModel):
         arbitrary_types_allowed: bool = True
 
 
-class DatasetSpec(BaseSpec):
-    __spec_name__ = "dataset"
-
-    name: str
-    description: str
-    data: SyftBoxURL
-    mock: SyftBoxURL
-    tags: list[str]
-
-
-# class CodeSpec(Base):
-#     language: str
-#     path: SyftBoxURL
-#     created_by: EmailStr
-
-
-# class RuntimeType(StrEnum):
-#     docker = "docker"
-#     # k8s = "k8s"
-#     # local = "local"
-
-
-# class RuntimeSpec(Base):
-#     name: str
-#     type: RuntimeType
-#     kwargs: dict
-
-
-# class JobSpec(Base):
-#     code: str
-#     code_hash: str
-#     dataset: str
-#     dataset_hash: str
-#     runtime: str
-#     approval_status: str
-#     reason: str
-#     created_by: str
-#     approved_by: str
-#     created_at: str
-#     approved_at: str
-#     tags: str
-#     result_path: str
-#     result_hash: str
-#     logs: str
-#     environment: str
-
-
-def ensure_spec_store_exists(func):
+def ensure_store_exists(func):
     @wraps(func)
     def wrapper(self, *args, **kwargs):
-        if not self.spec_store_path.exists():
-            self.spec_store_path.mkdir(parents=True, exist_ok=True)
+        if not self.store_path.exists():
+            self.store_path.mkdir(parents=True, exist_ok=True)
         return func(self, *args, **kwargs)
 
     return wrapper
 
 
-class RDSFileStore:
-    def __init__(
-        self,
-        app_name: str,
-        spec: BaseSpec,
-        client: Optional[Client] = None,
-    ):
+class YAMLStore(Generic[S]):
+    def __init__(self, app_name: str, spec: Type[S], client: Optional[Client] = None):
+        """
+        Initialize store for a specific specification model
+
+        Args:
+            app_name: Name of the SyftBox application to store data for.
+            spec: The specification model class for which to initialize the store.
+            client: Syft client instance to use.
+        """
         self.client = client or Client.load()
         self.spec = spec
         self.app_name = app_name
 
     @property
-    def spec_store_path(self) -> Path:
+    def store_path(self) -> Path:
         store_dir = self.client.api_data(self.app_name) / "store"
         if not store_dir.exists():
             store_dir.mkdir(parents=True, exist_ok=True)
@@ -108,36 +70,38 @@ class RDSFileStore:
 
     def _get_record_path(self, id: str | UUID) -> Path:
         """Get the full path for a record's YAML file from its ID."""
-        return self.spec_store_path / f"{id}.yaml"
+        return self.store_path / f"{id}.yaml"
 
-    def _save_record(self, record: BaseSpec) -> None:
+    def _save_record(self, record: S) -> None:
         """Save a single record to its own YAML file"""
         file_path = self._get_record_path(record.id)
         yaml_dump = yaml.safe_dump(
-            record.model_dump(mode="json"), indent=2, sort_keys=False
+            record.model_dump(mode="json"),
+            indent=2,
+            sort_keys=False,
         )
         file_path.write_text(yaml_dump)
 
-    def _load_record(self, id: str | UUID) -> BaseSpec:
+    def _load_record(self, id: str | UUID) -> Optional[S]:
         """Load a single record from its own YAML file"""
         file_path = self._get_record_path(id)
         if not file_path.exists():
             return None
         record_dict = yaml.safe_load(file_path.read_text())
-        return self.spec.model_validate(**record_dict)
+        return self.spec.model_validate(record_dict)
 
-    def _list_all_records(self) -> list[BaseSpec]:
+    def _list_all_records(self) -> list[S]:
         """List all records in the store"""
         records = []
-        for file_path in self.spec_store_path.glob("*.yaml"):
+        for file_path in self.store_path.glob("*.yaml"):
             _id = file_path.stem
             loaded_record = self._load_record(_id)
             if loaded_record is not None:
                 records.append(loaded_record)
         return records
 
-    @ensure_spec_store_exists
-    def create(self, item: BaseSpec) -> UUID:
+    @ensure_store_exists
+    def create(self, item: S) -> UUID:
         """
         Create a new record in the store
 
@@ -153,8 +117,8 @@ class RDSFileStore:
         self._save_record(item)
         return item.id
 
-    @ensure_spec_store_exists
-    def read(self, id: str | UUID) -> BaseSpec:
+    @ensure_store_exists
+    def read(self, id: str | UUID) -> Optional[S]:
         """
         Read a record by ID
 
@@ -166,8 +130,8 @@ class RDSFileStore:
         """
         return self._load_record(id)
 
-    @ensure_spec_store_exists
-    def update(self, id: str | UUID, item: BaseSpec) -> BaseSpec | None:
+    @ensure_store_exists
+    def update(self, id: str | UUID, item: S) -> Optional[S]:
         """
         Update a record by ID
 
@@ -189,7 +153,7 @@ class RDSFileStore:
         self._save_record(updated_record)
         return self._load_record(id)
 
-    @ensure_spec_store_exists
+    @ensure_store_exists
     def delete(self, id: str | UUID) -> bool:
         """
         Delete a record by ID
@@ -206,8 +170,8 @@ class RDSFileStore:
         file_path.unlink()
         return True
 
-    @ensure_spec_store_exists
-    def query(self, **filters) -> list[BaseSpec]:
+    @ensure_store_exists
+    def query(self, **filters) -> list[S]:
         """
         Query records with exact match filters
 
@@ -223,15 +187,15 @@ class RDSFileStore:
         for record in self._list_all_records():
             matches = True
             for key, value in filters.items():
-                if key not in record or getattr(record, key) != value:
+                if not hasattr(record, key) or getattr(record, key) != value:
                     matches = False
                     break
             if matches:
                 results.append(record)
         return results
 
-    @ensure_spec_store_exists
-    def search(self, query: str, fields: list[str]) -> list[BaseSpec]:
+    @ensure_store_exists
+    def search(self, query: str, fields: list[str]) -> list[S]:
         """
         Search records with case-insensitive partial matching
 
