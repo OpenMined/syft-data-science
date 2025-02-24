@@ -1,13 +1,12 @@
-from uuid import uuid4
-from uuid import UUID
+from functools import wraps
 from pathlib import Path
-from typing import Any, Optional
+from typing import Optional
+from uuid import UUID, uuid4
+
+import yaml
+from pydantic import BaseModel, Field
 from syft_core import Client
 from syft_core.url import SyftBoxURL
-from pydantic import BaseModel
-from pydantic import Field
-from functools import wraps
-import yaml
 
 
 PERMS = """
@@ -30,15 +29,12 @@ class BaseSpec(BaseModel):
 
 class DatasetSpec(BaseSpec):
     __spec_name__ = "dataset"
-    
+
     name: str
     description: str
     data: SyftBoxURL
     mock: SyftBoxURL
     tags: list[str]
-
-class StoreSpecNotFoundError(FileNotFoundError):
-    pass
 
 
 # class CodeSpec(Base):
@@ -84,6 +80,7 @@ def ensure_spec_store_exists(func):
         if not self.spec_store_path.exists():
             self.spec_store_path.mkdir(parents=True, exist_ok=True)
         return func(self, *args, **kwargs)
+
     return wrapper
 
 
@@ -94,34 +91,31 @@ class RDSFileStore:
         spec: BaseSpec,
         client: Optional[Client] = None,
     ):
-        self.app_name = app_name
-        if client is None:
-            self.client = Client.load()
-        self.app_dir = self.client.api_data(self.app_name)
-        self.app_store_dir = self.app_dir / "store"
+        self.client = client or Client.load()
         self.spec = spec
-
-        # Create restrictive Permissions for the store Directory
-        perms = self.app_store_dir / "syftperm.yaml"
-        perms.write_text(PERMS)
-
-
-    @property
-    def store_dir(self) -> Path:
-        return self.app_store_dir
+        self.app_name = app_name
 
     @property
     def spec_store_path(self) -> Path:
-        return self.store_dir / self.spec.__spec_name__
+        store_dir = self.client.api_data(self.app_name) / "store"
+        if not store_dir.exists():
+            store_dir.mkdir(parents=True, exist_ok=True)
+            # TODO create restrictive Permissions for the store directory
+            perms_file = store_dir / "syftperm.yaml"
+            perms_file.write_text(PERMS)
+
+        return store_dir / self.spec.__spec_name__
 
     def _get_record_path(self, id: str | UUID) -> Path:
-        """Get the full path for a record's YAML file from it's ID."""
+        """Get the full path for a record's YAML file from its ID."""
         return self.spec_store_path / f"{id}.yaml"
 
     def _save_record(self, record: BaseSpec) -> None:
         """Save a single record to its own YAML file"""
         file_path = self._get_record_path(record.id)
-        yaml_dump = yaml.safe_dump(record.model_dump(mode="json"), indent=2)
+        yaml_dump = yaml.safe_dump(
+            record.model_dump(mode="json"), indent=2, sort_keys=False
+        )
         file_path.write_text(yaml_dump)
 
     def _load_record(self, id: str | UUID) -> BaseSpec:
@@ -134,10 +128,12 @@ class RDSFileStore:
 
     def _list_all_records(self) -> list[BaseSpec]:
         """List all records in the store"""
-        records= []
+        records = []
         for file_path in self.spec_store_path.glob("*.yaml"):
             _id = file_path.stem
-            records.append(self._load_record(_id))
+            loaded_record = self._load_record(_id)
+            if loaded_record is not None:
+                records.append(loaded_record)
         return records
 
     @ensure_spec_store_exists
@@ -153,7 +149,7 @@ class RDSFileStore:
         return self._load_record(id)
 
     @ensure_spec_store_exists
-    def update(self, id: str | UUID, item: BaseSpec) -> BaseSpec|None:
+    def update(self, id: str | UUID, item: BaseSpec) -> BaseSpec | None:
         existing_record = self._load_record(id)
         if not existing_record:
             return None
@@ -162,7 +158,7 @@ class RDSFileStore:
         record = {
             **existing_record.model_dump_json(),
             **item.model_dump_json(),
-            "id": id
+            "id": id,
         }
         self._save_record(record)
         return self._load_record(id)
@@ -177,6 +173,8 @@ class RDSFileStore:
 
     @ensure_spec_store_exists
     def query(self, **filters) -> list[BaseSpec]:
+        """Query the store for records matching the given filters"""
+        # TODO optimize later by using database or in-memory indexes, etc?
         results = []
 
         for record in self._list_all_records():
