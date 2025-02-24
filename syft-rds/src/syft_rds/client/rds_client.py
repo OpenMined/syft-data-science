@@ -69,7 +69,7 @@ class RDSClient(RDSClientModule):
 class JobRDSClient(RDSClientModule):
     def submit(
         self,
-        name: str,
+        name: str | None = None,
         description: str | None = None,
         runtime: str | None = None,
         user_code_path: PathLike | None = None,
