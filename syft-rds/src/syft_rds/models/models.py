@@ -1,6 +1,4 @@
-from enum import Enum
 from pathlib import Path
-from typing import Self
 from uuid import UUID
 
 from pydantic import BaseModel, Field

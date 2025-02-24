@@ -6,7 +6,6 @@ from syft_core import Client, SyftClientConfig
 from syft_event import SyftEvents
 from syft_rds.client.rds_client import RDSClient, init_session
 from syft_rds.models.models import (
-    DatasetCreate,
     GetAllRequest,
     GetOneRequest,
     JobCreate,
