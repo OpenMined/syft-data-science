@@ -2175,7 +2175,6 @@ dependencies = [
     { name = "pydantic", extra = ["email"] },
     { name = "rich" },
     { name = "syft-event" },
-    { name = "syft-runtime" },
     { name = "typing-extensions" },
 ]
 
@@ -2186,6 +2185,7 @@ dev = [
     { name = "pip" },
     { name = "pre-commit" },
     { name = "pytest" },
+    { name = "syft-runtime" },
 ]
 
 [package.metadata]
@@ -2195,7 +2195,6 @@ requires-dist = [
     { name = "pydantic", extras = ["email"], specifier = ">=2.10.4" },
     { name = "rich", specifier = ">=13.9.4" },
     { name = "syft-event", git = "https://github.com/OpenMined/syft-extras.git?subdirectory=packages%2Fsyft-event&rev=main" },
-    { name = "syft-runtime", virtual = "../syft_runtime" },
     { name = "typing-extensions", specifier = ">=4.12.2" },
 ]
 
@@ -2207,6 +2206,7 @@ dev = [
     { name = "pip", specifier = ">=25.0.1" },
     { name = "pre-commit", specifier = ">=4.1.0" },
     { name = "pytest", specifier = ">=8.3.4" },
+    { name = "syft-runtime", virtual = "../syft_runtime" },
 ]
 
 [[package]]
