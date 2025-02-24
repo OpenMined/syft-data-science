@@ -64,15 +64,19 @@ class RuntimeUpdate(ItemBaseUpdate[Runtime]):
 
 
 class Dataset(ItemBase):
-    name: str
-    description: str
-    tags: list[str] = Field(default_factory=list)
+    name: str = Field(description="Name of the dataset.")
+    path: str = Field(description="Private path of the dataset.")
+    mock_path: str = Field(description="Mock path of the dataset.")
+    file_type: str = Field(description="Type of files in the dataset.")
+    summary: str | None = Field(description="Summary string of the dataset.")
+    description_path: str | None = Field(description="REAMD.md path of the dataset.")
 
 
 class DatasetCreate(ItemBaseCreate[Dataset]):
     name: str = Field(description="Name of the dataset.")
     path: str = Field(description="Private path of the dataset.")
     mock_path: str = Field(description="Mock path of the dataset.")
+    file_type: str = Field(description="Type of files in the dataset.")
     summary: str | None = Field(description="Summary string of the dataset.")
     description_path: str | None = Field(description="REAMD.md path of the dataset.")
     # tags: list[str] = Field(description="Tags for the dataset.")

@@ -2,6 +2,7 @@ from pathlib import Path
 from typing import Callable, Optional, Union
 from uuid import UUID
 import shutil
+import json
 
 from pydantic import BaseModel
 
@@ -19,6 +20,7 @@ from syft_rds.models.models import (
     JobCreate,
     UserCodeCreate,
     DatasetCreate,
+    Dataset,
 )
 
 
@@ -160,29 +162,59 @@ class DatasetRDSClient(RDSClientModule):
         name: str,
         path: Union[str, Path],
         mock_path: Union[str, Path],
+        file_type: str,
         summary: Optional[str] = None,
         description_path: Optional[str] = None,
     ):
         # TODO: do we have to check if self._syftbox_client.email is the same as self._config.host for now?
-        DatasetCreate(
+        if self._syftbox_client.email != self._config.host:
+            raise ValueError(
+                f"SyftBox email and RDS host must be the same to create a dataset. SyftBox email: {self._syftbox_client.email}. Host email: {self._config.host}"
+            )
+        dataset_create = DatasetCreate(
             name=name,
             path=str(path),
             mock_path=str(mock_path),
+            file_type=file_type,
             summary=summary,
             description_path=description_path,
         )
-        self.check_dataset_name_unique(name)
-        check_mock_and_private_exists(path, mock_path)
+        self._check_dataset_name_unique(name)
+
+        check_path_exists(path)
+        check_path_exists(mock_path)
         check_are_both_dirs_or_files(path, mock_path)
         check_same_file_extensions(path, mock_path)
         check_same_file_extensions_for_dir(path, mock_path)
 
-        self._copy_mock_to_public_syftbox_dir(mock_path, name)
-        self._copy_private_to_private_syftbox_dir(path, name)
-        self._generate_dataset_schema_file()
+        self._copy_mock_to_public_syftbox_dir(name, mock_path)
+        self._copy_private_to_private_syftbox_dir(name, path)
+        self._generate_dataset_schema(dataset_create)
+
+        return Dataset(
+            name=name,
+            path=path,
+            mock_path=mock_path,
+            file_type=file_type,
+            summary=summary,
+            description_path=description_path,
+        )
+
+    def _check_dataset_name_unique(self, name: str):
+        public_dataset_dir: Path = self.get_syftbox_public_dataset_dir(name)
+        if public_dataset_dir.exists():
+            raise ValueError(
+                f"Dataset with name '{name}' already exists at {public_dataset_dir}"
+            )
+
+        private_dataset_dir: Path = self.get_syftbox_private_dataset_dir(name)
+        if private_dataset_dir.exists():
+            raise ValueError(
+                f"Dataset with name '{name}' already exists at {private_dataset_dir}"
+            )
 
     def _copy_mock_to_public_syftbox_dir(
-        self, mock_path: Union[str, Path], dataset_name: str
+        self, dataset_name: str, mock_path: Union[str, Path]
     ):
         public_dataset_dir: Path = self.get_syftbox_public_dataset_dir(dataset_name)
         public_dataset_dir.mkdir(parents=True, exist_ok=True)
@@ -198,7 +230,9 @@ class DatasetRDSClient(RDSClientModule):
         return self._syftbox_client.my_datasite / "public" / "datasets" / dataset_name
 
     def _copy_private_to_private_syftbox_dir(
-        self, path: Union[str, Path], dataset_name: str
+        self,
+        dataset_name: str,
+        path: Union[str, Path],
     ):
         private_dataset_dir: Path = self.get_syftbox_private_dataset_dir(dataset_name)
         private_dataset_dir.mkdir(parents=True, exist_ok=True)
@@ -218,27 +252,40 @@ class DatasetRDSClient(RDSClientModule):
             / dataset_name
         )
 
-    def _generate_dataset_schema_file(self):
-        pass
+    def get_syftbox_mock_dataset_url(
+        self, dataset_name: str, mock_path: Union[Path, str]
+    ):
+        return f"syft://{self._syftbox_client.email}/public/datasets/{dataset_name}/{Path(mock_path).name}"
 
-    def check_dataset_name_unique(self, name: str):
-        public_dataset_dir: Path = self.get_syftbox_public_dataset_dir(name)
-        if public_dataset_dir.exists():
-            raise ValueError(
-                f"Dataset with name '{name}' already exists at {public_dataset_dir}"
-            )
+    def get_syftbox_private_dataset_url(
+        self, dataset_name: str, path: Union[Path, str]
+    ):
+        return f"syft://private/datasets/{dataset_name}/{Path(path).name}"
 
-        private_dataset_dir: Path = self.get_syftbox_private_dataset_dir(name)
-        if private_dataset_dir.exists():
-            raise ValueError(
-                f"Dataset with name '{name}' already exists at {private_dataset_dir}"
-            )
+    def _generate_dataset_schema(self, dataset_create: DatasetCreate):
+        public_dataset_dir: Path = self.get_syftbox_public_dataset_dir(
+            dataset_create.name
+        )
+        # Convert paths to absolute
+        mock_path = Path(dataset_create.mock_path)
+        prv_path = Path(dataset_create.path)
+        schema_dict = dataset_create.model_dump()
+        schema_dict.pop("path")
+        schema_dict.pop("mock_path")
+        schema_dict["mock"] = self.get_syftbox_mock_dataset_url(
+            dataset_create.name, mock_path
+        )
+        schema_dict["private"] = self.get_syftbox_private_dataset_url(
+            dataset_create.name, prv_path
+        )
+
+        with open(public_dataset_dir / "dataset.schema.json", "w") as f:
+            json.dump(schema_dict, f, indent=2)
 
 
-def check_mock_and_private_exists(path: Union[str, Path], mock_path: Union[str, Path]):
-    path, mock_path = Path(path), Path(mock_path)
-    if not (mock_path.exists() and path.exists()):
-        raise ValueError(f"Paths must exist: {mock_path} and {path}")
+def check_path_exists(path: Union[str, Path]):
+    if not Path(path).exists():
+        raise ValueError(f"Paths must exist: {path}")
 
 
 def check_are_both_dirs_or_files(path: Union[str, Path], mock_path: Union[str, Path]):
