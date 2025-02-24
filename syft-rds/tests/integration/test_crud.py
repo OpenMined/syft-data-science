@@ -15,7 +15,12 @@ from syft_rds.models.models import (
 )
 from syft_rds.server.app import create_app
 
-from syft_runtime.syft_runtime.main import DockerRunner, FileOutputHandler, JobConfig
+from syft_runtime.syft_runtime.main import (
+    DockerRunner,
+    FileOutputHandler,
+    JobConfig,
+    RichConsoleUI,
+)
 
 HOST_EMAIL = "alice@openmined.org"
 
@@ -168,7 +173,7 @@ def test_job_execution(rds_client: RDSClient, server_client: RDSClient):
         data_mount_dir="/data",
     )
 
-    runner = DockerRunner(handlers=[FileOutputHandler()])
+    runner = DockerRunner(handlers=[FileOutputHandler(), RichConsoleUI()])
 
     runner.run(
         config,
