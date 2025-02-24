@@ -1,6 +1,7 @@
 from pathlib import Path
 from typing import Callable, Optional, Union
 from uuid import UUID
+import shutil
 
 from pydantic import BaseModel
 
@@ -17,6 +18,7 @@ from syft_rds.models.models import (
     Job,
     JobCreate,
     UserCodeCreate,
+    DatasetCreate,
 )
 
 
@@ -161,7 +163,105 @@ class DatasetRDSClient(RDSClientModule):
         summary: Optional[str] = None,
         description_path: Optional[str] = None,
     ):
-        print("inside dataset.create")
+        # TODO: do we have to check if self._syftbox_client.email is the same as self._config.host for now?
+        DatasetCreate(
+            name=name,
+            path=str(path),
+            mock_path=str(mock_path),
+            summary=summary,
+            description_path=description_path,
+        )
+        self.check_dataset_name_unique(name)
+        check_mock_and_private_exists(path, mock_path)
+        check_are_both_dirs_or_files(path, mock_path)
+        check_same_file_extensions(path, mock_path)
+        check_same_file_extensions_for_dir(path, mock_path)
 
-    def get_all(self) -> list[str]:
-        return self.rpc.dataset.get_all()
+        self._copy_mock_to_public_syftbox_dir(mock_path, name)
+        self._copy_private_to_private_syftbox_dir(path, name)
+        self._generate_dataset_schema_file()
+
+    def _copy_mock_to_public_syftbox_dir(
+        self, mock_path: Union[str, Path], dataset_name: str
+    ):
+        public_dataset_dir: Path = self.get_syftbox_public_dataset_dir(dataset_name)
+        public_dataset_dir.mkdir(parents=True, exist_ok=True)
+        mock_path = Path(mock_path)
+        if mock_path.is_dir():
+            shutil.copytree(
+                mock_path, public_dataset_dir / mock_path.name, dirs_exist_ok=True
+            )
+        else:
+            shutil.copy2(mock_path, public_dataset_dir / mock_path.name)
+
+    def get_syftbox_public_dataset_dir(self, dataset_name: str):
+        return self._syftbox_client.my_datasite / "public" / "datasets" / dataset_name
+
+    def _copy_private_to_private_syftbox_dir(
+        self, path: Union[str, Path], dataset_name: str
+    ):
+        private_dataset_dir: Path = self.get_syftbox_private_dataset_dir(dataset_name)
+        private_dataset_dir.mkdir(parents=True, exist_ok=True)
+        prv_path = Path(path)
+        if prv_path.is_dir():
+            shutil.copytree(
+                prv_path, private_dataset_dir / prv_path.name, dirs_exist_ok=True
+            )
+        else:
+            shutil.copy2(prv_path, private_dataset_dir / prv_path.name)
+
+    def get_syftbox_private_dataset_dir(self, dataset_name: str):
+        return (
+            self._syftbox_client.workspace.data_dir
+            / "private"
+            / "datasets"
+            / dataset_name
+        )
+
+    def _generate_dataset_schema_file(self):
+        pass
+
+    def check_dataset_name_unique(self, name: str):
+        public_dataset_dir: Path = self.get_syftbox_public_dataset_dir(name)
+        if public_dataset_dir.exists():
+            raise ValueError(
+                f"Dataset with name '{name}' already exists at {public_dataset_dir}"
+            )
+
+        private_dataset_dir: Path = self.get_syftbox_private_dataset_dir(name)
+        if private_dataset_dir.exists():
+            raise ValueError(
+                f"Dataset with name '{name}' already exists at {private_dataset_dir}"
+            )
+
+
+def check_mock_and_private_exists(path: Union[str, Path], mock_path: Union[str, Path]):
+    path, mock_path = Path(path), Path(mock_path)
+    if not (mock_path.exists() and path.exists()):
+        raise ValueError(f"Paths must exist: {mock_path} and {path}")
+
+
+def check_are_both_dirs_or_files(path: Union[str, Path], mock_path: Union[str, Path]):
+    path, mock_path = Path(path), Path(mock_path)
+    if not (
+        (path.is_dir() and mock_path.is_dir())
+        or (path.is_file() and mock_path.is_file())
+    ):
+        raise ValueError(f"Paths must be same type: {path} and {mock_path}")
+
+
+def check_same_file_extensions(path: Union[str, Path], mock_path: Union[str, Path]):
+    path, mock_path = Path(path), Path(mock_path)
+    if (path.is_file() and mock_path.is_file()) and (
+        not path.suffix == mock_path.suffix
+    ):
+        raise ValueError(f"Files must have same extension: {path} and {mock_path}")
+
+
+def check_same_file_extensions_for_dir(
+    path: Union[str, Path], mock_path: Union[str, Path]
+):
+    # check file extension for dirs, but how?
+    # Since we do not know exactly the depth of the nested dir,
+    # do we have to traverse through it?
+    pass

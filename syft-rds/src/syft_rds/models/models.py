@@ -1,6 +1,4 @@
-from enum import Enum
 from pathlib import Path
-from typing import Self
 from uuid import UUID
 
 from pydantic import BaseModel, Field
@@ -72,9 +70,12 @@ class Dataset(ItemBase):
 
 
 class DatasetCreate(ItemBaseCreate[Dataset]):
-    name: str
-    description: str
-    tags: list[str] = Field(default_factory=list)
+    name: str = Field(description="Name of the dataset.")
+    path: str = Field(description="Private path of the dataset.")
+    mock_path: str = Field(description="Mock path of the dataset.")
+    summary: str | None = Field(description="Summary string of the dataset.")
+    description_path: str | None = Field(description="REAMD.md path of the dataset.")
+    # tags: list[str] = Field(description="Tags for the dataset.")
 
 
 class DatasetUpdate(ItemBaseUpdate[Dataset]):

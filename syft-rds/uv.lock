@@ -297,16 +297,10 @@ wheels = [
 [[package]]
 name = "syft-core"
 version = "0.1.0"
-source = { editable = "../../../Library/Caches/uv/git-v0/checkouts/fb07ef28afdd7806/1460810/packages/syft-core" }
+source = { git = "https://github.com/OpenMined/syft-extras.git?subdirectory=packages%2Fsyft-core&rev=main#146081074f1caf897ce190dae65fd4a79e38f7ac" }
 dependencies = [
     { name = "pydantic", extra = ["email"] },
     { name = "typing-extensions" },
-]
-
-[package.metadata]
-requires-dist = [
-    { name = "pydantic", extras = ["email"], specifier = ">=2.10.4" },
-    { name = "typing-extensions", specifier = ">=4.12.2" },
 ]
 
 [[package]]
@@ -357,18 +351,11 @@ dev = [
 [[package]]
 name = "syft-rpc"
 version = "0.1.0"
-source = { editable = "../../../Library/Caches/uv/git-v0/checkouts/fb07ef28afdd7806/1460810/packages/syft-rpc" }
+source = { git = "https://github.com/OpenMined/syft-extras.git?subdirectory=packages%2Fsyft-rpc&rev=main#146081074f1caf897ce190dae65fd4a79e38f7ac" }
 dependencies = [
     { name = "pydantic" },
     { name = "syft-core" },
     { name = "typing-extensions" },
-]
-
-[package.metadata]
-requires-dist = [
-    { name = "pydantic", specifier = ">=2.9.2" },
-    { name = "syft-core", editable = "../../../Library/Caches/uv/git-v0/checkouts/fb07ef28afdd7806/1460810/packages/syft-core" },
-    { name = "typing-extensions", specifier = ">=4.12.2" },
 ]
 
 [[package]]

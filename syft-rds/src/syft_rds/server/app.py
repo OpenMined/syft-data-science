@@ -1,7 +1,6 @@
 from types import MethodType
 
-from loguru import logger
-from syft_core import Client, SyftClientConfig
+from syft_core import Client
 from syft_event import SyftEvents
 
 from syft_rds.server.router import RPCRouter
