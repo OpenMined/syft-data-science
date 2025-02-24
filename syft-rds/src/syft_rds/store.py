@@ -38,35 +38,28 @@ def ensure_store_exists(func):
     def wrapper(self, *args, **kwargs):
         if not self.store_path.exists():
             self.store_path.mkdir(parents=True, exist_ok=True)
+            perms_file = self.store_path.parent / "syftperm.yaml"
+            perms_file.write_text(PERMS)  # TODO create more restrictive permissions
         return func(self, *args, **kwargs)
 
     return wrapper
 
 
-class YAMLStore(Generic[S]):
-    def __init__(self, app_name: str, spec: Type[S], client: Optional[Client] = None):
+class YAMLFileSystemDatabase(Generic[S]):
+    def __init__(self, spec: Type[S], db_path: str | Path):
         """
-        Initialize store for a specific specification model
+        Initialize data store for the given spec model at the given root db_path.
 
         Args:
-            app_name: Name of the SyftBox application to store data for.
             spec: The specification model class for which to initialize the store.
-            client: Syft client instance to use.
+            db_path: Directory path to store the database files
         """
-        self.client = client or Client.load()
         self.spec = spec
-        self.app_name = app_name
+        self.db_path = Path(db_path)
 
     @property
     def store_path(self) -> Path:
-        store_dir = self.client.api_data(self.app_name) / "store"
-        if not store_dir.exists():
-            store_dir.mkdir(parents=True, exist_ok=True)
-            # TODO create more restrictive permissions for the store directory
-            perms_file = store_dir / "syftperm.yaml"
-            perms_file.write_text(PERMS)
-
-        return store_dir / self.spec.__spec_name__
+        return self.db_path / self.spec.__spec_name__
 
     def _get_record_path(self, id: str | UUID) -> Path:
         """Get the full path for a record's YAML file from its ID."""
@@ -90,7 +83,7 @@ class YAMLStore(Generic[S]):
         record_dict = yaml.safe_load(file_path.read_text())
         return self.spec.model_validate(record_dict)
 
-    def _list_all_records(self) -> list[S]:
+    def list_all(self) -> list[S]:
         """List all records in the store"""
         records = []
         for file_path in self.store_path.glob("*.yaml"):
@@ -184,7 +177,7 @@ class YAMLStore(Generic[S]):
         # TODO optimize later by using database or in-memory indexes, etc?
         results = []
 
-        for record in self._list_all_records():
+        for record in self.list_all():
             matches = True
             for key, value in filters.items():
                 if not hasattr(record, key) or getattr(record, key) != value:
@@ -209,10 +202,26 @@ class YAMLStore(Generic[S]):
         results = []
         query = query.lower()
 
-        for record in self._list_all_records():
+        for record in self.list_all():
             for field in fields:
                 val = getattr(record, field, None)
                 if val and isinstance(val, str) and query in val.lower():
                     results.append(record)
                     break
         return results
+
+
+class RDSStore(YAMLFileSystemDatabase):
+    APP_NAME = "rds"
+
+    def __init__(self, spec: Type[S], client: Optional[Client] = None):
+        """
+        Initialize RDS data store for the given spec model.
+
+        Args:
+            spec: The specification model class for which to initialize the store.
+            client: Syft client instance to use.
+        """
+        self.spec = spec
+        self.client = client or Client.load()
+        self.db_path = self.client.api_data(self.APP_NAME) / "store"
