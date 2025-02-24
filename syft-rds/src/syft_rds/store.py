@@ -47,12 +47,69 @@ def ensure_store_exists(func):
 
 class YAMLFileSystemDatabase(Generic[S]):
     def __init__(self, spec: Type[S], db_path: str | Path):
-        """
-        Initialize data store for the given spec model at the given root db_path.
+        """A lightweight file-based database that stores records as individual YAML files.
+
+        YAMLFileSystemDatabase provides a simple database implementation where each record
+        is stored as a separate YAML file in the filesystem. It supports basic CRUD operations,
+        querying, and searching capabilities while using Pydantic models for schema validation.
+
+        The database creates a hierarchical directory structure:
+
+        /db_path/
+        ├── model1_spec_name/           # Directory for first model type
+        │   ├── uuid1.yaml             # Individual record files
+        │   └── uuid2.yaml
+        ├── model2_spec_name/           # Directory for second model type
+        │   ├── uuid3.yaml
+        │   └── uuid4.yaml
+        └── syftperm.yaml              # Permissions file
+
+        Where:
+        - Each record is stored as a separate .yaml file
+        - Filenames are UUIDs (e.g., "123e4567-e89b-12d3-a456-426614174000.yaml")
+        - All files for a specific model are stored in a dedicated subdirectory named after the model's __spec_name__
+        - A syftperm.yaml file is created at the parent level to manage permissions
+
+        Features:
+        - CRUD operations (Create, Read, Update, Delete)
+        - Query records with exact field matching
+        - Case-insensitive search across specified fields
+        - Automatic UUID generation for new records
+        - Type safety and validation through Pydantic models
+
+        Example:
+            ```python
+            from pydantic import BaseModel
+
+            class UserSpec(BaseModel):
+                __spec_name__ = "users"
+                name: str
+                email: str
+
+            # Initialize the database
+            db = YAMLFileSystemDatabase(UserSpec, "/path/to/db")
+
+            # Create a new user
+            user = UserSpec(name="John Doe", email="john@example.com")
+            user_id = db.create(user)
+
+            # Query users
+            johns = db.query(name="John Doe")
+            ```
 
         Args:
-            spec: The specification model class for which to initialize the store.
-            db_path: Directory path to store the database files
+            spec: The Pydantic model class that defines the schema for stored records.
+                Must inherit from BaseSpec.
+            db_path: Directory path where the database files will be stored.
+                    Can be string or Path object.
+
+        Notes:
+            - The database automatically creates the necessary directory structure
+            - Each model type gets its own subdirectory based on __spec_name__
+            - Records must be instances of Pydantic models inheriting from BaseSpec
+            - All operations are file-system based for now (no in-memory caching)
+            - Suitable for smaller datasets where simple CRUD operations are needed
+            - Provides human-readable storage format
         """
         self.spec = spec
         self.db_path = Path(db_path)
@@ -215,8 +272,31 @@ class RDSStore(YAMLFileSystemDatabase):
     APP_NAME = "rds"
 
     def __init__(self, spec: Type[S], client: Optional[Client] = None):
-        """
-        Initialize RDS data store for the given spec model.
+        """A specialized YAML-based database store for RDS (Remote Data Store) that integrates with SyftBox.
+
+        `RDSStore` extends `YAMLFileSystemDatabase` to provide a storage solution specifically designed
+        for use with SyftBox's RDS infrastructure. It automatically configures the database path
+        using Syft's client API data directory and maintains the same CRUD, query, and search
+        capabilities of its parent class.
+
+        Directory structure with the current four specs (code, dataset, job and runtime):
+
+        <SYFTBOX-WORKSPACE>/datasites/<YOUR-EMAIL>/api_data/
+        ├── rds/                     # RDS application root directory
+        │   └── store/               # Database root
+        │       ├── code/
+        │       │   ├── uuid1.yaml
+        │       │   └── uuid2.yaml
+        │       ├── dataset/
+        │       │   ├── uuid1.yaml
+        │       │   └── uuid2.yaml
+        │       ├── job/
+        │       │   ├── uuid1.yaml
+        │       │   └── uuid2.yaml
+        │       ├── runtime/
+        │       │   ├── uuid1.yaml
+        │       │   └── uuid2.yaml
+        │       └── syftperm.yaml    # Permissions file
 
         Args:
             spec: The specification model class for which to initialize the store.
