@@ -100,7 +100,7 @@ class RDSFileStore:
         store_dir = self.client.api_data(self.app_name) / "store"
         if not store_dir.exists():
             store_dir.mkdir(parents=True, exist_ok=True)
-            # TODO create restrictive Permissions for the store directory
+            # TODO create more restrictive permissions for the store directory
             perms_file = store_dir / "syftperm.yaml"
             perms_file.write_text(PERMS)
 
@@ -137,34 +137,69 @@ class RDSFileStore:
         return records
 
     @ensure_spec_store_exists
-    def create(self, record: BaseSpec) -> str:
-        if not isinstance(record, self.spec):
-            raise TypeError(f"`record` must be of type {self}")
-        record.id = uuid4()  # Generate a new id during "create"
-        self._save_record(record)
-        return record.id
+    def create(self, item: BaseSpec) -> UUID:
+        """
+        Create a new record in the store
+
+        Args:
+            item: Instance of the model to create
+
+        Returns:
+            ID of the created record
+        """
+        if not isinstance(item, self.spec):
+            raise TypeError(f"`record` must be of type {self.spec.__name__}")
+        item.id = uuid4()  # Generate a new id during "create"
+        self._save_record(item)
+        return item.id
 
     @ensure_spec_store_exists
     def read(self, id: str | UUID) -> BaseSpec:
+        """
+        Read a record by ID
+
+        Args:
+            id: Record ID to fetch
+
+        Returns:
+            Record if found, None otherwise
+        """
         return self._load_record(id)
 
     @ensure_spec_store_exists
     def update(self, id: str | UUID, item: BaseSpec) -> BaseSpec | None:
+        """
+        Update a record by ID
+
+        Args:
+            id: Record ID to update
+            item: New data to update with
+
+        Returns:
+            Updated record if found, None otherwise
+        """
         existing_record = self._load_record(id)
         if not existing_record:
             return None
 
         # Update the record
-        record = {
-            **existing_record.model_dump_json(),
-            **item.model_dump_json(),
-            "id": id,
-        }
-        self._save_record(record)
+        updated_record = existing_record.model_copy(
+            update=item.model_dump(exclude={"id"})
+        )
+        self._save_record(updated_record)
         return self._load_record(id)
 
     @ensure_spec_store_exists
     def delete(self, id: str | UUID) -> bool:
+        """
+        Delete a record by ID
+
+        Args:
+            id: Record ID to delete
+
+        Returns:
+            True if record was deleted, False if not found
+        """
         file_path = self._get_record_path(id)
         if not file_path.exists():
             return False
@@ -173,7 +208,15 @@ class RDSFileStore:
 
     @ensure_spec_store_exists
     def query(self, **filters) -> list[BaseSpec]:
-        """Query the store for records matching the given filters"""
+        """
+        Query records with exact match filters
+
+        Args:
+            **filters: Field-value pairs to filter by
+
+        Returns:
+            List of matching records
+        """
         # TODO optimize later by using database or in-memory indexes, etc?
         results = []
 
@@ -185,4 +228,27 @@ class RDSFileStore:
                     break
             if matches:
                 results.append(record)
+        return results
+
+    @ensure_spec_store_exists
+    def search(self, query: str, fields: list[str]) -> list[BaseSpec]:
+        """
+        Search records with case-insensitive partial matching
+
+        Args:
+            query: Search string to look for
+            fields: List of fields to search in
+
+        Returns:
+            List of matching records
+        """
+        results = []
+        query = query.lower()
+
+        for record in self._list_all_records():
+            for field in fields:
+                val = getattr(record, field, None)
+                if val and isinstance(val, str) and query in val.lower():
+                    results.append(record)
+                    break
         return results
