@@ -7,6 +7,7 @@ import uuid
 from pydantic import BaseModel, Field, Json, model_validator
 
 from syft_rds.models.base import ItemBase, ItemBaseCreate, ItemBaseUpdate
+from syft_rds.utils.name_generator import generate_name
 
 
 class UserCode(ItemBase):
@@ -52,9 +53,7 @@ class JobStatus(str, enum.Enum):
 
 
 class Job(ItemBase):
-    name: str = Field(
-        default_factory=lambda: str(uuid.uuid4())
-    )  # use a docker like name in the future
+    name: str
     description: str | None = None
     runtime: str
     user_code_id: UUID
@@ -113,7 +112,7 @@ class Job(ItemBase):
 
 
 class JobCreate(ItemBaseCreate[Job]):
-    name: str
+    name: str = Field(default_factory=generate_name)
     description: str | None = None
     runtime: str
     user_code_id: UUID

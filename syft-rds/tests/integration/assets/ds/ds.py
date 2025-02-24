@@ -9,3 +9,11 @@ with open(os.path.join(DATA_DIR, "data.csv"), "r") as f:
 
 with open(os.path.join(OUTPUT_DIR, "my_result.csv"), "w") as f:
     f.write("Hello, world!")
+
+
+def main():
+    print("Hello from test job!")
+
+
+if __name__ == "__main__":
+    main()
