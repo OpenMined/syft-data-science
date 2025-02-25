@@ -8,6 +8,7 @@ import json
 from pydantic import BaseModel
 
 from syft_event import SyftEvents
+from syft_core import Client
 
 from syft_rds.client.connection import get_connection
 from syft_rds.client.exceptions import RDSValidationError
@@ -149,13 +150,22 @@ class RuntimeRDSClient(RDSClientModule):
 
 
 class DatasetRDSClient(RDSClientModule):
+    """
+    For DatasetRDSClient, everything is done on the client side
+    Hence, there is no need for utilizing RPC Connections
+    """
+
+    def __init__(self, config: RDSClientConfig, rpc_client: RPCClient):
+        super().__init__(config, rpc_client)
+        self._syftbox_client = Client.load()
+
     def raise_error_if_not_admin(self):
-        if self._syftbox_client.email != self._config.host:
+        if self._syftbox_client.email != self.config.host:
             raise ValueError(
                 f"SyftBox email and RDS host must be the same to create a dataset "
                 f"(no remote dataset creation for now). "
                 f"SyftBox email: {self._syftbox_client.email}. "
-                f"Host email: {self._config.host}"
+                f"Host email: {self.config.host}"
             )
 
     def create(
