@@ -171,3 +171,4 @@ cython_debug/
 .pypirc
 
 experimental
+syft-rds/tests/integration/assets/do/job_outputs/*
