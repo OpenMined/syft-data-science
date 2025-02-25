@@ -151,21 +151,24 @@ class YAMLFileSystemDatabase(Generic[S]):
         return records
 
     @ensure_store_exists
-    def create(self, item: S) -> UUID:
+    def create(self, record: S, overwrite:bool = False) -> UUID:
         """
         Create a new record in the store
 
         Args:
-            item: Instance of the model to create
+            record: Instance of the model to create
+            overwrite: If True, overwrite the record if it already exists
 
         Returns:
             ID of the created record
         """
-        if not isinstance(item, self.spec):
+        if not isinstance(record, self.spec):
             raise TypeError(f"`record` must be of type {self.spec.__name__}")
-        item.id = uuid4()  # Generate a new id during "create"
-        self._save_record(item)
-        return item.id
+        file_path = self._get_record_path(record.id)
+        if file_path.exists() and not overwrite:
+            raise ValueError(f"Record with ID {record.id} already exists")
+        self._save_record(record)
+        return record.id
 
     @ensure_store_exists
     def read(self, id: str | UUID) -> Optional[S]:
@@ -181,24 +184,27 @@ class YAMLFileSystemDatabase(Generic[S]):
         return self._load_record(id)
 
     @ensure_store_exists
-    def update(self, id: str | UUID, item: S) -> Optional[S]:
+    def update(self, id: str | UUID, record: S) -> Optional[S]:
         """
         Update a record by ID
 
         Args:
             id: Record ID to update
-            item: New data to update with
+            record: New data to update with
 
         Returns:
             Updated record if found, None otherwise
         """
+        if not isinstance(record, self.spec):
+            raise TypeError(f"`record` must be of type {self.spec.__name__}")
+
         existing_record = self._load_record(id)
         if not existing_record:
             return None
 
         # Update the record
         updated_record = existing_record.model_copy(
-            update=item.model_dump(exclude={"id"})
+            update=record.model_dump(exclude={"id"})
         )
         self._save_record(updated_record)
         return self._load_record(id)
