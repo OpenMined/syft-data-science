@@ -6,8 +6,7 @@ import json
 
 from syft_core import Client as SyftBoxClient
 
-from syft_rds.client.rpc_client import RPCClient
-from syft_rds.client.rds_clients.base import RDSClientConfig, RDSClientModule
+from syft_rds.client.rds_clients.base import RDSClientConfig
 from syft_rds.models.models import DatasetCreate, Dataset, DatasetUpdate
 
 
@@ -181,16 +180,15 @@ class DatasetSchemaManager:
             return json.load(f)
 
 
-class DatasetRDSClient(RDSClientModule):
+class DatasetRDSClient:
     """
-    For DatasetRDSClient, everything is done on the client side
-    Hence, there is no need for utilizing RPC Connections and the RPCClient
+    For DatasetRDSClient, everything is done locally on the client side.
+    Hence, there is no need for utilizing RPC Connections and the RPCClient like other RDS clients
     """
 
-    def __init__(self, config: RDSClientConfig, rpc_client: RPCClient):
-        super().__init__(config, rpc_client)
+    def __init__(self, config: RDSClientConfig, syftbox_client: SyftBoxClient):
         self._config = config
-        self._syftbox_client = SyftBoxClient.load()
+        self._syftbox_client = syftbox_client
         self._path_manager = DatasetPathManager(self._syftbox_client, self._config.host)
         self._schema_manager = DatasetSchemaManager(self._path_manager)
         self._files_manager = DatasetFilesManager(self._path_manager)

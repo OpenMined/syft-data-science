@@ -38,4 +38,4 @@ class RDSClient(RDSClientModule):
         super().__init__(config, rpc_client)
         self.jobs = JobRDSClient(self.config, self.rpc)
         self.runtime = RuntimeRDSClient(self.config, self.rpc)
-        self.dataset = DatasetRDSClient(self.config, self.rpc)
+        self.dataset = DatasetRDSClient(self.config, self.rpc.connection.sender_client)
