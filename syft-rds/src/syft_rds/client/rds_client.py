@@ -8,7 +8,6 @@ import json
 from pydantic import BaseModel
 
 from syft_event import SyftEvents
-from syft_core import Client as SyftBoxClient
 
 from syft_rds.client.connection import get_connection
 from syft_rds.client.exceptions import RDSValidationError
@@ -58,37 +57,20 @@ class RDSClientConfig(BaseModel):
 
 
 class RDSClientModule:
-    def __init__(
-        self,
-        host: str,
-        rpc_client: Optional[RPCClient] = None,
-        syftbox_client: Optional[SyftBoxClient] = None,
-    ) -> None:
-        self._config = RDSClientConfig(host=host)
-        self._rpc = rpc_client
-        self._syftbox_client = (
-            syftbox_client if syftbox_client is not None else SyftBoxClient.load()
-        )
+    def __init__(self, config: RDSClientConfig, rpc_client: RPCClient):
+        self.config = config
+        self.rpc = rpc_client
 
     def set_default_runtime(self, runtime: str):
         self.config.default_runtime = runtime
 
-    def raise_error_if_not_admin(self):
-        if self._syftbox_client.email != self._config.host:
-            raise ValueError(
-                f"SyftBox email and RDS host must be the same to create a dataset "
-                f"(no remote dataset creation for now). "
-                f"SyftBox email: {self._syftbox_client.email}. "
-                f"Host email: {self._config.host}"
-            )
-
 
 class RDSClient(RDSClientModule):
-    def __init__(self, host: str, rpc_client: Optional[RPCClient] = None):
-        super().__init__(host, rpc_client)
-        self.jobs = JobRDSClient(host, self._rpc)
-        self.runtime = RuntimeRDSClient(host, self._rpc)
-        self.dataset = DatasetRDSClient(host, self._rpc)
+    def __init__(self, config: RDSClientConfig, rpc_client: RPCClient):
+        super().__init__(config, rpc_client)
+        self.jobs = JobRDSClient(self.config, self.rpc)
+        self.runtime = RuntimeRDSClient(self.config, self.rpc)
+        self.dataset = DatasetRDSClient(self.config, self.rpc)
 
 
 class JobRDSClient(RDSClientModule):
@@ -167,6 +149,15 @@ class RuntimeRDSClient(RDSClientModule):
 
 
 class DatasetRDSClient(RDSClientModule):
+    def raise_error_if_not_admin(self):
+        if self._syftbox_client.email != self._config.host:
+            raise ValueError(
+                f"SyftBox email and RDS host must be the same to create a dataset "
+                f"(no remote dataset creation for now). "
+                f"SyftBox email: {self._syftbox_client.email}. "
+                f"Host email: {self._config.host}"
+            )
+
     def create(
         self,
         name: str,
