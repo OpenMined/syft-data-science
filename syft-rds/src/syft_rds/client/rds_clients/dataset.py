@@ -29,11 +29,21 @@ class DatasetUrlManager:
 
 
 class DatasetPathManager:
-    def __init__(self, syftbox_client: SyftBoxClient):
+    def __init__(self, syftbox_client: SyftBoxClient, host: str):
         self._syftbox_client = syftbox_client
+        self._host = host
 
-    def get_syftbox_public_dataset_dir(self, dataset_name: str) -> Path:
+    def get_local_public_dataset_dir(self, dataset_name: str) -> Path:
         return self._syftbox_client.my_datasite / "public" / "datasets" / dataset_name
+
+    def get_remote_public_dataset_dir(self, dataset_name: str) -> Path:
+        return (
+            self._syftbox_client.datasites
+            / self._host
+            / "public"
+            / "datasets"
+            / dataset_name
+        )
 
     def get_syftbox_private_dataset_dir(self, dataset_name: str) -> Path:
         return (
@@ -96,7 +106,7 @@ class DatasetFilesManager:
     def copy_mock_to_public_syftbox_dir(
         self, dataset_name: str, mock_path: Union[str, Path]
     ) -> Path:
-        public_dataset_dir: Path = self._path_manager.get_syftbox_public_dataset_dir(
+        public_dataset_dir: Path = self._path_manager.get_local_public_dataset_dir(
             dataset_name
         )
         return self._copy_file_or_dir(mock_path, public_dataset_dir)
@@ -111,10 +121,10 @@ class DatasetFilesManager:
         )
         return self._copy_file_or_dir(path, private_dataset_dir)
 
-    def copy_desc_file_to_public_syftbox_dir(
+    def copy_description_file_to_public_syftbox_dir(
         self, dataset_name: str, description_path: Union[str, Path]
     ) -> Path:
-        public_dataset_dir: Path = self._path_manager.get_syftbox_public_dataset_dir(
+        public_dataset_dir: Path = self._path_manager.get_local_public_dataset_dir(
             dataset_name
         )
         dest_path = public_dataset_dir / Path(description_path).name
@@ -123,7 +133,7 @@ class DatasetFilesManager:
 
     def cleanup_dataset_files(self, name: str) -> None:
         try:
-            public_dir = self._path_manager.get_syftbox_public_dataset_dir(name)
+            public_dir = self._path_manager.get_local_public_dataset_dir(name)
             private_dir = self._path_manager.get_syftbox_private_dataset_dir(name)
             shutil.rmtree(public_dir)
             shutil.rmtree(private_dir)
@@ -136,7 +146,7 @@ class DatasetSchemaManager:
     def __init__(self, path_manager: DatasetPathManager) -> None:
         self._path_manager = path_manager
 
-    def generate_dataset_schema(self, dataset_create: DatasetCreate) -> None:
+    def create(self, dataset_create: DatasetCreate) -> None:
         mock_path = Path(dataset_create.mock_path)
         prv_path = Path(dataset_create.path)
         # Build schema
@@ -156,11 +166,15 @@ class DatasetSchemaManager:
             dataset_create.description_path,
         )
         # Write schema file
-        public_dataset_dir: Path = self._path_manager.get_syftbox_public_dataset_dir(
+        public_dataset_dir: Path = self._path_manager.get_local_public_dataset_dir(
             dataset_create.name
         )
         with open(public_dataset_dir / "dataset.schema.json", "w") as f:
             json.dump(schema_dict, f, indent=2)
+
+    def get(self, path: Union[str, Path]) -> dict:
+        with open(path, "r") as f:
+            return json.load(f)
 
 
 class DatasetRDSClient(RDSClientModule):
@@ -173,7 +187,7 @@ class DatasetRDSClient(RDSClientModule):
         super().__init__(config, rpc_client)
         self._config = config
         self._syftbox_client = SyftBoxClient.load()
-        self._path_manager = DatasetPathManager(self._syftbox_client)
+        self._path_manager = DatasetPathManager(self._syftbox_client, self._config.host)
         self._schema_manager = DatasetSchemaManager(self._path_manager)
         self._files_manager = DatasetFilesManager(self._path_manager)
 
@@ -194,7 +208,7 @@ class DatasetRDSClient(RDSClientModule):
         file_type: str,
     ) -> DatasetCreate:
         if (
-            self._path_manager.get_syftbox_public_dataset_dir(name).exists()
+            self._path_manager.get_local_public_dataset_dir(name).exists()
             or self._path_manager.get_syftbox_private_dataset_dir(name).exists()
         ):
             raise ValueError(f"Dataset with name '{name}' already exists")
@@ -226,25 +240,23 @@ class DatasetRDSClient(RDSClientModule):
             summary=summary,
             description_path=description_path,
         )
-
         try:
             mock_syftbox_path = self._files_manager.copy_mock_to_public_syftbox_dir(
                 name, mock_path
             )
             description_file_syftbox_path = (
-                self._files_manager.copy_desc_file_to_public_syftbox_dir(
+                self._files_manager.copy_description_file_to_public_syftbox_dir(
                     name, description_path
                 )
             )
             private_syftbox_path = (
                 self._files_manager.copy_private_to_private_syftbox_dir(name, path)
             )
-            self._schema_manager.generate_dataset_schema(dataset_create)
-
+            self._schema_manager.create(dataset_create)
             return Dataset(
                 name=name,
-                path=str(private_syftbox_path),
-                mock_path=str(mock_syftbox_path),
+                private=str(private_syftbox_path),
+                mock=str(mock_syftbox_path),
                 file_type=file_type,
                 summary=summary,
                 description_path=str(description_file_syftbox_path),
@@ -253,7 +265,29 @@ class DatasetRDSClient(RDSClientModule):
             self._files_manager.cleanup_dataset_files(name)
             raise RuntimeError(f"Failed to create dataset '{name}': {str(e)}") from e
 
-    def get(self) -> Dataset:
+    def get(self, name: str) -> Dataset:
+        remote_public_dataset_dir: Path = (
+            self._path_manager.get_remote_public_dataset_dir(name)
+        )
+        if not remote_public_dataset_dir.exists():
+            raise ValueError(f"Dataset '{name}' does not exist")
+
+        schema: dict = self._schema_manager.get(
+            remote_public_dataset_dir / "dataset.schema.json"
+        )
+
+        return Dataset(
+            name=name,
+            private=schema["private"],
+            mock=str(remote_public_dataset_dir),
+            file_type=schema["file_type"],
+            summary=schema["summary"],
+            description_path=str(
+                remote_public_dataset_dir / Path(schema["readme"]).name
+            ),
+        )
+
+    def get_all(self) -> list[Dataset]:
         pass
 
     def delete(self, name: str) -> None:
