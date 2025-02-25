@@ -8,10 +8,7 @@ from syft_core import Client as SyftBoxClient
 
 from syft_rds.client.rpc_client import RPCClient
 from syft_rds.client.rds_clients.base import RDSClientConfig, RDSClientModule
-from syft_rds.models.models import (
-    DatasetCreate,
-    Dataset,
-)
+from syft_rds.models.models import DatasetCreate, Dataset, DatasetUpdate
 
 
 class DatasetUrlManager:
@@ -52,6 +49,9 @@ class DatasetPathManager:
             / "datasets"
             / dataset_name
         )
+
+    def get_remote_public_datasets_dir(self) -> Path:
+        return self._syftbox_client.datasites / self._host / "public" / "datasets"
 
     @property
     def syftbox_client_email(self) -> str:
@@ -143,6 +143,10 @@ class DatasetFilesManager:
 
 
 class DatasetSchemaManager:
+    """
+    TODO: Use RDSStore instead
+    """
+
     def __init__(self, path_manager: DatasetPathManager) -> None:
         self._path_manager = path_manager
 
@@ -288,10 +292,18 @@ class DatasetRDSClient(RDSClientModule):
         )
 
     def get_all(self) -> list[Dataset]:
-        pass
+        for (
+            dataset_dir
+        ) in self._path_manager.get_remote_public_datasets_dir().iterdir():
+            pass
 
     def delete(self, name: str) -> None:
+        self.raise_error_if_not_admin()
         try:
             self._files_manager.cleanup_dataset_files(name)
         except Exception as e:
             raise RuntimeError(f"Failed to delete dataset '{name}': {str(e)}") from e
+
+    def update(self, dataset_update: DatasetUpdate) -> Dataset:
+        self.raise_error_if_not_admin()
+        raise NotImplementedError("Dataset update is not supported yet")
