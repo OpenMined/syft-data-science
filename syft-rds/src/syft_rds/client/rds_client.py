@@ -1,3 +1,4 @@
+from syft_core import Client as SyftBoxClient
 from syft_event import SyftEvents
 
 from syft_rds.client.connection import get_connection
@@ -26,7 +27,8 @@ def init_session(host: str, mock_server: SyftEvents | None = None) -> "RDSClient
 
     # Implementation note: All dependencies are initiated here so we can inject and mock them in tests.
     config = RDSClientConfig(host=host)
-    connection = get_connection(mock_server)
+    syftbox_client = SyftBoxClient.load()
+    connection = get_connection(syftbox_client, mock_server)
     rpc_client = RPCClient(config, connection)
     return RDSClient(config, rpc_client)
 
