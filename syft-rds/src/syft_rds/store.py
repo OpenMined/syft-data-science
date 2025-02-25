@@ -151,7 +151,7 @@ class YAMLFileSystemDatabase(Generic[S]):
         return records
 
     @ensure_store_exists
-    def create(self, record: S, overwrite:bool = False) -> UUID:
+    def create(self, record: S, overwrite: bool = False) -> UUID:
         """
         Create a new record in the store
 
@@ -207,7 +207,7 @@ class YAMLFileSystemDatabase(Generic[S]):
             update=record.model_dump(exclude={"id"})
         )
         self._save_record(updated_record)
-        return self._load_record(id)
+        return updated_record
 
     @ensure_store_exists
     def delete(self, id: str | UUID) -> bool:
@@ -294,14 +294,14 @@ class RDSStore(YAMLFileSystemDatabase):
         │       │   ├── uuid1.yaml
         │       │   └── uuid2.yaml
         │       ├── dataset/
-        │       │   ├── uuid1.yaml
-        │       │   └── uuid2.yaml
+        │       │   ├── uuid3.yaml
+        │       │   └── uuid4.yaml
         │       ├── job/
-        │       │   ├── uuid1.yaml
-        │       │   └── uuid2.yaml
+        │       │   ├── uuid5.yaml
+        │       │   └── uuid6.yaml
         │       ├── runtime/
-        │       │   ├── uuid1.yaml
-        │       │   └── uuid2.yaml
+        │       │   ├── uuid7.yaml
+        │       │   └── uuid8.yaml
         │       └── syftperm.yaml    # Permissions file
 
         Args:
