@@ -21,7 +21,6 @@ def test_job_execution(rds_client: RDSClient, server_client: RDSClient):
     # job = rds_client.rpc.jobs.create(job_create)
     test_dir = Path(__file__).parent
     job = rds_client.jobs.submit(
-        name="Test Job",
         user_code_path=test_dir / "assets/ds/ds.py",
     )
     rds_client.rpc.jobs.update(job)
@@ -48,7 +47,7 @@ def test_job_execution(rds_client: RDSClient, server_client: RDSClient):
         args=[job.user_code.path.name],
         data_path=test_dir / "assets/do",
         runtime=job.runtime,
-        job_folder=test_dir / "assets/do/job_outputs" / str(job.uid),
+        job_folder=test_dir / "assets/do/job_outputs" / str(job.name),
         timeout=1,
         data_mount_dir="/data",
     )

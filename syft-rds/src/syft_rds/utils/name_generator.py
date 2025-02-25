@@ -1,4 +1,5 @@
 import random
+import string
 import pkg_resources
 from typing import List
 
@@ -13,10 +14,14 @@ def _load_words(filename: str) -> List[str]:
 
 
 def generate_name() -> str:
-    """Generate a Docker-like name using random adjective and noun combinations."""
+    """Generate a Docker-like name using random adjective and noun combinations,
+    followed by 4 random alphanumeric characters."""
     global _adjectives, _nouns
     if _adjectives is None:
         _adjectives = _load_words("adjectives.txt")
     if _nouns is None:
         _nouns = _load_words("nouns.txt")
-    return f"{random.choice(_adjectives)}_{random.choice(_nouns)}"
+
+    # Generate 4 random alphanumeric characters
+    suffix = "".join(random.choices(string.ascii_lowercase + string.digits, k=4))
+    return f"{random.choice(_adjectives)}_{random.choice(_nouns)}_{suffix}"

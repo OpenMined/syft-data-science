@@ -11,6 +11,7 @@ dependencies = [
     "rich>=13.9.4",
     "syft-event",
     "typing-extensions>=4.12.2",
+    "syft-runtime",
 ]
 
 [build-system]
