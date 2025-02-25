@@ -12,6 +12,7 @@ dependencies = [
     "syft-event",
     "typing-extensions>=4.12.2",
     "syft-runtime",
+    "setuptools>=75.8.0",
 ]
 
 [build-system]
