@@ -11,6 +11,7 @@ dependencies = [
     "rich>=13.9.4",
     "syft-event",
     "typing-extensions>=4.12.2",
+    "syft-runtime",
 ]
 
 [build-system]
@@ -19,6 +20,7 @@ build-backend = "hatchling.build"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/syft_rds"]
+include = ["src/syft_rds/assets/*"]
 
 [tool.uv]
 dev-dependencies = [
