@@ -1,69 +1,49 @@
-from syft_rds.store import BaseSpec , YAMLFileSystemDatabase
+from syft_rds.store import YAMLFileSystemDatabase
+from tests.mocks import MockUserSpec
 
-class MockUserSpec(BaseSpec):
-    __spec_name__ = "user"
+def test_create_record(mock_user_store: YAMLFileSystemDatabase, mock_user_1: MockUserSpec):
+    record_id = mock_user_store.create(mock_user_1)
 
-    name: str
-    email: str
-    tags: list[str] = []
+    assert record_id == mock_user_1.id
+    assert mock_user_store.read(record_id) == mock_user_1
+    assert mock_user_store.list_all() == [mock_user_1]
 
-def test_create_record(yaml_store):
-    user_store: YAMLFileSystemDatabase = yaml_store(MockUserSpec)
-    user = MockUserSpec(name="Alice", email="alice@openmined.org")
+def test_update_record(mock_user_store: YAMLFileSystemDatabase, mock_user_1: MockUserSpec):
+    record_id = mock_user_store.create(mock_user_1)
+    mock_user_1.name = "Alice Smith"
+    updated_record: MockUserSpec = mock_user_store.update(record_id, mock_user_1)
 
-    record_id = user_store.create(user)
-    assert record_id == user.id
-    assert user_store.read(record_id) == user
-    assert user_store.list_all() == [user]
-
-def test_update_record(yaml_store):
-    user_store: YAMLFileSystemDatabase = yaml_store(MockUserSpec)
-    user= MockUserSpec(name="Alice", email="alice@openmined.org")
-
-    record_id = user_store.create(user)
-    user.name = "Alice Smith"
-    updated_record: MockUserSpec = user_store.update(record_id, user)
     assert updated_record is not None
-    assert updated_record.name == "Alice Smith"
+    assert updated_record.name == mock_user_1.name
+    assert mock_user_store.read(record_id) == mock_user_1
 
-def test_delete_record(yaml_store):
-    user_store: YAMLFileSystemDatabase = yaml_store(MockUserSpec)
-    user = MockUserSpec(name="Alice", email="alice@openmined.org")
-
-    record_id = user_store.create(user)
-    assert len(user_store.list_all()) == 1
+def test_delete_record(mock_user_store: YAMLFileSystemDatabase, mock_user_1: MockUserSpec):
+    record_id = mock_user_store.create(mock_user_1)
+    assert len(mock_user_store.list_all()) == 1
 
     # Delete the Record
-    res = user_store.delete(record_id)
+    res = mock_user_store.delete(record_id)
     assert res
-    assert len(user_store.list_all()) == 0
+    assert len(mock_user_store.list_all()) == 0
 
-def test_query_record(yaml_store):
-    user_store: YAMLFileSystemDatabase = yaml_store(MockUserSpec)
-    user = MockUserSpec(name="Alice", email="alice@openmined.org")
-
-    user_store.create(user)
-    assert len(user_store.list_all()) == 1
+def test_query_record(mock_user_store: YAMLFileSystemDatabase, mock_user_1: MockUserSpec):
+    mock_user_store.create(mock_user_1)
+    assert len(mock_user_store.list_all()) == 1
 
     # Query the Record
     query = {"name": "Alice"}
-    results = user_store.query(**query)
+    results = mock_user_store.query(**query)
     assert len(results) == 1
-    assert results[0] == user
+    assert results[0] == mock_user_1
 
-def test_search_record(yaml_store):
-    user_store: YAMLFileSystemDatabase = yaml_store(MockUserSpec)
-    user = MockUserSpec(name="Alice", email="alice@openmined.org", tags=["tag1", "tag2"])
-
-    user_store.create(user)
-    assert len(user_store.list_all()) == 1
+def test_search_record(mock_user_store: YAMLFileSystemDatabase, mock_user_1: MockUserSpec):
+    mock_user_store.create(mock_user_1)
+    assert len(mock_user_store.list_all()) == 1
 
     # Search the Record
-    results = user_store.search(query="tag1", fields=["tags"])
+    results = mock_user_store.search(query=mock_user_1.email, fields=["email"])
     assert len(results) == 1
-    assert results[0] == user
-
-
+    assert results[0] == mock_user_1
 
 
 
