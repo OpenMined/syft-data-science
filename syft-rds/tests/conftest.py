@@ -8,7 +8,8 @@ from syft_rds.server.routers.user_code_router import user_code_store
 from syft_rds.server.routers.runtime_router import runtime_store
 from syft_rds.server.routers.dataset_router import dataset_store
 from syft_rds.models.base import ItemBase
-from syft_rds.store import BaseSpec, YAMLFileSystemDatabase
+from syft_rds.store import YAMLFileSystemDatabase
+from tests.mocks import MockUserSpec
 
 HOST_EMAIL = "alice@openmined.org"
 
@@ -65,4 +66,18 @@ def yaml_store(temp_db_path):
     def _create_yaml_store(spec):
         return YAMLFileSystemDatabase(spec=spec, db_path=temp_db_path)
     return _create_yaml_store
+
+
+@pytest.fixture
+def mock_user_store(yaml_store) -> YAMLFileSystemDatabase:
+    return yaml_store(MockUserSpec)
+
+@pytest.fixture
+def mock_user_1():
+    return MockUserSpec(name="Alice", email="alice@openmined.org")
+
+@pytest.fixture
+def mock_user_2():
+    return MockUserSpec(name="Bob", email="bob@openmined.org")
+
 
