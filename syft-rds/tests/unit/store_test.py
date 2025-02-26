@@ -14,7 +14,8 @@ def test_update_record(mock_user_store: YAMLFileSystemDatabase, mock_user_1: Moc
     updated_record: MockUserSpec = mock_user_store.update(record_id, mock_user_1)
 
     assert updated_record is not None
-    assert updated_record.name == "Alice Smith"
+    assert updated_record.name == mock_user_1.name
+    assert mock_user_store.read(record_id) == mock_user_1
 
 def test_delete_record(mock_user_store: YAMLFileSystemDatabase, mock_user_1: MockUserSpec):
     record_id = mock_user_store.create(mock_user_1)
