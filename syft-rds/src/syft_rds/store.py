@@ -307,6 +307,7 @@ class RDSStore(YAMLFileSystemDatabase):
         Args:
             spec: The specification model class for which to initialize the store.
             client: Syft client instance to use.
+            datasite: The datasite email to point to. Defaults to the client's email.
         """
         self.spec = spec
         self.client = client or Client.load()
