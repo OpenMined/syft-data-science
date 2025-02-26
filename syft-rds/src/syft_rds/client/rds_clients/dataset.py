@@ -3,6 +3,8 @@ from typing import Optional, Union
 import shutil
 from loguru import logger
 import json
+from functools import wraps
+
 
 from syft_core import Client as SyftBoxClient
 
@@ -180,6 +182,25 @@ class DatasetSchemaManager:
             return json.load(f)
 
 
+def ensure_is_admin(func):
+    """
+    Decorator to ensure the user is an admin before executing a function.
+    Admin status is determined by comparing the SyftBox client email with the configured host.
+    """
+
+    @wraps(func)
+    def wrapper(self, *args, **kwargs):
+        if self._syftbox_client.email != self._config.host:
+            raise ValueError(
+                f"You must be the datasite admin to perform this operation. "
+                f"Your SyftBox email: '{self._syftbox_client.email}'. "
+                f"Host email: '{self._config.host}'"
+            )
+        return func(self, *args, **kwargs)
+
+    return wrapper
+
+
 class DatasetRDSClient:
     """
     For DatasetRDSClient, everything is done locally on the client side.
@@ -192,15 +213,6 @@ class DatasetRDSClient:
         self._path_manager = DatasetPathManager(self._syftbox_client, self._config.host)
         self._schema_manager = DatasetSchemaManager(self._path_manager)
         self._files_manager = DatasetFilesManager(self._path_manager)
-
-    def raise_error_if_not_admin(self):
-        if self._syftbox_client.email != self._config.host:
-            raise ValueError(
-                f"SyftBox email and RDS host must be the same to create a dataset "
-                f"(no remote dataset creation for now). "
-                f"SyftBox email: {self._syftbox_client.email}. "
-                f"Host email: {self.config.host}"
-            )
 
     def _validate_before_create(
         self,
@@ -223,6 +235,7 @@ class DatasetRDSClient:
         self._files_manager.check_file_extensions_for_dir(path, file_type)
         self._files_manager.check_file_extensions_for_dir(mock_path, file_type)
 
+    @ensure_is_admin
     def create(
         self,
         name: str,
@@ -232,7 +245,6 @@ class DatasetRDSClient:
         summary: Optional[str] = None,
         description_path: Optional[str] = None,
     ) -> Dataset:
-        self.raise_error_if_not_admin()
         dataset_create = self._validate_before_create(name, path, mock_path, file_type)
         dataset_create = DatasetCreate(
             name=name,
@@ -295,6 +307,7 @@ class DatasetRDSClient:
         ) in self._path_manager.get_remote_public_datasets_dir().iterdir():
             pass
 
+    @ensure_is_admin
     def delete(self, name: str) -> None:
         self.raise_error_if_not_admin()
         try:
@@ -302,6 +315,7 @@ class DatasetRDSClient:
         except Exception as e:
             raise RuntimeError(f"Failed to delete dataset '{name}': {str(e)}") from e
 
+    @ensure_is_admin
     def update(self, dataset_update: DatasetUpdate) -> Dataset:
         self.raise_error_if_not_admin()
         raise NotImplementedError("Dataset update is not supported yet")
