@@ -277,7 +277,7 @@ class YAMLFileSystemDatabase(Generic[S]):
 class RDSStore(YAMLFileSystemDatabase):
     APP_NAME = "rds"
 
-    def __init__(self, spec: Type[S], client: Optional[Client] = None):
+    def __init__(self, spec: Type[S], client: Optional[Client] = None,datasite: Optional[str] = None ):
         """A specialized YAML-based database store for RDS (Remote Data Store) that integrates with SyftBox.
 
         `RDSStore` extends `YAMLFileSystemDatabase` to provide a storage solution specifically designed
@@ -310,4 +310,5 @@ class RDSStore(YAMLFileSystemDatabase):
         """
         self.spec = spec
         self.client = client or Client.load()
-        self.db_path = self.client.api_data(self.APP_NAME) / "store"
+        self.datasite = datasite or self.client.config.email
+        self.db_path = self.client.api_data(self.APP_NAME, datasite=self.datasite) / "store"
