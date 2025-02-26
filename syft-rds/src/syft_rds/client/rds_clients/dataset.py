@@ -205,6 +205,9 @@ class DatasetSchemaManager:
             raise ValueError(f"Multiple datasets found with name '{name}'")
         return queried_result[0]
 
+    def get_all(self) -> list[DatasetSpec]:
+        return self._spec_store.list_all()
+
 
 def ensure_is_admin(func):
     """
@@ -259,6 +262,30 @@ class DatasetRDSClient:
         self._files_manager.check_file_extensions_for_dir(path, file_type)
         self._files_manager.check_file_extensions_for_dir(mock_path, file_type)
 
+    def _dataset_spec_to_dataset(self, dataset_spec: DatasetSpec) -> Dataset:
+        mock_path = dataset_spec.mock.to_local_path(
+            datasites_path=self._syftbox_client.datasites
+        )
+        private_path = dataset_spec.data.to_local_path(
+            datasites_path=self._syftbox_client.datasites
+        )
+        if dataset_spec.readme:
+            description_path = dataset_spec.readme.to_local_path(
+                datasites_path=self._syftbox_client.datasites
+            )
+        else:
+            description_path = None
+        return Dataset(
+            uid=dataset_spec.id,
+            name=dataset_spec.name,
+            data_path=private_path,
+            mock_path=mock_path,
+            file_type=dataset_spec.file_type,
+            summary=dataset_spec.summary,
+            description_path=description_path,
+            tags=dataset_spec.tags,
+        )
+
     @ensure_is_admin
     def create(
         self,
@@ -283,62 +310,27 @@ class DatasetRDSClient:
         # validate paths and file extensions
         self._validate_before_create(name, path, mock_path, file_type)
         try:
-            mock_syftbox_path = self._files_manager.copy_mock_to_public_syftbox_dir(
-                name, mock_path
+            self._files_manager.copy_mock_to_public_syftbox_dir(name, mock_path)
+            self._files_manager.copy_description_file_to_public_syftbox_dir(
+                name, description_path
             )
-            description_file_syftbox_path = (
-                self._files_manager.copy_description_file_to_public_syftbox_dir(
-                    name, description_path
-                )
-            )
-            private_syftbox_path = (
-                self._files_manager.copy_private_to_private_syftbox_dir(name, path)
-            )
+            self._files_manager.copy_private_to_private_syftbox_dir(name, path)
             dataset_spec = self._schema_manager.create(dataset_create)
-            return Dataset(
-                uid=dataset_spec.id,
-                name=name,
-                data_path=str(private_syftbox_path),
-                mock_path=str(mock_syftbox_path),
-                file_type=file_type,
-                summary=summary,
-                description_path=str(description_file_syftbox_path),
-                tags=tags,
-            )
+            return self._dataset_spec_to_dataset(dataset_spec)
         except Exception as e:
             self._files_manager.cleanup_dataset_files(name)
             raise RuntimeError(f"Failed to create dataset '{name}': {str(e)}") from e
 
     def get(self, name: str) -> Dataset:
-        queried_result = self._schema_manager.get_one(name=name)
-        mock_path = queried_result.mock.to_local_path(
-            datasites_path=self._syftbox_client.datasites
-        )
-        private_path = queried_result.data.to_local_path(
-            datasites_path=self._syftbox_client.datasites
-        )
-        if queried_result.readme:
-            description_path = queried_result.readme.to_local_path(
-                datasites_path=self._syftbox_client.datasites
-            )
-        else:
-            description_path = None
-        return Dataset(
-            uid=queried_result.id,
-            name=queried_result.name,
-            data_path=private_path,
-            mock_path=mock_path,
-            file_type=queried_result.file_type,
-            summary=queried_result.summary,
-            description_path=description_path,
-            tags=queried_result.tags,
-        )
+        queried_result: DatasetSpec = self._schema_manager.get_one(name=name)
+        return self._dataset_spec_to_dataset(queried_result)
 
     def get_all(self) -> list[Dataset]:
-        for (
-            dataset_dir
-        ) in self._path_manager.get_remote_public_datasets_dir().iterdir():
-            pass
+        queried_results = self._schema_manager.get_all()
+        return [
+            self._dataset_spec_to_dataset(dataset_spec)
+            for dataset_spec in queried_results
+        ]
 
     @ensure_is_admin
     def delete(self, name: str) -> bool:
