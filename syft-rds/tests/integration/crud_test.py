@@ -1,7 +1,6 @@
 from pathlib import Path
 from uuid import uuid4
 
-import pytest
 from syft_rds.models.models import (
     GetAllRequest,
     GetOneRequest,
