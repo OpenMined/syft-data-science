@@ -143,11 +143,14 @@ class RuntimeUpdate(ItemBaseUpdate[Runtime]):
 
 class Dataset(ItemBase):
     name: str = Field(description="Name of the dataset.")
-    data_path: str = Field(description="Private path of the dataset.")
-    mock_path: str = Field(description="Mock path of the dataset.")
+    data_path: str | Path = Field(description="Private path of the dataset.")
+    mock_path: str | Path = Field(description="Mock path of the dataset.")
     file_type: str = Field(description="Type of files in the dataset.")
     summary: str | None = Field(description="Summary string of the dataset.")
-    description_path: str | None = Field(description="REAMD.md path of the dataset.")
+    description_path: str | Path | None = Field(
+        description="REAMD.md path of the dataset."
+    )
+    tags: list[str] = Field(description="Tags for the dataset.")
 
     @property
     def mock(self) -> Path:

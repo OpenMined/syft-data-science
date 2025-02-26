@@ -29,7 +29,6 @@ class RPCClientModule:
     def __init__(self, config: "RDSClientConfig", connection: RPCConnection):
         self.config = config
         self.connection = connection
-
         self.prefix = f"syft://{self.config.host}/api_data/{self.config.app_name}/rpc"
 
     def _send(self, path: str, body: BaseModel) -> dict:

@@ -39,3 +39,15 @@ class RDSClient(RDSClientModule):
         self.jobs = JobRDSClient(self.config, self.rpc)
         self.runtime = RuntimeRDSClient(self.config, self.rpc)
         self.dataset = DatasetRDSClient(self.config, self.rpc.connection.sender_client)
+
+    @property
+    def host(self) -> str:
+        return self.config.host
+
+    @property
+    def me(self) -> str:
+        return self.rpc.connection.sender_client.email
+
+    @property
+    def is_admin(self) -> bool:
+        return self.host == self.me

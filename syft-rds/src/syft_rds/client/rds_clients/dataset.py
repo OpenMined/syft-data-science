@@ -2,7 +2,6 @@ from pathlib import Path
 from typing import Optional, Union
 import shutil
 from loguru import logger
-import json
 from functools import wraps
 
 from syft_core import Client as SyftBoxClient
@@ -190,15 +189,19 @@ class DatasetSchemaManager:
         self._spec_store.create(dataset_spec)
         return dataset_spec
 
-    def get(self, path: Union[str, Path]) -> dict:
-        with open(path, "r") as f:
-            return json.load(f)
-
     def delete(self, name: str) -> bool:
         queried_result = self._spec_store.query(name=name)
         if not queried_result:
             return False
         return self._spec_store.delete(queried_result[0].id)
+
+    def get_one(self, name: str) -> DatasetSpec:
+        queried_result = self._spec_store.query(name=name)
+        if not queried_result:
+            raise ValueError(f"Dataset with name '{name}' not found")
+        if len(queried_result) > 1:
+            raise ValueError(f"Multiple datasets found with name '{name}'")
+        return queried_result[0]
 
 
 def ensure_is_admin(func):
@@ -298,31 +301,35 @@ class DatasetRDSClient:
                 file_type=file_type,
                 summary=summary,
                 description_path=str(description_file_syftbox_path),
+                tags=tags,
             )
         except Exception as e:
             self._files_manager.cleanup_dataset_files(name)
             raise RuntimeError(f"Failed to create dataset '{name}': {str(e)}") from e
 
     def get(self, name: str) -> Dataset:
-        remote_public_dataset_dir: Path = (
-            self._path_manager.get_remote_public_dataset_dir(name)
+        queried_result = self._schema_manager.get_one(name=name)
+        mock_path = queried_result.mock.to_local_path(
+            datasites_path=self._syftbox_client.datasites
         )
-        if not remote_public_dataset_dir.exists():
-            raise ValueError(f"Dataset '{name}' does not exist")
-
-        schema: dict = self._schema_manager.get(
-            remote_public_dataset_dir / "dataset.schema.json"
+        private_path = queried_result.data.to_local_path(
+            datasites_path=self._syftbox_client.datasites
         )
-
+        if queried_result.readme:
+            description_path = queried_result.readme.to_local_path(
+                datasites_path=self._syftbox_client.datasites
+            )
+        else:
+            description_path = None
         return Dataset(
-            name=name,
-            private=schema["private"],
-            mock=str(remote_public_dataset_dir),
-            file_type=schema["file_type"],
-            summary=schema["summary"],
-            description_path=str(
-                remote_public_dataset_dir / Path(schema["readme"]).name
-            ),
+            uid=queried_result.id,
+            name=queried_result.name,
+            data_path=private_path,
+            mock_path=mock_path,
+            file_type=queried_result.file_type,
+            summary=queried_result.summary,
+            description_path=description_path,
+            tags=queried_result.tags,
         )
 
     def get_all(self) -> list[Dataset]:
