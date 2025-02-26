@@ -6,10 +6,12 @@ class DatasetSpec(BaseSpec):
     __spec_name__ = "dataset"
 
     name: str
-    description: str
     data: SyftBoxURL
     mock: SyftBoxURL
+    file_type: str
     tags: list[str]
+    summary: str | None
+    readme: SyftBoxURL | None
 
 
 # class CodeSpec(Base):

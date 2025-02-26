@@ -5,8 +5,10 @@ from loguru import logger
 import json
 from functools import wraps
 
-
 from syft_core import Client as SyftBoxClient
+from syft_core.url import SyftBoxURL
+from syft_rds.specs import DatasetSpec
+from syft_rds.store import RDSStore
 
 from syft_rds.client.rds_clients.base import RDSClientConfig
 from syft_rds.models.models import DatasetCreate, Dataset, DatasetUpdate
@@ -14,16 +16,28 @@ from syft_rds.models.models import DatasetCreate, Dataset, DatasetUpdate
 
 class DatasetUrlManager:
     @staticmethod
-    def get_syftbox_mock_dataset_url(
+    def get_mock_dataset_syftbox_url(
         datasite_email: str, dataset_name: str, mock_path: Union[Path, str]
-    ) -> str:
-        return f"syft://{datasite_email}/public/datasets/{dataset_name}/{Path(mock_path).name}"
+    ) -> SyftBoxURL:
+        return SyftBoxURL(
+            f"syft://{datasite_email}/public/datasets/{dataset_name}/{Path(mock_path).name}"
+        )
 
     @staticmethod
-    def get_syftbox_private_dataset_url(
-        dataset_name: str, path: Union[Path, str]
+    def get_private_dataset_syftbox_url(
+        datasite_email: str, dataset_name: str, path: Union[Path, str]
     ) -> str:
-        return f"syft://private/datasets/{dataset_name}/{Path(path).name}"
+        return (
+            f"syft://{datasite_email}/private/datasets/{dataset_name}/{Path(path).name}"
+        )
+
+    @staticmethod
+    def get_readme_syftbox_url(
+        datasite_email: str, dataset_name: str, readme_path: Union[Path, str]
+    ) -> SyftBoxURL:
+        return SyftBoxURL(
+            f"syft://{datasite_email}/public/datasets/{dataset_name}/{Path(readme_path).name}"
+        )
 
 
 class DatasetPathManager:
@@ -45,7 +59,8 @@ class DatasetPathManager:
 
     def get_syftbox_private_dataset_dir(self, dataset_name: str) -> Path:
         return (
-            self._syftbox_client.workspace.data_dir
+            self._syftbox_client.datasites
+            / self._host
             / "private"
             / "datasets"
             / dataset_name
@@ -60,7 +75,7 @@ class DatasetPathManager:
 
     def check_path_exists(self, path: Union[str, Path]):
         if not Path(path).exists():
-            raise ValueError(f"Paths must exist: {path}")
+            raise ValueError(f"Path does not exist: {path}")
 
     def check_are_both_dirs_or_files(
         self, path: Union[str, Path], mock_path: Union[str, Path]
@@ -70,7 +85,7 @@ class DatasetPathManager:
             (path.is_dir() and mock_path.is_dir())
             or (path.is_file() and mock_path.is_file())
         ):
-            raise ValueError(f"Paths must be same type: {path} and {mock_path}")
+            raise ValueError(f"Paths are not in the same type: {path} and {mock_path}")
 
 
 class DatasetFilesManager:
@@ -144,42 +159,46 @@ class DatasetFilesManager:
 
 
 class DatasetSchemaManager:
-    """
-    TODO: Use RDSStore instead
-    """
-
     def __init__(self, path_manager: DatasetPathManager) -> None:
         self._path_manager = path_manager
+        self._spec_store = RDSStore(
+            spec=DatasetSpec, client=self._path_manager._syftbox_client
+        )
 
     def create(self, dataset_create: DatasetCreate) -> None:
-        mock_path = Path(dataset_create.mock_path)
-        prv_path = Path(dataset_create.path)
-        # Build schema
-        schema_dict = dataset_create.model_dump()
-        schema_dict.pop("path")
-        schema_dict.pop("mock_path")
-        schema_dict.pop("description_path")
-        schema_dict["mock"] = DatasetUrlManager.get_syftbox_mock_dataset_url(
-            self._path_manager.syftbox_client_email, dataset_create.name, mock_path
+        syftbox_client_email = self._path_manager.syftbox_client_email
+        mock_url: SyftBoxURL = DatasetUrlManager.get_mock_dataset_syftbox_url(
+            syftbox_client_email, dataset_create.name, Path(dataset_create.mock_path)
         )
-        schema_dict["private"] = DatasetUrlManager.get_syftbox_private_dataset_url(
-            dataset_create.name, prv_path
+        private_url: SyftBoxURL = DatasetUrlManager.get_private_dataset_syftbox_url(
+            syftbox_client_email, dataset_create.name, Path(dataset_create.path)
         )
-        schema_dict["readme"] = DatasetUrlManager.get_syftbox_mock_dataset_url(
-            self._path_manager.syftbox_client_email,
+        readme_url: SyftBoxURL = DatasetUrlManager.get_readme_syftbox_url(
+            syftbox_client_email,
             dataset_create.name,
-            dataset_create.description_path,
+            Path(dataset_create.description_path),
         )
-        # Write schema file
-        public_dataset_dir: Path = self._path_manager.get_local_public_dataset_dir(
-            dataset_create.name
+        dataset_spec = DatasetSpec(
+            name=dataset_create.name,
+            data=private_url,
+            mock=mock_url,
+            file_type=dataset_create.file_type,
+            tags=dataset_create.tags,
+            summary=dataset_create.summary,
+            readme=readme_url,
         )
-        with open(public_dataset_dir / "dataset.schema.json", "w") as f:
-            json.dump(schema_dict, f, indent=2)
+        self._spec_store.create(dataset_spec)
+        return dataset_spec
 
     def get(self, path: Union[str, Path]) -> dict:
         with open(path, "r") as f:
             return json.load(f)
+
+    def delete(self, name: str) -> bool:
+        queried_result = self._spec_store.query(name=name)
+        if not queried_result:
+            return False
+        return self._spec_store.delete(queried_result[0].id)
 
 
 def ensure_is_admin(func):
@@ -191,7 +210,7 @@ def ensure_is_admin(func):
     @wraps(func)
     def wrapper(self, *args, **kwargs):
         if self._syftbox_client.email != self._config.host:
-            raise ValueError(
+            raise PermissionError(
                 f"You must be the datasite admin to perform this operation. "
                 f"Your SyftBox email: '{self._syftbox_client.email}'. "
                 f"Host email: '{self._config.host}'"
@@ -220,7 +239,7 @@ class DatasetRDSClient:
         path: Union[str, Path],
         mock_path: Union[str, Path],
         file_type: str,
-    ) -> DatasetCreate:
+    ) -> None:
         if (
             self._path_manager.get_local_public_dataset_dir(name).exists()
             or self._path_manager.get_syftbox_private_dataset_dir(name).exists()
@@ -244,8 +263,9 @@ class DatasetRDSClient:
         file_type: str,
         summary: Optional[str] = None,
         description_path: Optional[str] = None,
+        tags: list[str] = [],
     ) -> Dataset:
-        dataset_create = self._validate_before_create(name, path, mock_path, file_type)
+        # input types validation
         dataset_create = DatasetCreate(
             name=name,
             path=str(path),
@@ -253,7 +273,10 @@ class DatasetRDSClient:
             file_type=file_type,
             summary=summary,
             description_path=description_path,
+            tags=tags,
         )
+        # validate paths and file extensions
+        self._validate_before_create(name, path, mock_path, file_type)
         try:
             mock_syftbox_path = self._files_manager.copy_mock_to_public_syftbox_dir(
                 name, mock_path
@@ -266,11 +289,12 @@ class DatasetRDSClient:
             private_syftbox_path = (
                 self._files_manager.copy_private_to_private_syftbox_dir(name, path)
             )
-            self._schema_manager.create(dataset_create)
+            dataset_spec = self._schema_manager.create(dataset_create)
             return Dataset(
+                uid=dataset_spec.id,
                 name=name,
-                private=str(private_syftbox_path),
-                mock=str(mock_syftbox_path),
+                data_path=str(private_syftbox_path),
+                mock_path=str(mock_syftbox_path),
                 file_type=file_type,
                 summary=summary,
                 description_path=str(description_file_syftbox_path),
@@ -308,14 +332,27 @@ class DatasetRDSClient:
             pass
 
     @ensure_is_admin
-    def delete(self, name: str) -> None:
-        self.raise_error_if_not_admin()
+    def delete(self, name: str) -> bool:
+        """Delete a dataset by name.
+
+        Args:
+            name: Name of the dataset to delete
+
+        Returns:
+            True if deletion was successful
+
+        Raises:
+            RuntimeError: If deletion fails due to file system errors
+        """
         try:
-            self._files_manager.cleanup_dataset_files(name)
+            schema_deleted = self._schema_manager.delete(name)
+            if schema_deleted:
+                self._files_manager.cleanup_dataset_files(name)
+                return True
+            return False
         except Exception as e:
-            raise RuntimeError(f"Failed to delete dataset '{name}': {str(e)}") from e
+            raise RuntimeError(f"Failed to delete dataset '{name}'") from e
 
     @ensure_is_admin
     def update(self, dataset_update: DatasetUpdate) -> Dataset:
-        self.raise_error_if_not_admin()
         raise NotImplementedError("Dataset update is not supported yet")

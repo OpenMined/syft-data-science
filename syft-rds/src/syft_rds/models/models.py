@@ -143,26 +143,49 @@ class RuntimeUpdate(ItemBaseUpdate[Runtime]):
 
 class Dataset(ItemBase):
     name: str = Field(description="Name of the dataset.")
-    private: str = Field(description="Private path of the dataset.")
-    mock: str = Field(description="Mock path of the dataset.")
+    data_path: str = Field(description="Private path of the dataset.")
+    mock_path: str = Field(description="Mock path of the dataset.")
     file_type: str = Field(description="Type of files in the dataset.")
     summary: str | None = Field(description="Summary string of the dataset.")
     description_path: str | None = Field(description="REAMD.md path of the dataset.")
 
-    def describe(self) -> str:
+    @property
+    def mock(self) -> Path:
+        if not Path(self.mock_path).exists():
+            raise FileNotFoundError(f"Mock file not found at {self.mock_path}")
+        return Path(self.mock_path)
+
+    @property
+    def private(self) -> Path:
+        """
+        Will always raise FileNotFoundError for non-admin since the
+        private path will never by synced
+        """
+        if not Path(self.data_path).exists():
+            raise FileNotFoundError(f"Mock file not found at {self.mock_path}")
+        return Path(self.data_path)
+
+    @property
+    def readme(self) -> str:
         # read the description .md file
         with open(self.description_path) as f:
             return f.read()
+
+    def describe(self):
+        # TODO: dump the dataset's tree / structure
+        pass
 
 
 class DatasetCreate(ItemBaseCreate[Dataset]):
     name: str = Field(description="Name of the dataset.")
     path: str = Field(description="Private path of the dataset.")
     mock_path: str = Field(description="Mock path of the dataset.")
-    file_type: str = Field(description="Type of files in the dataset.")
+    file_type: str = Field(description="Types of files in the dataset.")
     summary: str | None = Field(description="Summary string of the dataset.")
-    description_path: str | None = Field(description="REAMD.md path of the dataset.")
-    # tags: list[str] = Field(description="Tags for the dataset.")
+    description_path: str | None = Field(
+        description="Path to the detailed REAMD.md of the dataset."
+    )
+    tags: list[str] | None = Field(description="Tags for the dataset.")
 
 
 class DatasetUpdate(ItemBaseUpdate[Dataset]):
