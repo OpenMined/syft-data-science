@@ -253,7 +253,7 @@ class YAMLFileSystemDatabase(Generic[S]):
     @ensure_store_exists
     def search(self, query: str, fields: list[str]) -> list[S]:
         """
-        Search records with case-insensitive partial matching
+        Search records with case-sensitive partial matching
 
         Args:
             query: Search string to look for
@@ -263,12 +263,12 @@ class YAMLFileSystemDatabase(Generic[S]):
             List of matching records
         """
         results = []
-        query = query.lower()
+        query = query
 
         for record in self.list_all():
             for field in fields:
                 val = getattr(record, field, None)
-                if val and isinstance(val, str) and query in val.lower():
+                if val and query in val:
                     results.append(record)
                     break
         return results
