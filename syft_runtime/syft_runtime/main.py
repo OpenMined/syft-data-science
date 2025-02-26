@@ -3,7 +3,7 @@ import subprocess
 from pathlib import Path
 from datetime import datetime
 import time
-from typing import Callable, Protocol, Tuple, Optional, TextIO
+from typing import Protocol, Tuple, Optional
 
 import typer
 from rich.console import Console
@@ -154,7 +154,7 @@ class RichConsoleUI(JobOutputHandler):
             self.live.stop()
 
         if return_code == 0:
-            self.console.print(f"\n[bold green]Job completed successfully![/]")
+            self.console.print("\n[bold green]Job completed successfully![/]")
         else:
             self.console.print(
                 f"\n[bold red]Job failed with return code {return_code}[/]"
