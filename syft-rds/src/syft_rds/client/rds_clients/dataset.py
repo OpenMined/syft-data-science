@@ -161,7 +161,9 @@ class DatasetSchemaManager:
     def __init__(self, path_manager: DatasetPathManager) -> None:
         self._path_manager = path_manager
         self._spec_store = RDSStore(
-            spec=DatasetSpec, client=self._path_manager._syftbox_client
+            spec=DatasetSpec,
+            client=self._path_manager._syftbox_client,
+            datasite=self._path_manager._host,
         )
 
     def create(self, dataset_create: DatasetCreate) -> None:
