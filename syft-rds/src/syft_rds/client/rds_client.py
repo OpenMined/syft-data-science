@@ -1,3 +1,6 @@
+from pathlib import Path
+from typing import Optional, Union
+
 from syft_core import Client as SyftBoxClient
 from syft_event import SyftEvents
 
@@ -9,7 +12,11 @@ from syft_rds.client.rds_clients.jobs import JobRDSClient
 from syft_rds.client.rds_clients.runtime import RuntimeRDSClient
 
 
-def init_session(host: str, mock_server: SyftEvents | None = None) -> "RDSClient":
+def init_session(
+    host: str,
+    mock_server: Optional[SyftEvents] = None,
+    syftbox_client_config_path: Optional[Union[str, Path]] = None,
+) -> "RDSClient":
     """
     Initialize a session with the RDSClient.
 
@@ -27,7 +34,10 @@ def init_session(host: str, mock_server: SyftEvents | None = None) -> "RDSClient
 
     # Implementation note: All dependencies are initiated here so we can inject and mock them in tests.
     config = RDSClientConfig(host=host)
-    syftbox_client = SyftBoxClient.load()
+    if syftbox_client_config_path:
+        syftbox_client = SyftBoxClient.load(syftbox_client_config_path)
+    else:
+        syftbox_client = SyftBoxClient.load()
     connection = get_connection(syftbox_client, mock_server)
     rpc_client = RPCClient(config, connection)
     return RDSClient(config, rpc_client)
@@ -45,9 +55,13 @@ class RDSClient(RDSClientModule):
         return self.config.host
 
     @property
-    def me(self) -> str:
-        return self.rpc.connection.sender_client.email
+    def syftbox_client(self) -> SyftBoxClient:
+        return self.rpc.connection.sender_client
+
+    @property
+    def email(self) -> str:
+        return self.syftbox_client.email
 
     @property
     def is_admin(self) -> bool:
-        return self.host == self.me
+        return self.host == self.email
