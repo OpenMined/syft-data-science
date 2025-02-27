@@ -1,7 +1,7 @@
-from syft_rds.store import BaseSpec
+from syft_rds.store import BaseSchema
 
-class MockUserSpec(BaseSpec):
-    __spec_name__ = "user"
+class MockUserSchema(BaseSchema):
+    __schema_name__ = "user"
 
     name: str
     email: str

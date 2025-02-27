@@ -1,9 +1,9 @@
-from .store import BaseSpec
+from .store import BaseSchema
 from syft_core.url import SyftBoxURL
 
 
-class DatasetSpec(BaseSpec):
-    __spec_name__ = "dataset"
+class DatasetSchema(BaseSchema):
+    __schema_name__ = "dataset"
 
     name: str
     description: str

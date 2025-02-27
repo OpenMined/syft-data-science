@@ -20,13 +20,13 @@ PERMS = """
   user: '*'
 """
 
-S = TypeVar("S", bound="BaseSpec")
+S = TypeVar("S", bound="BaseSchema")
 
 
-class BaseSpec(BaseModel):
-    """Base specification class that all spec models must inherit from"""
+class BaseSchema(BaseModel):
+    """Base Schema class that all Schema models must inherit from"""
 
-    __spec_name__: str
+    __schema_name__: str
     id: UUID = Field(default_factory=uuid4)
 
     class Config:
@@ -46,7 +46,7 @@ def ensure_store_exists(func):
 
 
 class YAMLFileSystemDatabase(Generic[S]):
-    def __init__(self, spec: Type[S], db_path: str | Path):
+    def __init__(self, schema: Type[S], db_path: str | Path):
         """A lightweight file-based database that stores records as individual YAML files.
 
         YAMLFileSystemDatabase provides a simple database implementation where each record
@@ -56,10 +56,10 @@ class YAMLFileSystemDatabase(Generic[S]):
         The database creates a hierarchical directory structure:
 
         /db_path/
-        ├── model1_spec_name/           # Directory for first model type
+        ├── model1_schema_name/           # Directory for first model type
         │   ├── uuid1.yaml             # Individual record files
         │   └── uuid2.yaml
-        ├── model2_spec_name/           # Directory for second model type
+        ├── model2_schema_name/           # Directory for second model type
         │   ├── uuid3.yaml
         │   └── uuid4.yaml
         └── syftperm.yaml              # Permissions file
@@ -67,7 +67,7 @@ class YAMLFileSystemDatabase(Generic[S]):
         Where:
         - Each record is stored as a separate .yaml file
         - Filenames are UUIDs (e.g., "123e4567-e89b-12d3-a456-426614174000.yaml")
-        - All files for a specific model are stored in a dedicated subdirectory named after the model's __spec_name__
+        - All files for a specific model are stored in a dedicated subdirectory named after the model's __schema_name__
         - A syftperm.yaml file is created at the parent level to manage permissions
 
         Features:
@@ -81,16 +81,16 @@ class YAMLFileSystemDatabase(Generic[S]):
             ```python
             from pydantic import BaseModel
 
-            class UserSpec(BaseModel):
-                __spec_name__ = "users"
+            class UserSchema(BaseModel):
+                __schema_name__ = "users"
                 name: str
                 email: str
 
             # Initialize the database
-            db = YAMLFileSystemDatabase(UserSpec, "/path/to/db")
+            db = YAMLFileSystemDatabase(UserSchema, "/path/to/db")
 
             # Create a new user
-            user = UserSpec(name="John Doe", email="john@example.com")
+            user = UserSchema(name="John Doe", email="john@example.com")
             user_id = db.create(user)
 
             # Query users
@@ -98,25 +98,25 @@ class YAMLFileSystemDatabase(Generic[S]):
             ```
 
         Args:
-            spec: The Pydantic model class that defines the schema for stored records.
-                Must inherit from BaseSpec.
+            schema: The Pydantic model class that defines the schema for stored records.
+                Must inherit from BaseSchema.
             db_path: Directory path where the database files will be stored.
                     Can be string or Path object.
 
         Notes:
             - The database automatically creates the necessary directory structure
-            - Each model type gets its own subdirectory based on __spec_name__
-            - Records must be instances of Pydantic models inheriting from BaseSpec
+            - Each model type gets its own subdirectory based on __schema_name__
+            - Records must be instances of Pydantic models inheriting from BaseSchema
             - All operations are file-system based for now (no in-memory caching)
             - Suitable for smaller datasets where simple CRUD operations are needed
             - Provides human-readable storage format
         """
-        self.spec = spec
+        self.schema = schema
         self.db_path = Path(db_path)
 
     @property
     def store_path(self) -> Path:
-        return self.db_path / self.spec.__spec_name__
+        return self.db_path / self.schema.__schema_name__
 
     def _get_record_path(self, id: str | UUID) -> Path:
         """Get the full path for a record's YAML file from its ID."""
@@ -138,7 +138,7 @@ class YAMLFileSystemDatabase(Generic[S]):
         if not file_path.exists():
             return None
         record_dict = yaml.safe_load(file_path.read_text())
-        return self.spec.model_validate(record_dict)
+        return self.schema.model_validate(record_dict)
 
     def list_all(self) -> list[S]:
         """List all records in the store"""
@@ -162,8 +162,8 @@ class YAMLFileSystemDatabase(Generic[S]):
         Returns:
             ID of the created record
         """
-        if not isinstance(record, self.spec):
-            raise TypeError(f"`record` must be of type {self.spec.__name__}")
+        if not isinstance(record, self.schema):
+            raise TypeError(f"`record` must be of type {self.schema.__name__}")
         file_path = self._get_record_path(record.id)
         if file_path.exists() and not overwrite:
             raise ValueError(f"Record with ID {record.id} already exists")
@@ -195,8 +195,8 @@ class YAMLFileSystemDatabase(Generic[S]):
         Returns:
             Updated record if found, None otherwise
         """
-        if not isinstance(record, self.spec):
-            raise TypeError(f"`record` must be of type {self.spec.__name__}")
+        if not isinstance(record, self.schema):
+            raise TypeError(f"`record` must be of type {self.schema.__name__}")
 
         existing_record = self._load_record(id)
         if not existing_record:
@@ -277,7 +277,7 @@ class YAMLFileSystemDatabase(Generic[S]):
 class RDSStore(YAMLFileSystemDatabase):
     APP_NAME = "rds"
 
-    def __init__(self, spec: Type[S], client: Optional[Client] = None,datasite: Optional[str] = None ):
+    def __init__(self, schema: Type[S], client: Client, datasite: Optional[str] = None):
         """A specialized YAML-based database store for RDS (Remote Data Store) that integrates with SyftBox.
 
         `RDSStore` extends `YAMLFileSystemDatabase` to provide a storage solution specifically designed
@@ -285,7 +285,7 @@ class RDSStore(YAMLFileSystemDatabase):
         using Syft's client API data directory and maintains the same CRUD, query, and search
         capabilities of its parent class.
 
-        Directory structure with the current four specs (code, dataset, job and runtime):
+        Directory structure with the current four schemas (code, dataset, job and runtime):
 
         <SYFTBOX-WORKSPACE>/datasites/<YOUR-EMAIL>/api_data/
         ├── rds/                     # RDS application root directory
@@ -305,11 +305,11 @@ class RDSStore(YAMLFileSystemDatabase):
         │       └── syftperm.yaml    # Permissions file
 
         Args:
-            spec: The specification model class for which to initialize the store.
+            schema: The Schema model class for which to initialize the store.
             client: Syft client instance to use.
             datasite: The datasite email to point to. Defaults to the client's email.
         """
-        self.spec = spec
-        self.client = client or Client.load()
+        self.schema = schema
+        self.client = client
         self.datasite = datasite or self.client.config.email
         self.db_path = self.client.api_data(self.APP_NAME, datasite=self.datasite) / "store"
