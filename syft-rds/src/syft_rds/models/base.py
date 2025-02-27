@@ -16,7 +16,7 @@ class BaseSchema(PydanticFormatterMixin, BaseModel, ABC):
     """Base Schema class that all Schema models must inherit from"""
 
     __schema_name__: str
-    id: UUID = Field(default_factory=uuid4)
+    uid: UUID = Field(default_factory=uuid4)
     created_at: datetime = Field(default_factory=_utcnow)
     updated_at: datetime = Field(default_factory=_utcnow)
 
@@ -50,6 +50,8 @@ class BaseSchemaCreate(PydanticFormatterMixin, BaseModel, Generic[T]):
 
 
 class BaseSchemaUpdate(PydanticFormatterMixin, BaseModel, Generic[T]):
+    uid: UUID = Field(default_factory=uuid4)
+
     @classmethod
     def get_target_model(cls) -> Type[T]:
         return cls.__bases__[0].__pydantic_generic_metadata__["args"][0]  # type: ignore

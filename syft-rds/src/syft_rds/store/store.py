@@ -106,13 +106,13 @@ class YAMLFileSystemDatabase(Generic[T]):
     def store_path(self) -> Path:
         return self.db_path / self.schema.__schema_name__
 
-    def _get_record_path(self, id: str | UUID) -> Path:
-        """Get the full path for a record's YAML file from its ID."""
-        return self.store_path / f"{id}.yaml"
+    def _get_record_path(self, uid: str | UUID) -> Path:
+        """Get the full path for a record's YAML file from its UID."""
+        return self.store_path / f"{uid}.yaml"
 
     def _save_record(self, record: T) -> None:
         """Save a single record to its own YAML file"""
-        file_path = self._get_record_path(record.id)
+        file_path = self._get_record_path(record.uid)
         yaml_dump = yaml.safe_dump(
             record.model_dump(mode="json"),
             indent=2,
@@ -120,9 +120,9 @@ class YAMLFileSystemDatabase(Generic[T]):
         )
         file_path.write_text(yaml_dump)
 
-    def _load_record(self, id: str | UUID) -> Optional[T]:
+    def _load_record(self, uid: str | UUID) -> Optional[T]:
         """Load a single record from its own YAML file"""
-        file_path = self._get_record_path(id)
+        file_path = self._get_record_path(uid)
         if not file_path.exists():
             return None
         record_dict = yaml.safe_load(file_path.read_text())
@@ -148,36 +148,36 @@ class YAMLFileSystemDatabase(Generic[T]):
             overwrite: If True, overwrite the record if it already exists
 
         Returns:
-            ID of the created record
+            UID of the created record
         """
         if not isinstance(record, self.schema):
             raise TypeError(f"`record` must be of type {self.schema.__name__}")
-        file_path = self._get_record_path(record.id)
+        file_path = self._get_record_path(record.uid)
         if file_path.exists() and not overwrite:
-            raise ValueError(f"Record with ID {record.id} already exists")
+            raise ValueError(f"Record with UID {record.uid} already exists")
         self._save_record(record)
         return record
 
     @ensure_store_exists
-    def read(self, id: str | UUID) -> Optional[T]:
+    def read(self, uid: str | UUID) -> Optional[T]:
         """
-        Read a record by ID
+        Read a record by UID
 
         Args:
-            id: Record ID to fetch
+            uid: Record UID to fetch
 
         Returns:
             Record if found, None otherwise
         """
-        return self._load_record(id)
+        return self._load_record(uid)
 
     @ensure_store_exists
-    def update(self, id: str | UUID, record: T) -> Optional[T]:
+    def update(self, uid: str | UUID, record: T) -> Optional[T]:
         """
-        Update a record by ID
+        Update a record by UID
 
         Args:
-            id: Record ID to update
+            uid: Record UID to update
             record: New data to update with
 
         Returns:
@@ -186,29 +186,29 @@ class YAMLFileSystemDatabase(Generic[T]):
         if not isinstance(record, self.schema):
             raise TypeError(f"`record` must be of type {self.schema.__name__}")
 
-        existing_record = self._load_record(id)
+        existing_record = self._load_record(uid)
         if not existing_record:
             return None
 
         # Update the record
         updated_record = existing_record.model_copy(
-            update=record.model_dump(exclude={"id"})
+            update=record.model_dump(exclude={"uid"})
         )
         self._save_record(updated_record)
         return updated_record
 
     @ensure_store_exists
-    def delete(self, id: str | UUID) -> bool:
+    def delete(self, uid: str | UUID) -> bool:
         """
-        Delete a record by ID
+        Delete a record by UID
 
         Args:
-            id: Record ID to delete
+            uid: Record UID to delete
 
         Returns:
             True if record was deleted, False if not found
         """
-        file_path = self._get_record_path(id)
+        file_path = self._get_record_path(uid)
         if not file_path.exists():
             return False
         file_path.unlink()

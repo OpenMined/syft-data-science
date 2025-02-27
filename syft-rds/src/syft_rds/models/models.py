@@ -4,7 +4,7 @@ from pathlib import Path
 from uuid import UUID
 import uuid
 
-from pydantic import BaseModel, Field, Json, model_validator
+from pydantic import BaseModel, Field, model_validator
 
 from syft_rds.models.base import BaseSchema, BaseSchemaCreate, BaseSchemaUpdate
 from syft_rds.utils.name_generator import generate_name
@@ -64,7 +64,7 @@ class Job(BaseSchema):
     runtime: str
     user_code_id: UUID
     tags: list[str] = Field(default_factory=list)
-    user_metadata: Json = {}
+    user_metadata: dict = {}
     status: JobStatus = JobStatus.pending_code_review
     error: JobErrorKind = JobErrorKind.no_error
 

@@ -5,33 +5,33 @@ from tests.mocks import MockUserSchema
 def test_create_record(
     mock_user_store: YAMLFileSystemDatabase, mock_user_1: MockUserSchema
 ):
-    record_id = mock_user_store.create(mock_user_1)
+    record = mock_user_store.create(mock_user_1)
 
-    assert record_id == mock_user_1.id
-    assert mock_user_store.read(record_id) == mock_user_1
+    assert record.uid == mock_user_1.uid
+    assert mock_user_store.read(record.uid) == mock_user_1
     assert mock_user_store.list_all() == [mock_user_1]
 
 
 def test_update_record(
     mock_user_store: YAMLFileSystemDatabase, mock_user_1: MockUserSchema
 ):
-    record_id = mock_user_store.create(mock_user_1)
+    record = mock_user_store.create(mock_user_1)
     mock_user_1.name = "Alice Smith"
-    updated_record: MockUserSchema = mock_user_store.update(record_id, mock_user_1)
+    updated_record: MockUserSchema = mock_user_store.update(record.uid, mock_user_1)
 
     assert updated_record is not None
     assert updated_record.name == mock_user_1.name
-    assert mock_user_store.read(record_id) == mock_user_1
+    assert mock_user_store.read(updated_record.uid) == mock_user_1
 
 
 def test_delete_record(
     mock_user_store: YAMLFileSystemDatabase, mock_user_1: MockUserSchema
 ):
-    record_id = mock_user_store.create(mock_user_1)
+    record = mock_user_store.create(mock_user_1)
     assert len(mock_user_store.list_all()) == 1
 
     # Delete the Record
-    res = mock_user_store.delete(record_id)
+    res = mock_user_store.delete(record.uid)
     assert res
     assert len(mock_user_store.list_all()) == 0
 
