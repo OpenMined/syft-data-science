@@ -1,14 +1,12 @@
+from syft_rds.models.base import BaseSchema
 import yaml
 from functools import wraps
 from pathlib import Path
-from pydantic import BaseModel
-from pydantic import Field
 from syft_core import Client
-from typing import Generic
+from typing import Generic, TypeVar
 from typing import Optional
 from typing import Type
-from typing import TypeVar
-from uuid import UUID, uuid4
+from uuid import UUID
 
 
 PERMS = """
@@ -20,17 +18,7 @@ PERMS = """
   user: '*'
 """
 
-S = TypeVar("S", bound="BaseSpec")
-
-
-class BaseSpec(BaseModel):
-    """Base specification class that all spec models must inherit from"""
-
-    __spec_name__: str
-    id: UUID = Field(default_factory=uuid4)
-
-    class Config:
-        arbitrary_types_allowed: bool = True
+T = TypeVar("T", bound=BaseSchema)
 
 
 def ensure_store_exists(func):
@@ -45,8 +33,8 @@ def ensure_store_exists(func):
     return wrapper
 
 
-class YAMLFileSystemDatabase(Generic[S]):
-    def __init__(self, spec: Type[S], db_path: str | Path):
+class YAMLFileSystemDatabase(Generic[T]):
+    def __init__(self, schema: Type[T], db_path: str | Path):
         """A lightweight file-based database that stores records as individual YAML files.
 
         YAMLFileSystemDatabase provides a simple database implementation where each record
@@ -56,10 +44,10 @@ class YAMLFileSystemDatabase(Generic[S]):
         The database creates a hierarchical directory structure:
 
         /db_path/
-        ├── model1_spec_name/           # Directory for first model type
+        ├── model1_schema_name/           # Directory for first model type
         │   ├── uuid1.yaml             # Individual record files
         │   └── uuid2.yaml
-        ├── model2_spec_name/           # Directory for second model type
+        ├── model2_schema_name/           # Directory for second model type
         │   ├── uuid3.yaml
         │   └── uuid4.yaml
         └── syftperm.yaml              # Permissions file
@@ -67,7 +55,7 @@ class YAMLFileSystemDatabase(Generic[S]):
         Where:
         - Each record is stored as a separate .yaml file
         - Filenames are UUIDs (e.g., "123e4567-e89b-12d3-a456-426614174000.yaml")
-        - All files for a specific model are stored in a dedicated subdirectory named after the model's __spec_name__
+        - All files for a specific model are stored in a dedicated subdirectory named after the model's __schema_name__
         - A syftperm.yaml file is created at the parent level to manage permissions
 
         Features:
@@ -81,16 +69,16 @@ class YAMLFileSystemDatabase(Generic[S]):
             ```python
             from pydantic import BaseModel
 
-            class UserSpec(BaseModel):
-                __spec_name__ = "users"
+            class UserSchema(BaseModel):
+                __schema_name__ = "users"
                 name: str
                 email: str
 
             # Initialize the database
-            db = YAMLFileSystemDatabase(UserSpec, "/path/to/db")
+            db = YAMLFileSystemDatabase(UserSchema, "/path/to/db")
 
             # Create a new user
-            user = UserSpec(name="John Doe", email="john@example.com")
+            user = UserSchema(name="John Doe", email="john@example.com")
             user_id = db.create(user)
 
             # Query users
@@ -98,33 +86,33 @@ class YAMLFileSystemDatabase(Generic[S]):
             ```
 
         Args:
-            spec: The Pydantic model class that defines the schema for stored records.
-                Must inherit from BaseSpec.
+            schema: The Pydantic model class that defines the schema for stored records.
+                Must inherit from BaseSchema.
             db_path: Directory path where the database files will be stored.
                     Can be string or Path object.
 
         Notes:
             - The database automatically creates the necessary directory structure
-            - Each model type gets its own subdirectory based on __spec_name__
-            - Records must be instances of Pydantic models inheriting from BaseSpec
+            - Each model type gets its own subdirectory based on __schema_name__
+            - Records must be instances of Pydantic models inheriting from BaseSchema
             - All operations are file-system based for now (no in-memory caching)
             - Suitable for smaller datasets where simple CRUD operations are needed
             - Provides human-readable storage format
         """
-        self.spec = spec
+        self.schema = schema
         self.db_path = Path(db_path)
 
     @property
     def store_path(self) -> Path:
-        return self.db_path / self.spec.__spec_name__
+        return self.db_path / self.schema.__schema_name__
 
-    def _get_record_path(self, id: str | UUID) -> Path:
-        """Get the full path for a record's YAML file from its ID."""
-        return self.store_path / f"{id}.yaml"
+    def _get_record_path(self, uid: str | UUID) -> Path:
+        """Get the full path for a record's YAML file from its UID."""
+        return self.store_path / f"{uid}.yaml"
 
-    def _save_record(self, record: S) -> None:
+    def _save_record(self, record: T) -> None:
         """Save a single record to its own YAML file"""
-        file_path = self._get_record_path(record.id)
+        file_path = self._get_record_path(record.uid)
         yaml_dump = yaml.safe_dump(
             record.model_dump(mode="json"),
             indent=2,
@@ -132,15 +120,15 @@ class YAMLFileSystemDatabase(Generic[S]):
         )
         file_path.write_text(yaml_dump)
 
-    def _load_record(self, id: str | UUID) -> Optional[S]:
+    def _load_record(self, uid: str | UUID) -> Optional[T]:
         """Load a single record from its own YAML file"""
-        file_path = self._get_record_path(id)
+        file_path = self._get_record_path(uid)
         if not file_path.exists():
             return None
         record_dict = yaml.safe_load(file_path.read_text())
-        return self.spec.model_validate(record_dict)
+        return self.schema.model_validate(record_dict)
 
-    def list_all(self) -> list[S]:
+    def list_all(self) -> list[T]:
         """List all records in the store"""
         records = []
         for file_path in self.store_path.glob("*.yaml"):
@@ -151,7 +139,7 @@ class YAMLFileSystemDatabase(Generic[S]):
         return records
 
     @ensure_store_exists
-    def create(self, record: S, overwrite: bool = False) -> UUID:
+    def create(self, record: T, overwrite: bool = False) -> T:
         """
         Create a new record in the store
 
@@ -160,74 +148,74 @@ class YAMLFileSystemDatabase(Generic[S]):
             overwrite: If True, overwrite the record if it already exists
 
         Returns:
-            ID of the created record
+            UID of the created record
         """
-        if not isinstance(record, self.spec):
-            raise TypeError(f"`record` must be of type {self.spec.__name__}")
-        file_path = self._get_record_path(record.id)
+        if not isinstance(record, self.schema):
+            raise TypeError(f"`record` must be of type {self.schema.__name__}")
+        file_path = self._get_record_path(record.uid)
         if file_path.exists() and not overwrite:
-            raise ValueError(f"Record with ID {record.id} already exists")
+            raise ValueError(f"Record with UID {record.uid} already exists")
         self._save_record(record)
-        return record.id
+        return record
 
     @ensure_store_exists
-    def read(self, id: str | UUID) -> Optional[S]:
+    def read(self, uid: str | UUID) -> Optional[T]:
         """
-        Read a record by ID
+        Read a record by UID
 
         Args:
-            id: Record ID to fetch
+            uid: Record UID to fetch
 
         Returns:
             Record if found, None otherwise
         """
-        return self._load_record(id)
+        return self._load_record(uid)
 
     @ensure_store_exists
-    def update(self, id: str | UUID, record: S) -> Optional[S]:
+    def update(self, uid: str | UUID, record: T) -> Optional[T]:
         """
-        Update a record by ID
+        Update a record by UID
 
         Args:
-            id: Record ID to update
+            uid: Record UID to update
             record: New data to update with
 
         Returns:
             Updated record if found, None otherwise
         """
-        if not isinstance(record, self.spec):
-            raise TypeError(f"`record` must be of type {self.spec.__name__}")
+        if not isinstance(record, self.schema):
+            raise TypeError(f"`record` must be of type {self.schema.__name__}")
 
-        existing_record = self._load_record(id)
+        existing_record = self._load_record(uid)
         if not existing_record:
             return None
 
         # Update the record
         updated_record = existing_record.model_copy(
-            update=record.model_dump(exclude={"id"})
+            update=record.model_dump(exclude={"uid"})
         )
         self._save_record(updated_record)
         return updated_record
 
     @ensure_store_exists
-    def delete(self, id: str | UUID) -> bool:
+    def delete(self, uid: str | UUID) -> bool:
         """
-        Delete a record by ID
+        Delete a record by UID
 
         Args:
-            id: Record ID to delete
+            uid: Record UID to delete
 
         Returns:
             True if record was deleted, False if not found
         """
-        file_path = self._get_record_path(id)
+        file_path = self._get_record_path(uid)
         if not file_path.exists():
             return False
         file_path.unlink()
         return True
 
     @ensure_store_exists
-    def query(self, **filters) -> list[S]:
+    def query(self, **filters) -> list[T]:
         """
         Query records with exact match filters
 
@@ -251,7 +239,7 @@ class YAMLFileSystemDatabase(Generic[S]):
         return results
 
     @ensure_store_exists
-    def search(self, query: str, fields: list[str]) -> list[S]:
+    def search(self, query: str, fields: list[str]) -> list[T]:
         """
         Search records with case-sensitive partial matching
 
@@ -273,11 +261,17 @@ class YAMLFileSystemDatabase(Generic[S]):
                     break
         return results
 
+    @ensure_store_exists
+    def clear(self) -> None:
+        """Clear all records in the store"""
+        for file_path in self.store_path.glob("*.yaml"):
+            file_path.unlink()
+
 
 class RDSStore(YAMLFileSystemDatabase):
     APP_NAME = "rds"
 
-    def __init__(self, spec: Type[S], client: Optional[Client] = None,datasite: Optional[str] = None ):
+    def __init__(self, schema: Type[T], client: Client, datasite: Optional[str] = None):
         """A specialized YAML-based database store for RDS (Remote Data Store) that integrates with SyftBox.
 
         `RDSStore` extends `YAMLFileSystemDatabase` to provide a storage solution specifically designed
@@ -285,7 +279,7 @@ class RDSStore(YAMLFileSystemDatabase):
         using Syft's client API data directory and maintains the same CRUD, query, and search
         capabilities of its parent class.
 
-        Directory structure with the current four specs (code, dataset, job and runtime):
+        Directory structure with the current four schemas (code, dataset, job and runtime):
 
         <SYFTBOX-WORKSPACE>/datasites/<YOUR-EMAIL>/api_data/
         ├── rds/                     # RDS application root directory
@@ -305,11 +299,13 @@ class RDSStore(YAMLFileSystemDatabase):
         │       └── syftperm.yaml    # Permissions file
 
         Args:
-            spec: The specification model class for which to initialize the store.
+            schema: The Schema model class for which to initialize the store.
             client: Syft client instance to use.
             datasite: The datasite email to point to. Defaults to the client's email.
         """
-        self.spec = spec
-        self.client = client or Client.load()
+        self.schema = schema
+        self.client = client
         self.datasite = datasite or self.client.config.email
-        self.db_path = self.client.api_data(self.APP_NAME, datasite=self.datasite) / "store"
+        self.db_path = (
+            self.client.api_data(self.APP_NAME, datasite=self.datasite) / "store"
+        )

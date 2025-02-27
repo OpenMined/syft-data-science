@@ -6,10 +6,9 @@ from syft_rds.server.app import create_app
 from syft_rds.server.routers.job_router import job_store
 from syft_rds.server.routers.user_code_router import user_code_store
 from syft_rds.server.routers.runtime_router import runtime_store
-from syft_rds.server.routers.dataset_router import dataset_store
-from syft_rds.models.base import ItemBase
+from syft_rds.models.base import BaseSchema
 from syft_rds.store import YAMLFileSystemDatabase
-from tests.mocks import MockUserSpec
+from tests.mocks import MockUserSchema
 
 HOST_EMAIL = "alice@openmined.org"
 
@@ -18,13 +17,12 @@ HOST_EMAIL = "alice@openmined.org"
 def reset_state():
     """Reset all internal state between tests"""
     # Clear all stores
-    job_store.items.clear()
-    user_code_store.items.clear()
-    runtime_store.items.clear()
-    dataset_store.items.clear()
+    job_store.clear()
+    user_code_store.clear()
+    runtime_store.clear()
 
     # Reset the private attribute to a new empty dict
-    ItemBase.__private_attributes__["_client_cache"].default = dict()
+    BaseSchema.__private_attributes__["_client_cache"].default = dict()
     yield
 
 
@@ -54,30 +52,32 @@ def server_client(rds_server: SyftEvents) -> RDSClient:
     return init_session(HOST_EMAIL, mock_server=rds_server)
 
 
-
 @pytest.fixture()
 def temp_db_path(tmp_path):
     """Fixture for creating a temporary database directory."""
     return tmp_path / "db"
 
+
 @pytest.fixture
 def yaml_store(temp_db_path):
     """Fixture for initializing the YAML store."""
-    def _create_yaml_store(spec):
-        return YAMLFileSystemDatabase(spec=spec, db_path=temp_db_path)
+
+    def _create_yaml_store(schema):
+        return YAMLFileSystemDatabase(schema=schema, db_path=temp_db_path)
+
     return _create_yaml_store
 
 
 @pytest.fixture
 def mock_user_store(yaml_store) -> YAMLFileSystemDatabase:
-    return yaml_store(MockUserSpec)
+    return yaml_store(MockUserSchema)
+
 
 @pytest.fixture
 def mock_user_1():
-    return MockUserSpec(name="Alice", email="alice@openmined.org")
+    return MockUserSchema(name="Alice", email="alice@openmined.org")
+
 
 @pytest.fixture
 def mock_user_2():
-    return MockUserSpec(name="Bob", email="bob@openmined.org")
-
-
+    return MockUserSchema(name="Bob", email="bob@openmined.org")
