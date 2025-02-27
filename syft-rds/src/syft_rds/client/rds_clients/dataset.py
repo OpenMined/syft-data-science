@@ -294,7 +294,7 @@ class DatasetRDSClient:
         mock_path: Union[str, Path],
         file_type: str,
         summary: Optional[str] = None,
-        description_path: Optional[str] = None,
+        description_path: Optional[Union[str, Path]] = None,
         tags: list[str] = [],
     ) -> Dataset:
         # input types validation
@@ -304,7 +304,7 @@ class DatasetRDSClient:
             mock_path=str(mock_path),
             file_type=file_type,
             summary=summary,
-            description_path=description_path,
+            description_path=str(description_path) if description_path else None,
             tags=tags,
         )
         # validate paths and file extensions
