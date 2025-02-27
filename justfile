@@ -49,3 +49,6 @@ run-rds-unit-tests:
 run-tests:
     just run-rds-unit-tests
     just run-rds-integration-tests
+
+build runtime:
+    docker build -t syft_python_runtime .

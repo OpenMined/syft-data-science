@@ -4,23 +4,25 @@ from pathlib import Path
 from uuid import UUID
 import uuid
 
-from pydantic import BaseModel, Field, Json, model_validator
+from pydantic import BaseModel, Field, model_validator
 
-from syft_rds.models.base import ItemBase, ItemBaseCreate, ItemBaseUpdate
+from syft_rds.models.base import BaseSchema, BaseSchemaCreate, BaseSchemaUpdate
 from syft_rds.utils.name_generator import generate_name
 
 
-class UserCode(ItemBase):
+class UserCode(BaseSchema):
+    __schema_name__ = "usercode"
+
     name: str
     path: Path
 
 
-class UserCodeCreate(ItemBaseCreate[UserCode]):
+class UserCodeCreate(BaseSchemaCreate[UserCode]):
     name: str = "My UserCode"
     path: Path
 
 
-class UserCodeUpdate(ItemBaseUpdate[UserCode]):
+class UserCodeUpdate(BaseSchemaUpdate[UserCode]):
     pass
 
 
@@ -52,7 +54,9 @@ class JobStatus(str, enum.Enum):
     shared = "shared"  # shared with the user
 
 
-class Job(ItemBase):
+class Job(BaseSchema):
+    __schema_name__ = "job"
+
     name: str = Field(
         default_factory=lambda: str(uuid.uuid4())
     )  # use a docker like name in the future
@@ -60,7 +64,7 @@ class Job(ItemBase):
     runtime: str
     user_code_id: UUID
     tags: list[str] = Field(default_factory=list)
-    user_metadata: Json = {}
+    user_metadata: dict = {}
     status: JobStatus = JobStatus.pending_code_review
     error: JobErrorKind = JobErrorKind.no_error
 
@@ -113,7 +117,7 @@ class Job(ItemBase):
         return self
 
 
-class JobCreate(ItemBaseCreate[Job]):
+class JobCreate(BaseSchemaCreate[Job]):
     name: str = Field(default_factory=generate_name)
     description: str | None = None
     runtime: str
@@ -121,27 +125,31 @@ class JobCreate(ItemBaseCreate[Job]):
     tags: list[str] = Field(default_factory=list)
 
 
-class JobUpdate(ItemBaseUpdate[Job]):
+class JobUpdate(BaseSchemaUpdate[Job]):
     pass
 
 
-class Runtime(ItemBase):
+class Runtime(BaseSchema):
+    __schema_name__ = "runtime"
+
     name: str
     description: str
     tags: list[str] = Field(default_factory=list)
 
 
-class RuntimeCreate(ItemBaseCreate[Runtime]):
+class RuntimeCreate(BaseSchemaCreate[Runtime]):
     name: str
     description: str
     tags: list[str] = Field(default_factory=list)
 
 
-class RuntimeUpdate(ItemBaseUpdate[Runtime]):
+class RuntimeUpdate(BaseSchemaUpdate[Runtime]):
     pass
 
 
-class Dataset(ItemBase):
+class Dataset(BaseSchema):
+    __schema_name__ = "dataset"
+
     name: str = Field(description="Name of the dataset.")
     private_path: str | Path = Field(description="Private path of the dataset.")
     mock_path: str | Path = Field(description="Mock path of the dataset.")
@@ -200,7 +208,7 @@ class Dataset(ItemBase):
             print(line)
 
 
-class DatasetCreate(ItemBaseCreate[Dataset]):
+class DatasetCreate(BaseSchemaCreate[Dataset]):
     name: str = Field(description="Name of the dataset.")
     path: str = Field(description="Private path of the dataset.")
     mock_path: str = Field(description="Mock path of the dataset.")
@@ -212,7 +220,7 @@ class DatasetCreate(ItemBaseCreate[Dataset]):
     tags: list[str] | None = Field(description="Tags for the dataset.")
 
 
-class DatasetUpdate(ItemBaseUpdate[Dataset]):
+class DatasetUpdate(BaseSchemaUpdate[Dataset]):
     pass
 
 
