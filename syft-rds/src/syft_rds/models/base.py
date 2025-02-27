@@ -50,8 +50,6 @@ class BaseSchemaCreate(PydanticFormatterMixin, BaseModel, Generic[T]):
 
 
 class BaseSchemaUpdate(PydanticFormatterMixin, BaseModel, Generic[T]):
-    uid: UUID
-
     @classmethod
     def get_target_model(cls) -> Type[T]:
         return cls.__bases__[0].__pydantic_generic_metadata__["args"][0]  # type: ignore
