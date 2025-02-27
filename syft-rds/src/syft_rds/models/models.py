@@ -196,7 +196,7 @@ class Dataset(ItemBase):
                     # i.e. space because last, └── , above so no more |
                     yield from tree(path, prefix=prefix + extension)
 
-        for line in tree(self.mock.parent):
+        for line in tree(self.get_mock_path()):
             print(line)
 
 
