@@ -50,7 +50,7 @@ class BaseSchemaCreate(PydanticFormatterMixin, BaseModel, Generic[T]):
 
 
 class BaseSchemaUpdate(PydanticFormatterMixin, BaseModel, Generic[T]):
-    uid: UUID = Field(default_factory=uuid4)
+    uid: UUID
 
     @classmethod
     def get_target_model(cls) -> Type[T]:
