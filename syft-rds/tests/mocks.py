@@ -1,4 +1,4 @@
-from syft_rds.store import BaseSchema
+from syft_rds.models.base import BaseSchema
 
 
 class MockUserSchema(BaseSchema):

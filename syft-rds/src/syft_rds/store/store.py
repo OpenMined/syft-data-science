@@ -1,14 +1,12 @@
+from syft_rds.models.base import BaseSchema
 import yaml
 from functools import wraps
 from pathlib import Path
-from pydantic import BaseModel
-from pydantic import Field
 from syft_core import Client
-from typing import Generic
+from typing import Generic, TypeVar
 from typing import Optional
 from typing import Type
-from typing import TypeVar
-from uuid import UUID, uuid4
+from uuid import UUID
 
 
 PERMS = """
@@ -20,17 +18,7 @@ PERMS = """
   user: '*'
 """
 
-S = TypeVar("S", bound="BaseSchema")
-
-
-class BaseSchema(BaseModel):
-    """Base Schema class that all Schema models must inherit from"""
-
-    __schema_name__: str
-    id: UUID = Field(default_factory=uuid4)
-
-    class Config:
-        arbitrary_types_allowed: bool = True
+T = TypeVar("T", bound=BaseSchema)
 
 
 def ensure_store_exists(func):
@@ -45,8 +33,8 @@ def ensure_store_exists(func):
     return wrapper
 
 
-class YAMLFileSystemDatabase(Generic[S]):
-    def __init__(self, schema: Type[S], db_path: str | Path):
+class YAMLFileSystemDatabase(Generic[T]):
+    def __init__(self, schema: Type[T], db_path: str | Path):
         """A lightweight file-based database that stores records as individual YAML files.
 
         YAMLFileSystemDatabase provides a simple database implementation where each record
@@ -122,7 +110,7 @@ class YAMLFileSystemDatabase(Generic[S]):
         """Get the full path for a record's YAML file from its ID."""
         return self.store_path / f"{id}.yaml"
 
-    def _save_record(self, record: S) -> None:
+    def _save_record(self, record: T) -> None:
         """Save a single record to its own YAML file"""
         file_path = self._get_record_path(record.id)
         yaml_dump = yaml.safe_dump(
@@ -132,7 +120,7 @@ class YAMLFileSystemDatabase(Generic[S]):
         )
         file_path.write_text(yaml_dump)
 
-    def _load_record(self, id: str | UUID) -> Optional[S]:
+    def _load_record(self, id: str | UUID) -> Optional[T]:
         """Load a single record from its own YAML file"""
         file_path = self._get_record_path(id)
         if not file_path.exists():
@@ -140,7 +128,7 @@ class YAMLFileSystemDatabase(Generic[S]):
         record_dict = yaml.safe_load(file_path.read_text())
         return self.schema.model_validate(record_dict)
 
-    def list_all(self) -> list[S]:
+    def list_all(self) -> list[T]:
         """List all records in the store"""
         records = []
         for file_path in self.store_path.glob("*.yaml"):
@@ -151,7 +139,7 @@ class YAMLFileSystemDatabase(Generic[S]):
         return records
 
     @ensure_store_exists
-    def create(self, record: S, overwrite: bool = False) -> UUID:
+    def create(self, record: T, overwrite: bool = False) -> UUID:
         """
         Create a new record in the store
 
@@ -171,7 +159,7 @@ class YAMLFileSystemDatabase(Generic[S]):
         return record.id
 
     @ensure_store_exists
-    def read(self, id: str | UUID) -> Optional[S]:
+    def read(self, id: str | UUID) -> Optional[T]:
         """
         Read a record by ID
 
@@ -184,7 +172,7 @@ class YAMLFileSystemDatabase(Generic[S]):
         return self._load_record(id)
 
     @ensure_store_exists
-    def update(self, id: str | UUID, record: S) -> Optional[S]:
+    def update(self, id: str | UUID, record: T) -> Optional[T]:
         """
         Update a record by ID
 
@@ -227,7 +215,7 @@ class YAMLFileSystemDatabase(Generic[S]):
         return True
 
     @ensure_store_exists
-    def query(self, **filters) -> list[S]:
+    def query(self, **filters) -> list[T]:
         """
         Query records with exact match filters
 
@@ -251,7 +239,7 @@ class YAMLFileSystemDatabase(Generic[S]):
         return results
 
     @ensure_store_exists
-    def search(self, query: str, fields: list[str]) -> list[S]:
+    def search(self, query: str, fields: list[str]) -> list[T]:
         """
         Search records with case-sensitive partial matching
 
@@ -277,7 +265,7 @@ class YAMLFileSystemDatabase(Generic[S]):
 class RDSStore(YAMLFileSystemDatabase):
     APP_NAME = "rds"
 
-    def __init__(self, schema: Type[S], client: Client, datasite: Optional[str] = None):
+    def __init__(self, schema: Type[T], client: Client, datasite: Optional[str] = None):
         """A specialized YAML-based database store for RDS (Remote Data Store) that integrates with SyftBox.
 
         `RDSStore` extends `YAMLFileSystemDatabase` to provide a storage solution specifically designed

@@ -1,4 +1,4 @@
-from .store import BaseSchema
+from syft_rds.models.base import BaseSchema
 from syft_core.url import SyftBoxURL
 
 
