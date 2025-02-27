@@ -11,6 +11,7 @@ from syft_rds.store import RDSStore
 
 # Runtime Router
 runtime_router = RPCRouter()
+# TODO: add DI and remove globals
 runtime_store = RDSStore(schema=Runtime, client=Client.load())
 
 

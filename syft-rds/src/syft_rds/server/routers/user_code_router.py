@@ -10,6 +10,7 @@ from syft_rds.store import RDSStore
 from syft_core import Client
 
 user_code_router = RPCRouter()
+# TODO: add DI and remove globals
 user_code_store = RDSStore(schema=UserCode, client=Client.load())
 
 

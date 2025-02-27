@@ -11,7 +11,7 @@ from syft_rds.store import RDSStore
 
 job_router = RPCRouter()
 
-# TODO add DI and remove globals
+# TODO: add DI and remove globals
 job_store = RDSStore(schema=Job, client=Client.load())
 
 
