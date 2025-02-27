@@ -278,7 +278,7 @@ class DatasetRDSClient:
         return Dataset(
             uid=dataset_spec.id,
             name=dataset_spec.name,
-            data_path=private_path,
+            private_path=private_path,
             mock_path=mock_path,
             file_type=dataset_spec.file_type,
             summary=dataset_spec.summary,

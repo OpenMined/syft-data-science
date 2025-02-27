@@ -143,7 +143,7 @@ class RuntimeUpdate(ItemBaseUpdate[Runtime]):
 
 class Dataset(ItemBase):
     name: str = Field(description="Name of the dataset.")
-    data_path: str | Path = Field(description="Private path of the dataset.")
+    private_path: str | Path = Field(description="Private path of the dataset.")
     mock_path: str | Path = Field(description="Mock path of the dataset.")
     file_type: str = Field(description="Type of files in the dataset.")
     summary: str | None = Field(description="Summary string of the dataset.")
@@ -152,23 +152,20 @@ class Dataset(ItemBase):
     )
     tags: list[str] = Field(description="Tags for the dataset.")
 
-    @property
-    def mock(self) -> Path:
+    def get_mock_path(self) -> Path:
         if not Path(self.mock_path).exists():
             raise FileNotFoundError(f"Mock file not found at {self.mock_path}")
         return Path(self.mock_path)
 
-    @property
-    def private(self) -> Path:
+    def get_private_path(self) -> Path:
         """
         Will always raise FileNotFoundError for non-admin since the
         private path will never by synced
         """
-        if not Path(self.data_path).exists():
+        if not Path(self.private_path).exists():
             raise FileNotFoundError(f"Private data not found at {self.data_path}")
-        return Path(self.data_path)
+        return Path(self.private_path)
 
-    @property
     def readme(self) -> str:
         # read the description .md file
         with open(self.description_path) as f:

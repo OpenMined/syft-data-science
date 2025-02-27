@@ -43,7 +43,7 @@ run-rds-integration-tests:
 
 [group('test')]
 run-rds-unit-tests:
-    uv run pytest syft-rds/tests/unit/store_test.py
+    uv run pytest syft-rds/tests/unit/*_test.py
 
 [group('test')]
 run-tests:

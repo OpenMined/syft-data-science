@@ -88,7 +88,7 @@ def mock_user_2():
 
 
 @pytest.fixture
-def do_syftbox_config(tmp_path) -> Path:
+def do_syftbox_config(tmp_path) -> SyftClientConfig:
     do_email = "data_owner@openmined.org"
     config_path = Path(tmp_path) / do_email / "config.json"
     data_dir = Path(tmp_path) / do_email
@@ -104,7 +104,7 @@ def do_syftbox_config(tmp_path) -> Path:
 
 
 @pytest.fixture
-def ds_syftbox_config(tmp_path) -> Path:
+def ds_syftbox_config(tmp_path) -> SyftClientConfig:
     ds_email = "data_scientist@openmined.org"
     config_path = Path(tmp_path) / ds_email / "config.json"
     data_dir = Path(tmp_path) / ds_email
