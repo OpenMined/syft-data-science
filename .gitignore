@@ -170,8 +170,12 @@ cython_debug/
 # PyPI configuration file
 .pypirc
 
-experimental
+
+# some other files
+experimental/
+experimentals/
 syft-rds/tests/integration/assets/do/job_outputs/*
+notebooks/data/
 
 # VSCode
 .vscode/
