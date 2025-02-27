@@ -139,7 +139,7 @@ class YAMLFileSystemDatabase(Generic[T]):
         return records
 
     @ensure_store_exists
-    def create(self, record: T, overwrite: bool = False) -> UUID:
+    def create(self, record: T, overwrite: bool = False) -> T:
         """
         Create a new record in the store
 
@@ -156,7 +156,7 @@ class YAMLFileSystemDatabase(Generic[T]):
         if file_path.exists() and not overwrite:
             raise ValueError(f"Record with ID {record.id} already exists")
         self._save_record(record)
-        return record.id
+        return record
 
     @ensure_store_exists
     def read(self, id: str | UUID) -> Optional[T]:
@@ -260,6 +260,12 @@ class YAMLFileSystemDatabase(Generic[T]):
                     results.append(record)
                     break
         return results
+
+    @ensure_store_exists
+    def clear(self) -> None:
+        """Clear all records in the store"""
+        for file_path in self.store_path.glob("*.yaml"):
+            file_path.unlink()
 
 
 class RDSStore(YAMLFileSystemDatabase):
