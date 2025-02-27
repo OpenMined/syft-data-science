@@ -1,5 +1,38 @@
 from .store import BaseSpec
 from syft_core.url import SyftBoxURL
+from pydantic import GetCoreSchemaHandler
+from pydantic_core import core_schema
+from typing import Annotated, Any, Type
+
+
+# Create a custom type adapter for SyftBoxURL
+class SyftBoxURLType:
+    """A type adapter for SyftBoxURL that can be parsed from a string."""
+
+    @classmethod
+    def __get_pydantic_core_schema__(
+        cls, _source_type: Type[Any], _handler: GetCoreSchemaHandler
+    ) -> core_schema.CoreSchema:
+        """Define how to validate and parse SyftBoxURL."""
+        return core_schema.union_schema(
+            [
+                # Try to use the object as-is if it's already a SyftBoxURL
+                core_schema.is_instance_schema(SyftBoxURL),
+                # Otherwise, parse it from a string
+                core_schema.chain_schema(
+                    [
+                        core_schema.str_schema(),
+                        core_schema.no_info_plain_validator_function(
+                            lambda s: SyftBoxURL(s)
+                        ),
+                    ]
+                ),
+            ]
+        )
+
+
+# Type alias for use in models
+SyftBoxURLField = Annotated[SyftBoxURL, SyftBoxURLType]
 
 
 class DatasetSpec(BaseSpec):
@@ -7,8 +40,8 @@ class DatasetSpec(BaseSpec):
 
     name: str
     description: str
-    data: SyftBoxURL
-    mock: SyftBoxURL
+    data: SyftBoxURLField
+    mock: SyftBoxURLField
     tags: list[str]
 
 
