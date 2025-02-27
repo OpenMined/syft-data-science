@@ -3,7 +3,7 @@ from typing import TYPE_CHECKING, ClassVar, Generic, TypeVar
 from pydantic import BaseModel
 
 from syft_rds.client.connection import RPCConnection
-from syft_rds.models.base import ItemBase, ItemBaseCreate, ItemBaseUpdate
+from syft_rds.models.base import BaseSchema, BaseSchemaCreate, BaseSchemaUpdate
 from syft_rds.models.models import (
     Dataset,
     DatasetCreate,
@@ -50,9 +50,9 @@ class RPCClient(RPCClientModule):
         self.dataset = DatasetRPCClient(self.config, self.connection)
 
 
-T = TypeVar("T", bound=ItemBase)
-CreateT = TypeVar("CreateT", bound=ItemBaseCreate)
-UpdateT = TypeVar("UpdateT", bound=ItemBaseUpdate)
+T = TypeVar("T", bound=BaseSchema)
+CreateT = TypeVar("CreateT", bound=BaseSchemaCreate)
+UpdateT = TypeVar("UpdateT", bound=BaseSchemaUpdate)
 
 
 class CRUDRPCClient(RPCClientModule, Generic[T, CreateT, UpdateT]):

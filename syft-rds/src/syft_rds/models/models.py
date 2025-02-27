@@ -6,21 +6,21 @@ import uuid
 
 from pydantic import BaseModel, Field, Json, model_validator
 
-from syft_rds.models.base import ItemBase, ItemBaseCreate, ItemBaseUpdate
+from syft_rds.models.base import BaseSchema, BaseSchemaCreate, BaseSchemaUpdate
 from syft_rds.utils.name_generator import generate_name
 
 
-class UserCode(ItemBase):
+class UserCode(BaseSchema):
     name: str
     path: Path
 
 
-class UserCodeCreate(ItemBaseCreate[UserCode]):
+class UserCodeCreate(BaseSchemaCreate[UserCode]):
     name: str = "My UserCode"
     path: Path
 
 
-class UserCodeUpdate(ItemBaseUpdate[UserCode]):
+class UserCodeUpdate(BaseSchemaUpdate[UserCode]):
     pass
 
 
@@ -52,7 +52,7 @@ class JobStatus(str, enum.Enum):
     shared = "shared"  # shared with the user
 
 
-class Job(ItemBase):
+class Job(BaseSchema):
     name: str = Field(
         default_factory=lambda: str(uuid.uuid4())
     )  # use a docker like name in the future
@@ -113,7 +113,7 @@ class Job(ItemBase):
         return self
 
 
-class JobCreate(ItemBaseCreate[Job]):
+class JobCreate(BaseSchemaCreate[Job]):
     name: str = Field(default_factory=generate_name)
     description: str | None = None
     runtime: str
@@ -121,39 +121,39 @@ class JobCreate(ItemBaseCreate[Job]):
     tags: list[str] = Field(default_factory=list)
 
 
-class JobUpdate(ItemBaseUpdate[Job]):
+class JobUpdate(BaseSchemaUpdate[Job]):
     pass
 
 
-class Runtime(ItemBase):
+class Runtime(BaseSchema):
     name: str
     description: str
     tags: list[str] = Field(default_factory=list)
 
 
-class RuntimeCreate(ItemBaseCreate[Runtime]):
+class RuntimeCreate(BaseSchemaCreate[Runtime]):
     name: str
     description: str
     tags: list[str] = Field(default_factory=list)
 
 
-class RuntimeUpdate(ItemBaseUpdate[Runtime]):
+class RuntimeUpdate(BaseSchemaUpdate[Runtime]):
     pass
 
 
-class Dataset(ItemBase):
+class Dataset(BaseSchema):
     name: str
     description: str
     tags: list[str] = Field(default_factory=list)
 
 
-class DatasetCreate(ItemBaseCreate[Dataset]):
+class DatasetCreate(BaseSchemaCreate[Dataset]):
     name: str
     description: str
     tags: list[str] = Field(default_factory=list)
 
 
-class DatasetUpdate(ItemBaseUpdate[Dataset]):
+class DatasetUpdate(BaseSchemaUpdate[Dataset]):
     pass
 
 

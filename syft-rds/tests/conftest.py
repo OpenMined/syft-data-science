@@ -7,7 +7,7 @@ from syft_rds.server.routers.job_router import job_store
 from syft_rds.server.routers.user_code_router import user_code_store
 from syft_rds.server.routers.runtime_router import runtime_store
 from syft_rds.server.routers.dataset_router import dataset_store
-from syft_rds.models.base import ItemBase
+from syft_rds.models.base import BaseSchema
 from syft_rds.store import YAMLFileSystemDatabase
 from tests.mocks import MockUserSchema
 
@@ -24,7 +24,7 @@ def reset_state():
     dataset_store.items.clear()
 
     # Reset the private attribute to a new empty dict
-    ItemBase.__private_attributes__["_client_cache"].default = dict()
+    BaseSchema.__private_attributes__["_client_cache"].default = dict()
     yield
 
 

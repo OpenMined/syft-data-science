@@ -1,9 +1,9 @@
 from typing import Generic, TypeVar
 from uuid import UUID
 
-from syft_rds.models.base import ItemBase
+from syft_rds.models.base import BaseSchema
 
-T = TypeVar("T", bound=ItemBase)
+T = TypeVar("T", bound=BaseSchema)
 
 
 class Store(Generic[T]):
