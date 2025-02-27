@@ -163,7 +163,7 @@ class Dataset(ItemBase):
         private path will never by synced
         """
         if not Path(self.private_path).exists():
-            raise FileNotFoundError(f"Private data not found at {self.data_path}")
+            raise FileNotFoundError(f"Private data not found at {self.private_path}")
         return Path(self.private_path)
 
     def readme(self) -> str:
