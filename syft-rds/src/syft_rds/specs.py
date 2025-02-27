@@ -1,6 +1,7 @@
+from syft_rds.utils.name_generator import generate_name
 from .store import BaseSpec
 from syft_core.url import SyftBoxURL
-from pydantic import GetCoreSchemaHandler
+from pydantic import Field, GetCoreSchemaHandler
 from pydantic_core import core_schema
 from typing import Annotated, Any, Type
 
@@ -38,11 +39,11 @@ SyftBoxURLField = Annotated[SyftBoxURL, SyftBoxURLType]
 class DatasetSpec(BaseSpec):
     __spec_name__ = "dataset"
 
-    name: str
-    description: str
+    name: str = Field(default_factory=generate_name)
+    description: str = ""
     data: SyftBoxURLField
     mock: SyftBoxURLField
-    tags: list[str]
+    tags: list[str] = []
 
 
 # class CodeSpec(Base):

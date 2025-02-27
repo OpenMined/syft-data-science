@@ -1,10 +1,13 @@
 from pathlib import Path
+from typing import Callable, Type
 
 import pytest
 from syft_rds.client.rds_client import RDSClient
 from syft_rds.models.models import GetAllRequest, JobStatus
 
 
+from syft_rds.specs import DatasetSpec
+from syft_rds.store import BaseSpec, YAMLFileSystemDatabase
 from syft_runtime import (
     DockerRunner,
     FileOutputHandler,
@@ -13,17 +16,26 @@ from syft_runtime import (
 )
 
 
-def test_job_execution(rds_client: RDSClient, server_client: RDSClient):
+def test_job_execution(
+    rds_client: RDSClient,
+    server_client: RDSClient,
+    yaml_store: Callable[[Type[BaseSpec]], YAMLFileSystemDatabase],
+):
+    # Server Side - create a dataset
+    dataset_spec = DatasetSpec(
+        name="Test Dataset",
+        data="syft://alice@openmined.org/public/datasets/mock.csv",
+        mock="syft://alice@openmined.org/private/datasets/private.csv",
+    )
+    dataset_store = yaml_store(DatasetSpec)
+    dataset_store.create(dataset_spec)
+
     # Client Side
-    # job_create = JobCreate(
-    #     name="Test Job", runtime="python3.9", user_code_id=uuid4(), tags=["test"]
-    # )
-    # job = rds_client.rpc.jobs.create(job_create)
     test_dir = Path(__file__).parent
     job = rds_client.jobs.submit(
         user_code_path=test_dir / "assets/ds/ds.py",
     )
-    rds_client.rpc.jobs.update(job)
+
     # Server Side
     jobs = server_client.rpc.jobs.get_all(GetAllRequest())
     assert len(jobs) == 1
@@ -34,6 +46,7 @@ def test_job_execution(rds_client: RDSClient, server_client: RDSClient):
     job.add_to_queue()
 
     with pytest.raises(ValueError):
+        # can't share artifacts before the job is run
         job.share_artifacts()
 
     # Runner side
@@ -48,8 +61,6 @@ def test_job_execution(rds_client: RDSClient, server_client: RDSClient):
         data_path=test_dir / "assets/do",
         runtime=job.runtime,
         job_folder=test_dir / "assets/do/job_outputs" / str(job.name),
-        timeout=1,
-        data_mount_dir="/data",
     )
 
     runner = DockerRunner(handlers=[FileOutputHandler(), RichConsoleUI()])

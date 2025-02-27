@@ -37,7 +37,7 @@ class JobConfig(BaseModel):
     job_folder: Optional[Path] = Field(
         default_factory=lambda: Path("jobs") / datetime.now().strftime("%Y%m%d_%H%M%S")
     )
-    timeout: int = 1
+    timeout: int = 60
     data_mount_dir: str = "/data"
 
     @property
