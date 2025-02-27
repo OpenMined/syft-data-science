@@ -21,28 +21,25 @@ Data mount path: /data/private_message.txt
 
 - `./example/ds/function1`: Path to the function to be executed, `main.py` is the default entrypoint at the moment
 - `./example/do/dataset1/private_message.txt`: Input dataset path, could be a single file or a directory and
-    accesible through the `DATA_PATH` environment variable in the function code.
+  accesible through the `DATA_PATH` environment variable in the function code.
 - `--timeout 10`: Maximum execution time in seconds, after which the job will be killed.
-
-
 
 # Runtime Environment
 
 Data scientists can use the following environment variables to locate the input dataset `DATA_PATH` and process it and
 save the outputs to the `OUTPUT_DIR` directory.
 
-- OUTPUT_DIR: Directory to save the outputs and logs, 
-    owner's of the function can freely write to and read from this directory.
-    Limited by adjustable container resource limits, such as file size, number of files, etc.
+- OUTPUT_DIR: Directory to save the outputs and logs,
+  owner's of the function can freely write to and read from this directory.
+  Limited by adjustable container resource limits, such as file size, number of files, etc.
 - DATA_PATH: Read only path to the input dataset. Could be a single file or a directory.
-    Owner's of the function can read from this path.
+  Owner's of the function can read from this path.
 - TIMEOUT: Maximum execution time in seconds, after which the job will be killed.
-
-
 
 ## Collecting outputs and logs
 
 Outputs and logs are collected via `OUTPUT_DIR` environment variable
+
 ```
 example_run/
 ├── output/     # Job output files
@@ -50,7 +47,6 @@ example_run/
     ├── stdout.log
     └── stderr.log
 ```
-
 
 ## Features
 
@@ -63,5 +59,3 @@ example_run/
   - Timeouts are enforced
   - Packages available in the container are limited to the ones listed in pyproject.toml
   - Outputs and logs are collected via `OUTPUT_DIR` environment variable
-
-
