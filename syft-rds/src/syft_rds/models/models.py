@@ -11,6 +11,8 @@ from syft_rds.utils.name_generator import generate_name
 
 
 class UserCode(BaseSchema):
+    __schema_name__ = "usercode"
+
     name: str
     path: Path
 
@@ -53,6 +55,8 @@ class JobStatus(str, enum.Enum):
 
 
 class Job(BaseSchema):
+    __schema_name__ = "job"
+
     name: str = Field(
         default_factory=lambda: str(uuid.uuid4())
     )  # use a docker like name in the future
@@ -126,6 +130,8 @@ class JobUpdate(BaseSchemaUpdate[Job]):
 
 
 class Runtime(BaseSchema):
+    __schema_name__ = "runtime"
+
     name: str
     description: str
     tags: list[str] = Field(default_factory=list)
@@ -142,6 +148,8 @@ class RuntimeUpdate(BaseSchemaUpdate[Runtime]):
 
 
 class Dataset(BaseSchema):
+    __schema_name__ = "dataset"
+
     name: str
     description: str
     tags: list[str] = Field(default_factory=list)
