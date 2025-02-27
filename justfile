@@ -34,3 +34,7 @@ run-jupyter jupyter_args="":
 
     uv run --frozen --with "jupyterlab" \
         jupyter lab {{ jupyter_args }}
+
+
+build runtime:
+    docker build -t syft_python_runtime .
