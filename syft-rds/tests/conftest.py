@@ -54,17 +54,19 @@ def server_client(rds_server: SyftEvents) -> RDSClient:
     return init_session(HOST_EMAIL, mock_server=rds_server)
 
 
-
 @pytest.fixture()
 def temp_db_path(tmp_path):
     """Fixture for creating a temporary database directory."""
     return tmp_path / "db"
 
+
 @pytest.fixture
 def yaml_store(temp_db_path):
     """Fixture for initializing the YAML store."""
+
     def _create_yaml_store(schema):
         return YAMLFileSystemDatabase(schema=schema, db_path=temp_db_path)
+
     return _create_yaml_store
 
 
@@ -72,12 +74,12 @@ def yaml_store(temp_db_path):
 def mock_user_store(yaml_store) -> YAMLFileSystemDatabase:
     return yaml_store(MockUserSchema)
 
+
 @pytest.fixture
 def mock_user_1():
     return MockUserSchema(name="Alice", email="alice@openmined.org")
 
+
 @pytest.fixture
 def mock_user_2():
     return MockUserSchema(name="Bob", email="bob@openmined.org")
-
-

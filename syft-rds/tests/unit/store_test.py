@@ -1,14 +1,20 @@
 from syft_rds.store import YAMLFileSystemDatabase
 from tests.mocks import MockUserSchema
 
-def test_create_record(mock_user_store: YAMLFileSystemDatabase, mock_user_1: MockUserSchema):
+
+def test_create_record(
+    mock_user_store: YAMLFileSystemDatabase, mock_user_1: MockUserSchema
+):
     record_id = mock_user_store.create(mock_user_1)
 
     assert record_id == mock_user_1.id
     assert mock_user_store.read(record_id) == mock_user_1
     assert mock_user_store.list_all() == [mock_user_1]
 
-def test_update_record(mock_user_store: YAMLFileSystemDatabase, mock_user_1: MockUserSchema):
+
+def test_update_record(
+    mock_user_store: YAMLFileSystemDatabase, mock_user_1: MockUserSchema
+):
     record_id = mock_user_store.create(mock_user_1)
     mock_user_1.name = "Alice Smith"
     updated_record: MockUserSchema = mock_user_store.update(record_id, mock_user_1)
@@ -17,7 +23,10 @@ def test_update_record(mock_user_store: YAMLFileSystemDatabase, mock_user_1: Moc
     assert updated_record.name == mock_user_1.name
     assert mock_user_store.read(record_id) == mock_user_1
 
-def test_delete_record(mock_user_store: YAMLFileSystemDatabase, mock_user_1: MockUserSchema):
+
+def test_delete_record(
+    mock_user_store: YAMLFileSystemDatabase, mock_user_1: MockUserSchema
+):
     record_id = mock_user_store.create(mock_user_1)
     assert len(mock_user_store.list_all()) == 1
 
@@ -26,7 +35,10 @@ def test_delete_record(mock_user_store: YAMLFileSystemDatabase, mock_user_1: Moc
     assert res
     assert len(mock_user_store.list_all()) == 0
 
-def test_query_record(mock_user_store: YAMLFileSystemDatabase, mock_user_1: MockUserSchema):
+
+def test_query_record(
+    mock_user_store: YAMLFileSystemDatabase, mock_user_1: MockUserSchema
+):
     mock_user_store.create(mock_user_1)
     assert len(mock_user_store.list_all()) == 1
 
@@ -36,7 +48,10 @@ def test_query_record(mock_user_store: YAMLFileSystemDatabase, mock_user_1: Mock
     assert len(results) == 1
     assert results[0] == mock_user_1
 
-def test_search_record(mock_user_store: YAMLFileSystemDatabase, mock_user_1: MockUserSchema):
+
+def test_search_record(
+    mock_user_store: YAMLFileSystemDatabase, mock_user_1: MockUserSchema
+):
     mock_user_store.create(mock_user_1)
     assert len(mock_user_store.list_all()) == 1
 
@@ -44,7 +59,3 @@ def test_search_record(mock_user_store: YAMLFileSystemDatabase, mock_user_1: Moc
     results = mock_user_store.search(query=mock_user_1.email, fields=["email"])
     assert len(results) == 1
     assert results[0] == mock_user_1
-
-
-
-    

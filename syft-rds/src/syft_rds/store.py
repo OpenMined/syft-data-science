@@ -312,4 +312,6 @@ class RDSStore(YAMLFileSystemDatabase):
         self.schema = schema
         self.client = client
         self.datasite = datasite or self.client.config.email
-        self.db_path = self.client.api_data(self.APP_NAME, datasite=self.datasite) / "store"
+        self.db_path = (
+            self.client.api_data(self.APP_NAME, datasite=self.datasite) / "store"
+        )

@@ -12,12 +12,18 @@ def _utcnow():
     return datetime.now(tz=timezone.utc)
 
 
-class ItemBase(PydanticFormatterMixin, BaseModel, ABC):
-    uid: UUID = Field(default_factory=uuid4)
+class BaseSchema(PydanticFormatterMixin, BaseModel, ABC):
+    """Base Schema class that all Schema models must inherit from"""
+
+    __schema_name__: str
+    id: UUID = Field(default_factory=uuid4)
     created_at: datetime = Field(default_factory=_utcnow)
     updated_at: datetime = Field(default_factory=_utcnow)
 
-    _client_cache: dict[UUID, "ItemBase"] = PrivateAttr(default_factory=dict)
+    class Config:
+        arbitrary_types_allowed: bool = True
+
+    _client_cache: dict[UUID, "BaseSchema"] = PrivateAttr(default_factory=dict)
 
     @classmethod
     def type_name(cls) -> str:
@@ -30,10 +36,10 @@ class ItemBase(PydanticFormatterMixin, BaseModel, ABC):
         raise NotImplementedError
 
 
-T = TypeVar("T", bound=ItemBase)
+T = TypeVar("T", bound=BaseSchema)
 
 
-class ItemBaseCreate(PydanticFormatterMixin, BaseModel, Generic[T]):
+class BaseSchemaCreate(PydanticFormatterMixin, BaseModel, Generic[T]):
     @classmethod
     def get_target_model(cls) -> Type[T]:
         return cls.__bases__[0].__pydantic_generic_metadata__["args"][0]  # type: ignore
@@ -43,7 +49,7 @@ class ItemBaseCreate(PydanticFormatterMixin, BaseModel, Generic[T]):
         return model_cls(**self.model_dump())
 
 
-class ItemBaseUpdate(PydanticFormatterMixin, BaseModel, Generic[T]):
+class BaseSchemaUpdate(PydanticFormatterMixin, BaseModel, Generic[T]):
     uid: UUID
 
     @classmethod
