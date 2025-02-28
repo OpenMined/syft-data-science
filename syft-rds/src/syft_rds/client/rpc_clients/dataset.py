@@ -281,7 +281,8 @@ class DatasetRPCClient(CRUDRPCClient[Dataset, DatasetCreate, DatasetUpdate]):
         raise NotImplementedError("Not implemented for Dataset")
 
     def get_all(self, request: GetAllRequest) -> list[Dataset]:
-        raise NotImplementedError("Not implemented for Dataset")
+        datasets: list[Dataset] = self._schema_manager.get_all()
+        return [dataset.with_client(self._syftbox_client) for dataset in datasets]
 
     def update(self, item: DatasetUpdate) -> Dataset:
         raise NotImplementedError("Not implemented for Dataset")
@@ -289,3 +290,13 @@ class DatasetRPCClient(CRUDRPCClient[Dataset, DatasetCreate, DatasetUpdate]):
     def get_by_name(self, name: str) -> Dataset:
         dataset: Dataset = self._schema_manager.get_by_name(name=name)
         return dataset.with_client(self._syftbox_client)
+
+    def delete_by_name(self, name: str) -> bool:
+        try:
+            schema_deleted = self._schema_manager.delete(name)
+            if schema_deleted:
+                self._files_manager.cleanup_dataset_files(name)
+                return True
+            return False
+        except Exception as e:
+            raise RuntimeError(f"Failed to delete dataset '{name}'") from e

@@ -3,7 +3,7 @@ from typing import Optional, Union
 from functools import wraps
 
 from syft_rds.client.rds_clients.base import RDSClientModule
-from syft_rds.models.models import Dataset, DatasetCreate, DatasetUpdate
+from syft_rds.models.models import Dataset, DatasetCreate, DatasetUpdate, GetAllRequest
 
 
 def ensure_is_admin(func):
@@ -57,8 +57,7 @@ class DatasetRDSClient(RDSClientModule):
         return self.rpc.dataset.get_by_name(name)
 
     def get_all(self) -> list[Dataset]:
-        datasets: list[Dataset] = self._schema_manager.get_all()
-        return [dataset.with_client(self._syftbox_client) for dataset in datasets]
+        return self.rpc.dataset.get_all(GetAllRequest())
 
     @ensure_is_admin
     def delete(self, name: str) -> bool:
@@ -68,19 +67,12 @@ class DatasetRDSClient(RDSClientModule):
             name: Name of the dataset to delete
 
         Returns:
-            True if deletion was successful
+            True if deletion was successful, False otherwise
 
         Raises:
             RuntimeError: If deletion fails due to file system errors
         """
-        try:
-            schema_deleted = self._schema_manager.delete(name)
-            if schema_deleted:
-                self._files_manager.cleanup_dataset_files(name)
-                return True
-            return False
-        except Exception as e:
-            raise RuntimeError(f"Failed to delete dataset '{name}'") from e
+        return self.rpc.dataset.delete_by_name(name)
 
     @ensure_is_admin
     def update(self, dataset_update: DatasetUpdate) -> Dataset:
