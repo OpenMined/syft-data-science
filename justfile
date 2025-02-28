@@ -39,6 +39,27 @@ run-jupyter jupyter_args="":
 build runtime:
     docker build -t syft_python_runtime .
 
+# Build a runtime container based on the Dockerfile name
+# Usage: just build-runtime sh (builds syft_sh_runtime from runtimes/sh.Dockerfile)
+[group('utils')]
+build-runtime runtime_name:
+    #!/usr/bin/env bash
+    echo "Building syft_{{runtime_name}}_runtime from runtimes/{{runtime_name}}.Dockerfile"
+    docker build -t syft_{{runtime_name}}_runtime -f runtimes/{{runtime_name}}.Dockerfile .
+
+# Build all runtime containers
+[group('utils')]
+build-all-runtimes:
+    #!/usr/bin/env bash
+    echo "Building all runtime containers..."
+    for dockerfile in runtimes/*.Dockerfile; do
+        runtime_name=$(basename "$dockerfile" .Dockerfile)
+        if [ "$runtime_name" != "base" ]; then
+            echo "Building syft_${runtime_name}_runtime..."
+            just build-runtime "$runtime_name"
+        fi
+    done
+    echo "All runtime containers built successfully!"
 
 [group('test')]
 run-rds-integration-tests:

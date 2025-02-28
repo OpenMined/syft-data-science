@@ -57,9 +57,7 @@ class JobStatus(str, enum.Enum):
 class Job(BaseSchema):
     __schema_name__ = "job"
 
-    name: str = Field(
-        default_factory=lambda: str(uuid.uuid4())
-    )  # use a docker like name in the future
+    name: str = Field(default_factory=generate_name)
     description: str | None = None
     runtime: str
     user_code_id: UUID
