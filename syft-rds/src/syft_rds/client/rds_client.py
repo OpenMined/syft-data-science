@@ -48,21 +48,4 @@ class RDSClient(RDSClientModule):
         super().__init__(config, rpc_client)
         self.jobs = JobRDSClient(self.config, self.rpc)
         self.runtime = RuntimeRDSClient(self.config, self.rpc)
-        self.dataset = DatasetRDSClient(self.config, self.rpc.connection.sender_client)
-
-    @property
-    def host(self) -> str:
-        return self.config.host
-
-    @property
-    def syftbox_client(self) -> SyftBoxClient:
-        return self.rpc.connection.sender_client
-
-    @property
-    def email(self) -> str:
-        return self.syftbox_client.email
-
-    @property
-    def is_admin(self) -> bool:
-        return self.host == self.email
-        self.data = DatasetRDSClient(self.config, self.rpc)
+        self.dataset = DatasetRDSClient(self.config, self.rpc)

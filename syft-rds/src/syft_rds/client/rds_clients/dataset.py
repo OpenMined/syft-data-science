@@ -6,9 +6,10 @@ from functools import wraps
 
 from syft_core import Client as SyftBoxClient
 from syft_core.url import SyftBoxURL
-from syft_rds.store import RDSStore
 
-from syft_rds.client.rds_clients.base import RDSClientConfig
+from syft_rds.client.rpc_client import RPCClient
+from syft_rds.store import RDSStore
+from syft_rds.client.rds_clients.base import RDSClientConfig, RDSClientModule
 from syft_rds.models.models import Dataset, DatasetCreate, DatasetUpdate
 
 
@@ -227,15 +228,15 @@ def ensure_is_admin(func):
     return wrapper
 
 
-class DatasetRDSClient:
+class DatasetRDSClient(RDSClientModule):
     """
     For DatasetRDSClient, everything is done locally on the client side.
     Hence, there is no need for utilizing RPC Connections and the RPCClient like other RDS clients
     """
 
-    def __init__(self, config: RDSClientConfig, syftbox_client: SyftBoxClient):
+    def __init__(self, config: RDSClientConfig, rpc_client: RPCClient):
+        super().__init__(config, rpc_client)
         self._config = config
-        self._syftbox_client = syftbox_client
         self._path_manager = DatasetPathManager(self._syftbox_client, self._config.host)
         self._schema_manager = DatasetSchemaManager(self._path_manager)
         self._files_manager = DatasetFilesManager(self._path_manager)
