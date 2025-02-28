@@ -35,6 +35,9 @@ run-jupyter jupyter_args="":
     uv run --frozen --with "jupyterlab" \
         jupyter lab {{ jupyter_args }}
 
+build runtime:
+    docker build -t syft_python_runtime .
+
 [group('test')]
 run-rds-integration-tests:
     uv run --frozen --with "pytest" \
@@ -49,6 +52,3 @@ run-rds-unit-tests:
 run-tests:
     just run-rds-unit-tests
     just run-rds-integration-tests
-
-build runtime:
-    docker build -t syft_python_runtime .
