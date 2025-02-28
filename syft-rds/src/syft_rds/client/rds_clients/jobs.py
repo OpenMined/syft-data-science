@@ -16,7 +16,7 @@ from syft_rds.models.models import (
 class JobRDSClient(RDSClientModule):
     def submit(
         self,
-        name: str,
+        name: str | None = None,
         description: str | None = None,
         runtime: str | None = None,
         user_code_path: PathLike | None = None,
@@ -36,13 +36,14 @@ class JobRDSClient(RDSClientModule):
         user_code = self.rpc.user_code.create(user_code_create)
 
         job_create = JobCreate(
-            name=name,
             description=description,
             runtime=runtime or self.config.default_runtime,
             user_code_id=user_code.uid,
             tags=tags if tags is not None else [],
             output_path=output_path,
         )
+        if name is not None:
+            job_create.name = name
         job = self.rpc.jobs.create(job_create)
         job._client_cache[user_code.uid] = user_code
 

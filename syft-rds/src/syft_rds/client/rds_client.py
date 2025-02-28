@@ -65,3 +65,4 @@ class RDSClient(RDSClientModule):
     @property
     def is_admin(self) -> bool:
         return self.host == self.email
+        self.data = DatasetRDSClient(self.config, self.rpc)
