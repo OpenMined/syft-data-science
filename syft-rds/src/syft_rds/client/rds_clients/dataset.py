@@ -54,8 +54,7 @@ class DatasetRDSClient(RDSClientModule):
         return self.rpc.dataset.create(dataset_create)
 
     def get(self, name: str) -> Dataset:
-        dataset: Dataset = self._schema_manager.get_one(name=name)
-        return dataset.with_client(self._syftbox_client)
+        return self.rpc.dataset.get_by_name(name)
 
     def get_all(self) -> list[Dataset]:
         datasets: list[Dataset] = self._schema_manager.get_all()

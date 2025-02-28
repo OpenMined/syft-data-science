@@ -205,7 +205,7 @@ class DatasetSchemaManager:
             return False
         return self._schema_store.delete(queried_result[0].uid)
 
-    def get_one(self, name: str) -> Dataset:
+    def get_by_name(self, name: str) -> Dataset:
         queried_result = self._schema_store.query(name=name)
         if not queried_result:
             raise ValueError(f"Dataset with name '{name}' not found")
@@ -285,3 +285,7 @@ class DatasetRPCClient(CRUDRPCClient[Dataset, DatasetCreate, DatasetUpdate]):
 
     def update(self, item: DatasetUpdate) -> Dataset:
         raise NotImplementedError("Not implemented for Dataset")
+
+    def get_by_name(self, name: str) -> Dataset:
+        dataset: Dataset = self._schema_manager.get_by_name(name=name)
+        return dataset.with_client(self._syftbox_client)
