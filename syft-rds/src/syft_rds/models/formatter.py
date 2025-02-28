@@ -42,7 +42,8 @@ class ANSIPydanticFormatter(PydanticFormatter):
 
     def format_field(self, key: str, value: Any) -> str:
         value_str = str(value)
-
+        formatted_key = key
+        formatted_value = value_str
         if self.use_colors:
             formatted_key = f"\033[1m{key}\033[0m"
 
@@ -54,10 +55,6 @@ class ANSIPydanticFormatter(PydanticFormatter):
                 formatted_value = f"\033[33m{value_str}\033[0m"
             else:
                 formatted_value = f"\033[34m{value_str}\033[0m"
-        else:
-            formatted_key = key
-            formatted_value = value_str
-
         return f"  {formatted_key}: {formatted_value}"
 
     def format_str(self, model: BaseModel) -> str:
