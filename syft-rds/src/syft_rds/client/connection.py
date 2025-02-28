@@ -63,7 +63,7 @@ class DevRPCConnection(RPCConnection):
             raise ValueError(
                 f"No handler found for URL: {url}, got {self.app._SyftEvents__rpc.keys()}"
             )
-        kwargs = func_args_from_request(handler, syft_request)
+        kwargs = func_args_from_request(handler, syft_request, self.app)
 
         response = handler(**kwargs)
         return response
