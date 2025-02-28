@@ -13,33 +13,31 @@ if TYPE_CHECKING:
     from syft_rds.client.rds_client import RDSClientConfig
 
 
-class LocalStoreBase:
+class LocalStoreModule:
+    SCHEMA: ClassVar[Type[T]]
+
     def __init__(self, config: "RDSClientConfig", syftbox_client: SyftBoxClient):
+        if not hasattr(self, "SCHEMA"):
+            raise ValueError(f"{self.__class__.__name__} must define a SCHEMA.")
+
         self.config = config
         self.syftbox_client = syftbox_client
-
-    def get_store(self, schema: Type[T]):
-        self._schema_store = RDSStore(
-            schema=schema,
+        self.store = RDSStore(
+            schema=self.SCHEMA,
             client=self.syftbox_client,
             datasite=self.config.host,
         )
 
 
-class CRUDLocalStore(LocalStoreBase, Generic[T, CreateT, UpdateT]):
-    SCHEMA: ClassVar[Type[T]]
-
-    def __init__(self, config: "RDSClientConfig", syftbox_client: SyftBoxClient):
-        super().__init__(config, syftbox_client)
-
+class CRUDLocalStore(LocalStoreModule, Generic[T, CreateT, UpdateT]):
     def create(self, item: CreateT) -> T:
-        pass
+        raise NotImplementedError
 
     def get_one(self, request: GetOneRequest) -> T:
-        pass
+        raise NotImplementedError
 
     def get_all(self, request: GetAllRequest) -> list[T]:
-        pass
+        raise NotImplementedError
 
     def update(self, item: UpdateT) -> T:
-        pass
+        raise NotImplementedError
