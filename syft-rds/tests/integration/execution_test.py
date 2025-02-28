@@ -6,8 +6,7 @@ from syft_rds.client.rds_client import RDSClient
 from syft_rds.models.models import GetAllRequest, JobStatus
 
 
-from syft_rds.specs import DatasetSpec
-from syft_rds.store import BaseSpec, YAMLFileSystemDatabase
+from syft_rds.store import YAMLFileSystemDatabase
 from syft_runtime import (
     DockerRunner,
     FileOutputHandler,
@@ -19,17 +18,7 @@ from syft_runtime import (
 def test_job_execution(
     rds_client: RDSClient,
     server_client: RDSClient,
-    yaml_store: Callable[[Type[BaseSpec]], YAMLFileSystemDatabase],
 ):
-    # Server Side - create a dataset
-    dataset_spec = DatasetSpec(
-        name="Test Dataset",
-        data="syft://alice@openmined.org/public/datasets/mock.csv",
-        mock="syft://alice@openmined.org/private/datasets/private.csv",
-    )
-    dataset_store = yaml_store(DatasetSpec)
-    dataset_store.create(dataset_spec)
-
     # Client Side
     test_dir = Path(__file__).parent
     job = rds_client.jobs.submit(
@@ -92,7 +81,6 @@ def test_job_execution(
 def test_bash_job_execution(
     rds_client: RDSClient,
     server_client: RDSClient,
-    yaml_store: Callable[[Type[BaseSpec]], YAMLFileSystemDatabase],
 ):
     # Client Side
     test_dir = Path(__file__).parent
