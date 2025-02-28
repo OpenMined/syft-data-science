@@ -6,11 +6,10 @@ from functools import wraps
 
 from syft_core import Client as SyftBoxClient
 from syft_core.url import SyftBoxURL
-from syft_rds.specs import DatasetSpec
 from syft_rds.store import RDSStore
 
 from syft_rds.client.rds_clients.base import RDSClientConfig
-from syft_rds.models.models import DatasetCreate, Dataset, DatasetUpdate
+from syft_rds.models.models import Dataset, DatasetCreate, DatasetUpdate
 
 
 class DatasetUrlManager:
@@ -160,8 +159,8 @@ class DatasetFilesManager:
 class DatasetSchemaManager:
     def __init__(self, path_manager: DatasetPathManager) -> None:
         self._path_manager = path_manager
-        self._spec_store = RDSStore(
-            spec=DatasetSpec,
+        self._schema_store = RDSStore(
+            schema=Dataset,
             client=self._path_manager._syftbox_client,
             datasite=self._path_manager._host,
         )
@@ -179,34 +178,34 @@ class DatasetSchemaManager:
             dataset_create.name,
             Path(dataset_create.description_path),
         )
-        dataset_spec = DatasetSpec(
+        dataset = Dataset(
             name=dataset_create.name,
-            data=private_url,
+            private=private_url,
             mock=mock_url,
             file_type=dataset_create.file_type,
             tags=dataset_create.tags,
             summary=dataset_create.summary,
             readme=readme_url,
         )
-        self._spec_store.create(dataset_spec)
-        return dataset_spec
+        self._schema_store.create(dataset)
+        return dataset
 
     def delete(self, name: str) -> bool:
-        queried_result = self._spec_store.query(name=name)
+        queried_result = self._schema_store.query(name=name)
         if not queried_result:
             return False
-        return self._spec_store.delete(queried_result[0].id)
+        return self._schema_store.delete(queried_result[0].uid)
 
-    def get_one(self, name: str) -> DatasetSpec:
-        queried_result = self._spec_store.query(name=name)
+    def get_one(self, name: str) -> Dataset:
+        queried_result = self._schema_store.query(name=name)
         if not queried_result:
             raise ValueError(f"Dataset with name '{name}' not found")
         if len(queried_result) > 1:
             raise ValueError(f"Multiple datasets found with name '{name}'")
         return queried_result[0]
 
-    def get_all(self) -> list[DatasetSpec]:
-        return self._spec_store.list_all()
+    def get_all(self) -> list[Dataset]:
+        return self._schema_store.list_all()
 
 
 def ensure_is_admin(func):
@@ -262,30 +261,6 @@ class DatasetRDSClient:
         self._files_manager.check_file_extensions_for_dir(path, file_type)
         self._files_manager.check_file_extensions_for_dir(mock_path, file_type)
 
-    def _dataset_spec_to_dataset(self, dataset_spec: DatasetSpec) -> Dataset:
-        mock_path = dataset_spec.mock.to_local_path(
-            datasites_path=self._syftbox_client.datasites
-        )
-        private_path = dataset_spec.data.to_local_path(
-            datasites_path=self._syftbox_client.datasites
-        )
-        if dataset_spec.readme:
-            description_path = dataset_spec.readme.to_local_path(
-                datasites_path=self._syftbox_client.datasites
-            )
-        else:
-            description_path = None
-        return Dataset(
-            uid=dataset_spec.id,
-            name=dataset_spec.name,
-            private_path=private_path,
-            mock_path=mock_path,
-            file_type=dataset_spec.file_type,
-            summary=dataset_spec.summary,
-            description_path=description_path,
-            tags=dataset_spec.tags,
-        )
-
     @ensure_is_admin
     def create(
         self,
@@ -315,22 +290,19 @@ class DatasetRDSClient:
                 name, description_path
             )
             self._files_manager.copy_private_to_private_syftbox_dir(name, path)
-            dataset_spec = self._schema_manager.create(dataset_create)
-            return self._dataset_spec_to_dataset(dataset_spec)
+            dataset = self._schema_manager.create(dataset_create)
+            return dataset.with_client(self._syftbox_client)
         except Exception as e:
             self._files_manager.cleanup_dataset_files(name)
             raise RuntimeError(f"Failed to create dataset '{name}': {str(e)}") from e
 
     def get(self, name: str) -> Dataset:
-        queried_result: DatasetSpec = self._schema_manager.get_one(name=name)
-        return self._dataset_spec_to_dataset(queried_result)
+        dataset: Dataset = self._schema_manager.get_one(name=name)
+        return dataset.with_client(self._syftbox_client)
 
     def get_all(self) -> list[Dataset]:
-        queried_results = self._schema_manager.get_all()
-        return [
-            self._dataset_spec_to_dataset(dataset_spec)
-            for dataset_spec in queried_results
-        ]
+        datasets: list[Dataset] = self._schema_manager.get_all()
+        return [dataset.with_client(self._syftbox_client) for dataset in datasets]
 
     @ensure_is_admin
     def delete(self, name: str) -> bool:

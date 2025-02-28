@@ -4,8 +4,10 @@ from pathlib import Path
 from uuid import UUID
 import uuid
 
-from pydantic import BaseModel, Field, model_validator
+from pydantic import BaseModel, Field, model_validator, PrivateAttr
 
+from syft_core import SyftBoxURL
+from syft_core import Client as SyftBoxClient
 from syft_rds.models.base import BaseSchema, BaseSchemaCreate, BaseSchemaUpdate
 from syft_rds.utils.name_generator import generate_name
 
@@ -151,35 +153,57 @@ class Dataset(BaseSchema):
     __schema_name__ = "dataset"
 
     name: str = Field(description="Name of the dataset.")
-    private_path: str | Path = Field(description="Private path of the dataset.")
-    mock_path: str | Path = Field(description="Mock path of the dataset.")
+    private: SyftBoxURL = Field(description="Private Syft URL of the dataset.")
+    mock: SyftBoxURL = Field(description="Mock Syft URL of the dataset.")
     file_type: str = Field(description="Type of files in the dataset.")
     summary: str | None = Field(description="Summary string of the dataset.")
-    description_path: str | Path | None = Field(
-        description="REAMD.md path of the dataset."
-    )
+    readme: SyftBoxURL | None = Field(description="REAMD.md Syft URL of the dataset.")
     tags: list[str] = Field(description="Tags for the dataset.")
+    _syftbox_client = PrivateAttr(default=None)
+
+    def with_client(self, client: SyftBoxClient):
+        """Initialize this dataset instance with a SyftBox client."""
+        self._syftbox_client = client
+        return self
 
     def get_mock_path(self) -> Path:
-        if not Path(self.mock_path).exists():
-            raise FileNotFoundError(f"Mock file not found at {self.mock_path}")
-        return Path(self.mock_path)
+        mock_path: Path = self.mock.to_local_path(
+            datasites_path=self._syftbox_client.datasites
+        )
+        if not mock_path.exists():
+            raise FileNotFoundError(f"Mock file not found at {mock_path}")
+        return mock_path
 
     def get_private_path(self) -> Path:
         """
         Will always raise FileNotFoundError for non-admin since the
         private path will never by synced
         """
-        if not Path(self.private_path).exists():
-            raise FileNotFoundError(f"Private data not found at {self.private_path}")
-        return Path(self.private_path)
+        private_path: Path = self.private.to_local_path(
+            datasites_path=self._syftbox_client.datasites
+        )
+        if not private_path.exists():
+            raise FileNotFoundError(f"Private data not found at {private_path}")
+        return private_path
 
-    def readme(self) -> str:
+    def get_readme_path(self) -> Path:
+        """
+        Will always raise FileNotFoundError for non-admin since the
+        private path will never by synced
+        """
+        readme_path: Path = self.readme.to_local_path(
+            datasites_path=self._syftbox_client.datasites
+        )
+        if not readme_path.exists():
+            raise FileNotFoundError(f"Readme file not found at {readme_path}")
+        return readme_path
+
+    def get_readme_content(self) -> str:
         # read the description .md file
-        with open(self.description_path) as f:
+        with open(self.get_readme_path()) as f:
             return f.read()
 
-    def describe(self):
+    def describe(self) -> bool:
         # prefix components:
         space = "    "
         branch = "│   "
@@ -204,8 +228,13 @@ class Dataset(BaseSchema):
                     # i.e. space because last, └── , above so no more |
                     yield from tree(path, prefix=prefix + extension)
 
-        for line in tree(self.get_mock_path().parent):
-            print(line)
+        try:
+            for line in tree(self.get_mock_path().parent):
+                print(line)
+            return True
+        except Exception as e:
+            print(f"Could not display dataset structure with error: {str(e)}")
+            return False
 
 
 class DatasetCreate(BaseSchemaCreate[Dataset]):
