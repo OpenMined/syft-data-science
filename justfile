@@ -60,3 +60,17 @@ build-all-runtimes:
         fi
     done
     echo "All runtime containers built successfully!"
+
+[group('test')]
+run-rds-integration-tests:
+    uv run --frozen --with "pytest" \
+        pytest syft-rds/tests/integration/crud_test.py
+
+[group('test')]
+run-rds-unit-tests:
+    uv run pytest syft-rds/tests/unit/*_test.py
+
+[group('test')]
+run-tests:
+    just run-rds-unit-tests
+    just run-rds-integration-tests
