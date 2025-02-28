@@ -26,11 +26,6 @@ def ensure_is_admin(func):
 
 
 class DatasetRDSClient(RDSClientModule):
-    """
-    For DatasetRDSClient, everything is done locally on the client side.
-    Hence, there is no need for utilizing RPC Connections and the RPCClient like other RDS clients
-    """
-
     @ensure_is_admin
     def create(
         self,
