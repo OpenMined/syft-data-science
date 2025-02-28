@@ -1,5 +1,6 @@
 from abc import ABC, abstractmethod
 from typing import Any, ClassVar
+import sys
 
 from pydantic import BaseModel
 
@@ -31,21 +32,31 @@ class DefaultPydanticFormatter(PydanticFormatter):
 class ANSIPydanticFormatter(PydanticFormatter):
     """Format Pydantic models multiline string with ANSI colors"""
 
+    def __init__(self):
+        self.use_colors = hasattr(sys.stdout, "isatty") and sys.stdout.isatty()
+
     def format_class_name(self, name: str) -> str:
-        return f"\033[1;36m{name}\033[0m"
+        if self.use_colors:
+            return f"\033[1;36m{name}\033[0m"
+        return name
 
     def format_field(self, key: str, value: Any) -> str:
         value_str = str(value)
-        formatted_key = f"\033[1m{key}\033[0m"
 
-        if isinstance(value, (int, float)):
-            formatted_value = f"\033[36m{value_str}\033[0m"
-        elif isinstance(value, str):
-            formatted_value = f"\033[32m{value_str}\033[0m"
-        elif isinstance(value, (list, dict)):
-            formatted_value = f"\033[33m{value_str}\033[0m"
+        if self.use_colors:
+            formatted_key = f"\033[1m{key}\033[0m"
+
+            if isinstance(value, (int, float)):
+                formatted_value = f"\033[36m{value_str}\033[0m"
+            elif isinstance(value, str):
+                formatted_value = f"\033[32m{value_str}\033[0m"
+            elif isinstance(value, (list, dict)):
+                formatted_value = f"\033[33m{value_str}\033[0m"
+            else:
+                formatted_value = f"\033[34m{value_str}\033[0m"
         else:
-            formatted_value = f"\033[34m{value_str}\033[0m"
+            formatted_key = key
+            formatted_value = value_str
 
         return f"  {formatted_key}: {formatted_value}"
 
