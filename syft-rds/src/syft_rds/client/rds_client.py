@@ -6,6 +6,7 @@ from syft_event import SyftEvents
 
 from syft_rds.client.connection import get_connection
 from syft_rds.client.rpc_client import RPCClient
+from syft_rds.client.local_store import LocalStore
 from syft_rds.client.rds_clients.base import RDSClientConfig, RDSClientModule
 from syft_rds.client.rds_clients.dataset import DatasetRDSClient
 from syft_rds.client.rds_clients.jobs import JobRDSClient
@@ -40,12 +41,15 @@ def init_session(
         syftbox_client = SyftBoxClient.load()
     connection = get_connection(syftbox_client, mock_server)
     rpc_client = RPCClient(config, connection)
-    return RDSClient(config, rpc_client)
+    local_store = LocalStore(config, syftbox_client)
+    return RDSClient(config, rpc_client, local_store)
 
 
 class RDSClient(RDSClientModule):
-    def __init__(self, config: RDSClientConfig, rpc_client: RPCClient):
-        super().__init__(config, rpc_client)
-        self.jobs = JobRDSClient(self.config, self.rpc)
-        self.runtime = RuntimeRDSClient(self.config, self.rpc)
-        self.dataset = DatasetRDSClient(self.config, self.rpc)
+    def __init__(
+        self, config: RDSClientConfig, rpc_client: RPCClient, local_store: LocalStore
+    ) -> None:
+        super().__init__(config, rpc_client, local_store)
+        self.jobs = JobRDSClient(self.config, self.rpc, self.local_store)
+        self.runtime = RuntimeRDSClient(self.config, self.rpc, self.local_store)
+        self.dataset = DatasetRDSClient(self.config, self.rpc, self.local_store)

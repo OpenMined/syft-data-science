@@ -3,6 +3,7 @@ from pydantic import BaseModel
 from syft_core import Client as SyftBoxClient
 
 from syft_rds.client.rpc_client import RPCClient
+from syft_rds.client.local_store import LocalStore
 
 
 class RDSClientConfig(BaseModel):
@@ -15,9 +16,12 @@ class RDSClientConfig(BaseModel):
 
 
 class RDSClientModule:
-    def __init__(self, config: RDSClientConfig, rpc_client: RPCClient):
+    def __init__(
+        self, config: RDSClientConfig, rpc_client: RPCClient, local_store: LocalStore
+    ) -> None:
         self.config = config
         self.rpc = rpc_client
+        self.local_store = local_store
 
     def set_default_runtime(self, runtime: str):
         self.config.default_runtime = runtime
