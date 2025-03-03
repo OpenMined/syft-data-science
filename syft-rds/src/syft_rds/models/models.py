@@ -3,10 +3,9 @@ import enum
 from pathlib import Path
 from uuid import UUID
 
-from pydantic import BaseModel, Field, model_validator, PrivateAttr
+from pydantic import BaseModel, Field, model_validator
 
 from syft_core import SyftBoxURL
-from syft_core import Client as SyftBoxClient
 from syft_rds.models.base import BaseSchema, BaseSchemaCreate, BaseSchemaUpdate
 from syft_rds.utils.name_generator import generate_name
 
@@ -156,12 +155,6 @@ class Dataset(BaseSchema):
     summary: str | None = Field(description="Summary string of the dataset.")
     readme: SyftBoxURL | None = Field(description="REAMD.md Syft URL of the dataset.")
     tags: list[str] = Field(description="Tags for the dataset.")
-    _syftbox_client = PrivateAttr(default=None)
-
-    def with_client(self, client: SyftBoxClient):
-        """Initialize this dataset instance with a SyftBox client."""
-        self._syftbox_client = client
-        return self
 
     def get_mock_path(self) -> Path:
         mock_path: Path = self.mock.to_local_path(

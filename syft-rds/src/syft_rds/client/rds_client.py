@@ -24,10 +24,11 @@ def init_session(
     If `mock_server` is provided, a in-process RPC connection will be used.
 
     Args:
-        host (str):
+        host (str): The email of the remote datasite
         mock_server (SyftEvents, optional): The server we're connecting to.
             Client will use a mock, in-process RPC connection if provided.
             Defaults to None.
+        syftbox_client_config_path (str, Path, optional): Path to SyftBox client's config
 
     Returns:
         RDSClient: The RDSClient instance.
