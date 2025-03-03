@@ -46,13 +46,13 @@ class DatasetRDSClient(RDSClientModule):
             description_path=str(description_path) if description_path else None,
             tags=tags,
         )
-        return self.rpc.dataset.create(dataset_create)
+        return self.local_store.dataset.create(dataset_create)
 
     def get(self, name: str) -> Dataset:
-        return self.rpc.dataset.get_by_name(name)
+        return self.local_store.dataset.get_by_name(name)
 
     def get_all(self) -> list[Dataset]:
-        return self.rpc.dataset.get_all(GetAllRequest())
+        return self.local_store.dataset.get_all(GetAllRequest())
 
     @ensure_is_admin
     def delete(self, name: str) -> bool:
@@ -67,7 +67,7 @@ class DatasetRDSClient(RDSClientModule):
         Raises:
             RuntimeError: If deletion fails due to file system errors
         """
-        return self.rpc.dataset.delete_by_name(name)
+        return self.local_store.dataset.delete_by_name(name)
 
     @ensure_is_admin
     def update(self, dataset_update: DatasetUpdate) -> Dataset:
