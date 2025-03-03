@@ -1,28 +1,9 @@
 from pathlib import Path
 from typing import Optional, Union
-from functools import wraps
 
 from syft_rds.client.rds_clients.base import RDSClientModule
+from syft_rds.client.rds_clients.utils import ensure_is_admin
 from syft_rds.models.models import Dataset, DatasetCreate, DatasetUpdate, GetAllRequest
-
-
-def ensure_is_admin(func):
-    """
-    Decorator to ensure the user is an admin before executing a function.
-    Admin status is determined by comparing the SyftBox client email with the configured host.
-    """
-
-    @wraps(func)
-    def wrapper(self, *args, **kwargs):
-        if self._syftbox_client.email != self.config.host:
-            raise PermissionError(
-                f"You must be the datasite admin to perform this operation. "
-                f"Your SyftBox email: '{self._syftbox_client.email}'. "
-                f"Host email: '{self.config.host}'"
-            )
-        return func(self, *args, **kwargs)
-
-    return wrapper
 
 
 class DatasetRDSClient(RDSClientModule):
