@@ -71,12 +71,13 @@ test-unit:
     uv run pytest --color=yes syft-rds/tests/unit/*_test.py
 
 [group('test')]
-test-e2e test_name:
+test-e2e:
     #!/bin/sh
     echo "Using SyftBox from {{ _green }}'$(which syftbox)'{{ _nc }}"
-    uv run pytest -sq --color=yes syft-rds/tests/e2e/{{ test_name }}_test.py
+    uv run pytest -sq --color=yes syft-rds/tests/e2e/*_test.py
 
 [group('test')]
 test:
     just test-unit
     just test-integration
+    just test-e2e

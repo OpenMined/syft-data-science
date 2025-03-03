@@ -56,8 +56,9 @@ async def test_e2e_dataset_get(e2e_context: E2EContext):
     await asyncio.sleep(3)  # wait for the dataset to be synced
 
     test_dataset = ds_rds_client.dataset.get(dataset_name)
-    assert test_dataset.describe()
+    logger.info("Dataset retrieved", test_dataset.name)
     assert test_dataset.get_readme_content()
+    assert test_dataset.describe()
     mock_df = pd.read_csv(test_dataset.get_mock_path())
     assert mock_df.equals(pd.read_csv(MOCK_DATA_PATH))
 
