@@ -1,3 +1,5 @@
+from typing import Optional
+
 from syft_core import Client as SyftBoxClient
 from syft_event import SyftEvents
 
@@ -10,7 +12,11 @@ from syft_rds.client.rds_clients.runtime import RuntimeRDSClient
 from syft_rds.client.rpc_client import RPCClient
 
 
-def init_session(host: str, mock_server: SyftEvents | None = None) -> "RDSClient":
+def init_session(
+    host: str,
+    syftbox_client: Optional[SyftBoxClient] = None,
+    mock_server: Optional[SyftEvents] = None,
+) -> "RDSClient":
     """
     Initialize a session with the RDSClient.
 
@@ -18,6 +24,8 @@ def init_session(host: str, mock_server: SyftEvents | None = None) -> "RDSClient
 
     Args:
         host (str):
+        syftbox_client (SyftBoxClient, optional): The syftbox client of the user. If not provided, Client.load() will be used.
+            Defaults to None
         mock_server (SyftEvents, optional): The server used for RPC communication, only used for mocking scenarios.
             Client will use a mock, in-process RPC connection if provided. Defaults to None.
 
@@ -27,7 +35,7 @@ def init_session(host: str, mock_server: SyftEvents | None = None) -> "RDSClient
 
     # Implementation note: All dependencies are initiated here so we can inject and mock them in tests.
     config = RDSClientConfig(host=host)
-    syftbox_client = SyftBoxClient.load()
+    syftbox_client = syftbox_client or SyftBoxClient.load()
 
     use_mock = mock_server is not None
     connection = get_connection(syftbox_client, mock_server, mock=use_mock)

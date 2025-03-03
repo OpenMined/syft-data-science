@@ -1,12 +1,9 @@
 from pathlib import Path
-from typing import Callable, Type
 
 import pytest
 from syft_rds.client.rds_client import RDSClient
 from syft_rds.models.models import GetAllRequest, JobStatus
 
-
-from syft_rds.store import YAMLFileSystemDatabase
 from syft_runtime import (
     DockerRunner,
     FileOutputHandler,
@@ -16,17 +13,17 @@ from syft_runtime import (
 
 
 def test_job_execution(
-    rds_client: RDSClient,
-    server_client: RDSClient,
+    ds_rds_client: RDSClient,
+    do_rds_client: RDSClient,
 ):
     # Client Side
     test_dir = Path(__file__).parent
-    job = rds_client.jobs.submit(
+    job = ds_rds_client.jobs.submit(
         user_code_path=test_dir / "assets/ds/ds.py",
     )
 
     # Server Side
-    jobs = server_client.rpc.jobs.get_all(GetAllRequest())
+    jobs = do_rds_client.rpc.jobs.get_all(GetAllRequest())
     assert len(jobs) == 1
     assert jobs[0].uid == job.uid
 
@@ -62,7 +59,7 @@ def test_job_execution(
     job.status = (
         JobStatus.job_run_finished if return_code == 0 else JobStatus.job_run_failed
     )
-    rds_client.rpc.jobs.update(job)
+    ds_rds_client.rpc.jobs.update(job)
 
     job.share_artifacts()
 
@@ -79,17 +76,17 @@ def test_job_execution(
 
 
 def test_bash_job_execution(
-    rds_client: RDSClient,
-    server_client: RDSClient,
+    ds_rds_client: RDSClient,
+    do_rds_client: RDSClient,
 ):
     # Client Side
     test_dir = Path(__file__).parent
-    job = rds_client.jobs.submit(
+    job = ds_rds_client.jobs.submit(
         user_code_path=test_dir / "assets/ds/ds.sh",
     )
 
     # Server Side
-    jobs = server_client.rpc.jobs.get_all(GetAllRequest())
+    jobs = do_rds_client.rpc.jobs.get_all(GetAllRequest())
     assert len(jobs) == 1
     assert jobs[0].uid == job.uid
 
@@ -125,7 +122,7 @@ def test_bash_job_execution(
     job.status = (
         JobStatus.job_run_finished if return_code == 0 else JobStatus.job_run_failed
     )
-    rds_client.rpc.jobs.update(job)
+    ds_rds_client.rpc.jobs.update(job)
 
     job.share_artifacts()
 
