@@ -7,8 +7,9 @@ from syft_core import SyftClientConfig
 
 
 TEST_DIR = Path(__file__).parent
-PRIVATE_DATA_PATH = TEST_DIR / "assets/do/data.csv"
-MOCK_DATA_PATH = TEST_DIR / "assets/do/mock.csv"
+PRIVATE_DATA_PATH = TEST_DIR / "../assets/do/data.csv"
+MOCK_DATA_PATH = TEST_DIR / "../assets/do/mock.csv"
+README_PATH = TEST_DIR / "../assets/do/README.md"
 
 
 def _create_dataset(do_rds_client: RDSClient, name: str) -> None:
@@ -18,7 +19,7 @@ def _create_dataset(do_rds_client: RDSClient, name: str) -> None:
         mock_path=MOCK_DATA_PATH,
         file_type="csv",
         summary="Test data",
-        description_path=TEST_DIR / "assets/do/README.md",
+        description_path=README_PATH,
         tags=["test"],
     )
     return data
@@ -190,7 +191,7 @@ def test_readme_content(do_syftbox_config: SyftClientConfig) -> None:
     assert len(readme_content) > 0
 
     # Compare with the original file
-    with open(TEST_DIR / "assets/do/README.md", "r") as f:
+    with open(README_PATH, "r") as f:
         original_content = f.read()
 
     assert readme_content == original_content

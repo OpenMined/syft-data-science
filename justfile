@@ -74,3 +74,9 @@ run-rds-unit-tests:
 run-tests:
     just run-rds-unit-tests
     just run-rds-integration-tests
+
+[group('test')]
+test-e2e test_name:
+    #!/bin/sh
+    echo "Using SyftBox from {{ _green }}'$(which syftbox)'{{ _nc }}"
+    uv run pytest -sq --color=yes syft-rds/tests/e2e/{{ test_name }}_test.py

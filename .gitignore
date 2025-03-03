@@ -179,3 +179,5 @@ notebooks/data/
 
 # VSCode
 .vscode/
+
+.e2e/
