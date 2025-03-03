@@ -36,9 +36,7 @@ def _resolve_syftbox_client(
         and config_path
         and syftbox_client.config_path.resolve() != Path(config_path).resolve()
     ):
-        raise ValueError(
-            "Both syftbox_client and config_path are provided, but they are different."
-        )
+        raise ValueError("Cannot provide both syftbox_client and config_path.")
 
     if syftbox_client:
         return syftbox_client
