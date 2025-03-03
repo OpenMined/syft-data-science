@@ -61,22 +61,22 @@ build-all-runtimes:
     echo "All runtime containers built successfully!"
 
 [group('test')]
-run-rds-integration-tests:
+test-integration:
     uv run --frozen --with "pytest" \
         pytest syft-rds/tests/integration/crud_test.py \
         syft-rds/tests/integration/dataset_test.py
 
 [group('test')]
-run-rds-unit-tests:
-    uv run pytest syft-rds/tests/unit/*_test.py
-
-[group('test')]
-run-tests:
-    just run-rds-unit-tests
-    just run-rds-integration-tests
+test-unit:
+    uv run pytest --color=yes syft-rds/tests/unit/*_test.py
 
 [group('test')]
 test-e2e test_name:
     #!/bin/sh
     echo "Using SyftBox from {{ _green }}'$(which syftbox)'{{ _nc }}"
     uv run pytest -sq --color=yes syft-rds/tests/e2e/{{ test_name }}_test.py
+
+[group('test')]
+test:
+    just test-unit
+    just test-integration
