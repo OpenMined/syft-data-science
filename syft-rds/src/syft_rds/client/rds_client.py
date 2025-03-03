@@ -1,3 +1,4 @@
+from pathlib import Path
 from typing import Optional
 
 from syft_core import Client as SyftBoxClient
@@ -10,32 +11,64 @@ from syft_rds.client.rds_clients.dataset import DatasetRDSClient
 from syft_rds.client.rds_clients.jobs import JobRDSClient
 from syft_rds.client.rds_clients.runtime import RuntimeRDSClient
 from syft_rds.client.rpc_client import RPCClient
+from syft_rds.client.utils import PathLike
+
+
+def _resolve_syftbox_client(
+    syftbox_client: Optional[SyftBoxClient] = None,
+    config_path: Optional[PathLike] = None,
+) -> SyftBoxClient:
+    """
+    Resolve a SyftBox client from either a provided instance or config path.
+
+    Args:
+        syftbox_client (SyftBoxClient, optional): Pre-configured client instance
+        config_path (Union[str, Path], optional): Path to client config file
+
+    Returns:
+        SyftBoxClient: The SyftBox client instance
+
+    Raises:
+        ValueError: If both syftbox_client and config_path are provided
+    """
+    if (
+        syftbox_client
+        and config_path
+        and syftbox_client.config_path.resolve() != Path(config_path).resolve()
+    ):
+        raise ValueError(
+            "Both syftbox_client and config_path are provided, but they are different."
+        )
+
+    if syftbox_client:
+        return syftbox_client
+
+    return SyftBoxClient.load(filepath=config_path)
 
 
 def init_session(
     host: str,
     syftbox_client: Optional[SyftBoxClient] = None,
     mock_server: Optional[SyftEvents] = None,
+    syftbox_client_config_path: Optional[PathLike] = None,
 ) -> "RDSClient":
     """
     Initialize a session with the RDSClient.
 
-    If `mock_server` is provided, a in-process RPC connection will be used.
-
     Args:
-        host (str):
-        syftbox_client (SyftBoxClient, optional): The syftbox client of the user. If not provided, Client.load() will be used.
-            Defaults to None
-        mock_server (SyftEvents, optional): The server used for RPC communication, only used for mocking scenarios.
-            Client will use a mock, in-process RPC connection if provided. Defaults to None.
+        host (str): The email of the remote datasite
+        syftbox_client (SyftBoxClient, optional): Pre-configured SyftBox client instance.
+            Takes precedence over syftbox_client_config_path.
+        mock_server (SyftEvents, optional): Server for testing. If provided, uses
+            a mock in-process RPC connection.
+        syftbox_client_config_path (PathLike, optional): Path to client config file.
+            Only used if syftbox_client is not provided.
 
     Returns:
-        RDSClient: The RDSClient instance.
+        RDSClient: The configured RDS client instance.
     """
-
-    # Implementation note: All dependencies are initiated here so we can inject and mock them in tests.
     config = RDSClientConfig(host=host)
-    syftbox_client = syftbox_client or SyftBoxClient.load()
+    syftbox_client = _resolve_syftbox_client(syftbox_client, syftbox_client_config_path)
 
     use_mock = mock_server is not None
     connection = get_connection(syftbox_client, mock_server, mock=use_mock)
@@ -51,4 +84,4 @@ class RDSClient(RDSClientModule):
         super().__init__(config, rpc_client, local_store)
         self.jobs = JobRDSClient(self.config, self.rpc, self.local_store)
         self.runtime = RuntimeRDSClient(self.config, self.rpc, self.local_store)
-        self.data = DatasetRDSClient(self.config, self.rpc, self.local_store)
+        self.dataset = DatasetRDSClient(self.config, self.rpc, self.local_store)

@@ -35,7 +35,6 @@ run-jupyter jupyter_args="":
     uv run --frozen --with "jupyterlab" \
         jupyter lab {{ jupyter_args }}
 
-
 build runtime:
     docker build -t syft_python_runtime .
 
@@ -62,15 +61,23 @@ build-all-runtimes:
     echo "All runtime containers built successfully!"
 
 [group('test')]
-run-rds-integration-tests:
+test-integration:
     uv run --frozen --with "pytest" \
-        pytest syft-rds/tests/integration/crud_test.py
+        pytest syft-rds/tests/integration/crud_test.py \
+        syft-rds/tests/integration/dataset_test.py
 
 [group('test')]
-run-rds-unit-tests:
-    uv run pytest syft-rds/tests/unit/*_test.py
+test-unit:
+    uv run pytest --color=yes syft-rds/tests/unit/*_test.py
 
 [group('test')]
-run-tests:
-    just run-rds-unit-tests
-    just run-rds-integration-tests
+test-e2e:
+    #!/bin/sh
+    echo "Using SyftBox from {{ _green }}'$(which syftbox)'{{ _nc }}"
+    uv run pytest -sq --color=yes syft-rds/tests/e2e/*_test.py
+
+[group('test')]
+test:
+    just test-unit
+    just test-integration
+    just test-e2e

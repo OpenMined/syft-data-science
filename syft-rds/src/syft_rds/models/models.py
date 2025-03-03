@@ -6,6 +6,7 @@ from uuid import UUID
 
 from pydantic import BaseModel, Field, model_validator
 
+from syft_core import SyftBoxURL
 from syft_rds.models.base import BaseSchema, BaseSchemaCreate, BaseSchemaUpdate
 from syft_rds.utils.name_generator import generate_name
 
@@ -150,15 +151,95 @@ class RuntimeUpdate(BaseSchemaUpdate[Runtime]):
 class Dataset(BaseSchema):
     __schema_name__ = "dataset"
 
-    name: str
-    description: str
-    tags: list[str] = Field(default_factory=list)
+    name: str = Field(description="Name of the dataset.")
+    private: SyftBoxURL = Field(description="Private Syft URL of the dataset.")
+    mock: SyftBoxURL = Field(description="Mock Syft URL of the dataset.")
+    file_type: str = Field(description="Type of files in the dataset.")
+    summary: str | None = Field(description="Summary string of the dataset.")
+    readme: SyftBoxURL | None = Field(description="REAMD.md Syft URL of the dataset.")
+    tags: list[str] = Field(description="Tags for the dataset.")
+
+    def get_mock_path(self) -> Path:
+        mock_path: Path = self.mock.to_local_path(
+            datasites_path=self._syftbox_client.datasites
+        )
+        if not mock_path.exists():
+            raise FileNotFoundError(f"Mock file not found at {mock_path}")
+        return mock_path
+
+    def get_private_path(self) -> Path:
+        """
+        Will always raise FileNotFoundError for non-admin since the
+        private path will never by synced
+        """
+        private_path: Path = self.private.to_local_path(
+            datasites_path=self._syftbox_client.datasites
+        )
+        if not private_path.exists():
+            raise FileNotFoundError(f"Private data not found at {private_path}")
+        return private_path
+
+    def get_readme_path(self) -> Path:
+        """
+        Will always raise FileNotFoundError for non-admin since the
+        private path will never by synced
+        """
+        readme_path: Path = self.readme.to_local_path(
+            datasites_path=self._syftbox_client.datasites
+        )
+        if not readme_path.exists():
+            raise FileNotFoundError(f"Readme file not found at {readme_path}")
+        return readme_path
+
+    def get_readme_content(self) -> str:
+        # read the description .md file
+        with open(self.get_readme_path()) as f:
+            return f.read()
+
+    def describe(self) -> bool:
+        # prefix components:
+        space = "    "
+        branch = "│   "
+        # pointers:
+        tee = "├── "
+        last = "└── "
+
+        def tree(dir_path: Path, prefix: str = ""):
+            """A recursive generator, given a directory Path object
+            will yield a visual tree structure line by line
+            with each line prefixed by the same characters
+
+            Ref: https://stackoverflow.com/questions/9727673/list-directory-tree-structure-in-python
+            """
+            contents = list(dir_path.iterdir())
+            # contents each get pointers that are ├── with a final └── :
+            pointers = [tee] * (len(contents) - 1) + [last]
+            for pointer, path in zip(pointers, contents):
+                yield prefix + pointer + path.name
+                if path.is_dir():  # extend the prefix and recurse:
+                    extension = branch if pointer == tee else space
+                    # i.e. space because last, └── , above so no more |
+                    yield from tree(path, prefix=prefix + extension)
+
+        try:
+            for line in tree(self.get_mock_path().parent):
+                print(line)
+            return True
+        except Exception as e:
+            print(f"Could not display dataset structure with error: {str(e)}")
+            return False
 
 
 class DatasetCreate(BaseSchemaCreate[Dataset]):
-    name: str
-    description: str
-    tags: list[str] = Field(default_factory=list)
+    name: str = Field(description="Name of the dataset.")
+    path: str = Field(description="Private path of the dataset.")
+    mock_path: str = Field(description="Mock path of the dataset.")
+    file_type: str = Field(description="Types of files in the dataset.")
+    summary: str | None = Field(description="Summary string of the dataset.")
+    description_path: str | None = Field(
+        description="Path to the detailed REAMD.md of the dataset."
+    )
+    tags: list[str] | None = Field(description="Tags for the dataset.")
 
 
 class DatasetUpdate(BaseSchemaUpdate[Dataset]):

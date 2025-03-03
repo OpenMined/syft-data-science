@@ -1,3 +1,5 @@
+from pathlib import Path
+
 import pytest
 from syft_core import Client as SyftBoxClient
 from syft_core import SyftClientConfig
@@ -107,3 +109,35 @@ def mock_user_1():
 @pytest.fixture
 def mock_user_2():
     return MockUserSchema(name="Bob", email="bob@openmined.org")
+
+
+@pytest.fixture
+def do_syftbox_config(tmp_path) -> SyftClientConfig:
+    do_email = "data_owner@openmined.org"
+    config_path = Path(tmp_path) / do_email / "config.json"
+    data_dir = Path(tmp_path) / do_email
+    conf = SyftClientConfig(
+        path=config_path,
+        data_dir=data_dir,
+        email=do_email,
+        client_url="http://test:8080",
+    )
+    conf.data_dir.mkdir(parents=True, exist_ok=True)
+    conf.save()
+    return conf
+
+
+@pytest.fixture
+def ds_syftbox_config(tmp_path) -> SyftClientConfig:
+    ds_email = "data_scientist@openmined.org"
+    config_path = Path(tmp_path) / ds_email / "config.json"
+    data_dir = Path(tmp_path) / ds_email
+    conf = SyftClientConfig(
+        path=config_path,
+        data_dir=data_dir,
+        email=ds_email,
+        client_url="http://test:8081",
+    )
+    conf.data_dir.mkdir(parents=True, exist_ok=True)
+    conf.save()
+    return conf
