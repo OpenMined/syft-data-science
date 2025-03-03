@@ -181,3 +181,4 @@ notebooks/data/
 .vscode/
 
 .e2e/
+job_outputs/

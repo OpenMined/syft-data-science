@@ -3,7 +3,6 @@ from pathlib import Path
 import pytest
 from syft_rds.client.rds_client import RDSClient
 from syft_rds.models.models import GetAllRequest, JobStatus
-
 from syft_runtime import (
     DockerRunner,
     FileOutputHandler,
@@ -17,7 +16,7 @@ def test_job_execution(
     do_rds_client: RDSClient,
 ):
     # Client Side
-    test_dir = Path(__file__).parent
+    test_dir = Path(__file__).parent.parent
     job = ds_rds_client.jobs.submit(
         user_code_path=test_dir / "assets/ds/ds.py",
     )
@@ -36,17 +35,19 @@ def test_job_execution(
         job.share_artifacts()
 
     # Runner side
+    user_code = do_rds_client.user_code.get(job.user_code_id)
     config = JobConfig(
         # we use the parent directory of the user code path as the function folder
         # and the name of the user code file as the args.
         # the following commands are equivalent to each other:
         # $ cd dir && python main.py
         # $ cd job.user_code.path.parent && job.runtime job.user_code.path.name
-        function_folder=job.user_code.path.parent,
-        args=[job.user_code.path.name],
+        function_folder=user_code.path.parent,
+        args=[user_code.path.name],
         data_path=test_dir / "assets/do",
         runtime=job.runtime,
         job_folder=test_dir / "assets/do/job_outputs" / str(job.name),
+        timeout=1,
     )
 
     runner = DockerRunner(handlers=[FileOutputHandler(), RichConsoleUI()])
@@ -73,6 +74,8 @@ def test_job_execution(
     assert (
         test_dir / "assets/do/job_outputs" / str(job.name) / "logs" / "stderr.log"
     ).exists()
+
+    print(ds_rds_client.local_store.jobs.store.db_path)
 
 
 def test_bash_job_execution(

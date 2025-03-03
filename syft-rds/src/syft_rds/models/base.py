@@ -1,11 +1,11 @@
 from abc import ABC
 from datetime import datetime, timezone
-from typing import Any, Generic, Self, Type, TypeVar
+from typing import Any, Generic, Optional, Self, Type, TypeVar
 from uuid import UUID, uuid4
 
 from pydantic import BaseModel, Field, PrivateAttr
-
 from syft_core import Client as SyftBoxClient
+
 from syft_rds.models.formatter import PydanticFormatterMixin
 
 
@@ -51,9 +51,10 @@ class BaseSchemaCreate(PydanticFormatterMixin, BaseModel, Generic[T]):
     def get_target_model(cls) -> Type[T]:
         return cls.__bases__[0].__pydantic_generic_metadata__["args"][0]  # type: ignore
 
-    def to_item(self) -> T:
+    def to_item(self, extra: Optional[dict[str, Any]] = None) -> T:
         model_cls = self.get_target_model()
-        return model_cls(**self.model_dump())
+        extra = extra or {}
+        return model_cls(**self.model_dump(), **extra)
 
 
 class BaseSchemaUpdate(PydanticFormatterMixin, BaseModel, Generic[T]):

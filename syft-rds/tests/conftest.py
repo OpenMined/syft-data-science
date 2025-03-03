@@ -5,50 +5,49 @@ from syft_core import Client as SyftBoxClient
 from syft_core import SyftClientConfig
 from syft_event import SyftEvents
 from syft_rds.client.rds_client import RDSClient, init_session
-from syft_rds.models.base import BaseSchema
 from syft_rds.server.app import create_app
-from syft_rds.server.routers.job_router import job_store
-from syft_rds.server.routers.runtime_router import runtime_store
-from syft_rds.server.routers.user_code_router import user_code_store
 from syft_rds.store import YAMLFileSystemDatabase
 
 from tests.mocks import MockUserSchema
 
 DO_EMAIL = "data_owner@test.openmined.org"
-DS_EMAIL = "data_scientist@test.openmined.org"
+# DS_EMAIL = "data_scientist@test.openmined.org"
+DS_EMAIL = DO_EMAIL
 
 
-@pytest.fixture(autouse=True)
-def reset_state():
-    """Reset all internal state between tests"""
-    # Clear all stores
-    job_store.clear()
-    user_code_store.clear()
-    runtime_store.clear()
+# @pytest.fixture(autouse=True)
+# def reset_state():
+#     """Reset all internal state between tests"""
+#     # Clear all stores
+#     job_store.clear()
+#     user_code_store.clear()
+#     runtime_store.clear()
 
-    # Reset the private attribute to a new empty dict
-    BaseSchema.__private_attributes__["_client_cache"].default = dict()
-    yield
+#     # Reset the private attribute to a new empty dict
+#     BaseSchema.__private_attributes__["_client_cache"].default = dict()
+#     yield
 
 
 @pytest.fixture
-def do_syftbox_client(tmp_path) -> SyftBoxClient:
+def do_syftbox_client(tmp_path: Path) -> SyftBoxClient:
     return SyftBoxClient(
         SyftClientConfig(
             email=DO_EMAIL,
             client_url="http://localhost:5000",
             path=tmp_path / "syftbox_client_config.json",
+            data_dir=tmp_path / "clients" / DO_EMAIL,
         ),
     )
 
 
 @pytest.fixture
-def ds_syftbox_client(tmp_path) -> SyftBoxClient:
+def ds_syftbox_client(tmp_path: Path) -> SyftBoxClient:
     return SyftBoxClient(
         SyftClientConfig(
             email=DS_EMAIL,
             client_url="http://localhost:5001",
             path=tmp_path / "syftbox_client_config.json",
+            data_dir=tmp_path / "clients" / DS_EMAIL,
         ),
     )
 

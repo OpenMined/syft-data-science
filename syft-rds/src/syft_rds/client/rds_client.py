@@ -10,6 +10,7 @@ from syft_rds.client.rds_clients.base import RDSClientConfig, RDSClientModule
 from syft_rds.client.rds_clients.dataset import DatasetRDSClient
 from syft_rds.client.rds_clients.jobs import JobRDSClient
 from syft_rds.client.rds_clients.runtime import RuntimeRDSClient
+from syft_rds.client.rds_clients.user_code import UserCodeRDSClient
 from syft_rds.client.rpc_client import RPCClient
 from syft_rds.client.utils import PathLike
 
@@ -83,3 +84,4 @@ class RDSClient(RDSClientModule):
         self.jobs = JobRDSClient(self.config, self.rpc, self.local_store)
         self.runtime = RuntimeRDSClient(self.config, self.rpc, self.local_store)
         self.dataset = DatasetRDSClient(self.config, self.rpc, self.local_store)
+        self.user_code = UserCodeRDSClient(self.config, self.rpc, self.local_store)

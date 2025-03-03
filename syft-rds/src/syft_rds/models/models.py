@@ -5,8 +5,8 @@ from typing import Generic, TypeVar
 from uuid import UUID
 
 from pydantic import BaseModel, Field, model_validator
-
 from syft_core import SyftBoxURL
+
 from syft_rds.models.base import BaseSchema, BaseSchemaCreate, BaseSchemaUpdate
 from syft_rds.utils.name_generator import generate_name
 
@@ -68,6 +68,7 @@ class Job(BaseSchema):
     user_metadata: dict = {}
     status: JobStatus = JobStatus.pending_code_review
     error: JobErrorKind = JobErrorKind.no_error
+    output_url: SyftBoxURL
 
     @property
     def user_code(self) -> UserCode:

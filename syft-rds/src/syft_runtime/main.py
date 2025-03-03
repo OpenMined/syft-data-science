@@ -1,19 +1,18 @@
 import enum
 import subprocess
-from pathlib import Path
-from datetime import datetime
 import time
-from typing import Protocol, Tuple, Optional
-
-import typer
-from rich.console import Console
-from rich.panel import Panel
-from rich.live import Live
-from rich.spinner import Spinner
-from pydantic import BaseModel, Field
+from datetime import datetime
+from pathlib import Path
+from typing import Optional, Protocol, Tuple
 
 import ipywidgets as widgets
+import typer
 from IPython.display import display
+from pydantic import BaseModel, Field
+from rich.console import Console
+from rich.live import Live
+from rich.panel import Panel
+from rich.spinner import Spinner
 
 # Since we're importing ipywidgets directly, we can assume Jupyter is available
 JUPYTER_AVAILABLE = True
@@ -268,6 +267,7 @@ class DockerRunner:
 
     def build_docker_command(self, config: JobConfig) -> list[str]:
         """Build the Docker run command with security constraints"""
+
         docker_mounts = [
             "-v",
             f"{Path(config.function_folder).absolute()}:/code:ro",
@@ -323,11 +323,20 @@ class DockerRunner:
             handler.on_job_start(config)
 
         cmd = self.build_docker_command(config)
+        # cmd = [
+        #     "python",
+        #     (config.function_folder / config.args[0]).as_posix(),
+        # ]
         process = subprocess.Popen(
             cmd,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
             text=True,
+            # env=os.environ.copy()
+            # | {
+            #     "OUTPUT_DIR": config.output_dir.as_posix(),
+            #     "DATA_DIR": config.data_path.as_posix(),
+            # },
         )
         # Stream output
         while True:

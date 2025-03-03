@@ -3,12 +3,20 @@ from types import MethodType
 from syft_core import Client
 from syft_event import SyftEvents
 
+from syft_rds.models.models import Job, Runtime, UserCode
 from syft_rds.server.router import RPCRouter
 from syft_rds.server.routers.job_router import job_router
 from syft_rds.server.routers.runtime_router import runtime_router
 from syft_rds.server.routers.user_code_router import user_code_router
+from syft_rds.store.store import RDSStore
 
 APP_NAME = "RDS"
+
+
+def _init_stores(app: SyftEvents) -> None:
+    app.state["job_store"] = RDSStore(schema=Job, client=app.client)
+    app.state["user_code_store"] = RDSStore(schema=UserCode, client=app.client)
+    app.state["runtime_store"] = RDSStore(schema=Runtime, client=app.client)
 
 
 def create_app(client: Client | None = None) -> SyftEvents:
@@ -28,6 +36,9 @@ def create_app(client: Client | None = None) -> SyftEvents:
     rds_app.include_router(job_router, prefix="/job")
     rds_app.include_router(user_code_router, prefix="/user_code")
     rds_app.include_router(runtime_router, prefix="/runtime")
+
+    _init_stores(rds_app)
+    rds_app.state["output_dir"] = rds_app.app_dir / "output"
 
     return rds_app
 
