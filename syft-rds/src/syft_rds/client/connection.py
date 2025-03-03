@@ -1,37 +1,63 @@
 from abc import ABC, abstractmethod
 from datetime import datetime, timezone
+from typing import Optional
 
 from pydantic import BaseModel
 from syft_core import Client as SyftBoxClient
 from syft_core import SyftBoxURL
 from syft_event import SyftEvents
 from syft_event.deps import func_args_from_request
-from syft_rpc import SyftRequest
-from syft_rpc.protocol import SyftMethod
-from syft_rpc.rpc import parse_duration, serialize
+from syft_rpc import SyftRequest, SyftResponse, rpc
+from syft_rpc.protocol import SyftMethod, SyftStatus
 
 
-class RPCConnection(ABC):
-    def __init__(self, sender_client: SyftBoxClient):
+class BlockingRPCConnection(ABC):
+    def __init__(
+        self,
+        sender_client: SyftBoxClient,
+        default_expiry: str = "15m",
+    ):
         self.sender_client = sender_client
+        self.default_expiry = default_expiry
 
     @abstractmethod
-    def send(self, url: str, body: BaseModel, expiry: str, cache: bool):
-        raise NotImplementedError("This is an abstract class")
-
-
-class CachingServerRPCConnection(RPCConnection):
     def send(
         self,
         url: str,
         body: BaseModel,
-        expiry: str,
-        cache: bool,
-    ):
-        raise NotImplementedError("TODO")
+        headers: Optional[dict] = None,
+        expiry: Optional[str] = None,
+        cache: bool = False,
+    ) -> SyftResponse:
+        raise NotImplementedError()
 
 
-class DevRPCConnection(RPCConnection):
+class FileSyncRPCConnection(BlockingRPCConnection):
+    def send(
+        self,
+        url: str,
+        body: BaseModel,
+        headers: Optional[dict] = None,
+        expiry: Optional[str] = None,
+        cache: bool = False,
+    ) -> SyftResponse:
+        headers = None
+
+        future = rpc.send(
+            url=url,
+            body=body,
+            headers=headers,
+            expiry=expiry,
+            cache=cache,
+            client=self.sender_client,
+        )
+
+        timeout_seconds = float(rpc.parse_duration(expiry).seconds)
+        response = future.wait(timeout=timeout_seconds)
+        return response
+
+
+class MockRPCConnection(BlockingRPCConnection):
     app: SyftEvents
     sender_client: SyftBoxClient
 
@@ -43,17 +69,53 @@ class DevRPCConnection(RPCConnection):
     def receiver_client(self) -> SyftBoxClient:
         return self.app.client
 
-    def send(self, url: str, body: BaseModel, expiry: str, cache: bool):
+    def _build_request(
+        self,
+        url: str,
+        body: BaseModel,
+        headers: Optional[dict] = None,
+        expiry: Optional[str] = None,
+    ) -> SyftRequest:
         headers = None
 
-        syft_request = SyftRequest(
+        expiry_time = datetime.now(timezone.utc) + rpc.parse_duration(expiry)
+        return SyftRequest(
             sender=self.sender_client.email,
             method=SyftMethod.GET,
             url=url if isinstance(url, SyftBoxURL) else SyftBoxURL(url),
             headers=headers or {},
-            body=serialize(body),
-            expires=datetime.now(timezone.utc) + parse_duration(expiry),
+            body=rpc.serialize(body),
+            expires=expiry_time,
         )
+
+    def _build_response(
+        self,
+        request: SyftRequest,
+        response_body: BaseModel,
+        status_code: SyftStatus = SyftStatus.SYFT_200_OK,
+    ) -> SyftResponse:
+        return SyftResponse(
+            id=request.id,
+            sender=self.receiver_client.email,
+            url=request.url,
+            headers={},
+            body=rpc.serialize(response_body),
+            expires=request.expires,
+            status_code=status_code,
+        )
+
+    def send(
+        self,
+        url: str,
+        body: BaseModel,
+        headers: Optional[dict] = None,
+        expiry: Optional[str] = None,
+        cache: bool = False,
+    ) -> SyftResponse:
+        if cache:
+            raise NotImplementedError("Cache not implemented for MockRPCConnection")
+
+        syft_request = self._build_request(url, body, headers, expiry)
         receiver_local_path = SyftBoxURL(url).to_local_path(
             self.receiver_client.workspace.datasites
         )
@@ -61,20 +123,20 @@ class DevRPCConnection(RPCConnection):
         handler = self.app._SyftEvents__rpc.get(receiver_local_path)
         if handler is None:
             raise ValueError(
-                f"No handler found for URL: {url}, got {self.app._SyftEvents__rpc.keys()}"
+                f"No handler found for: {receiver_local_path}, got {self.app._SyftEvents__rpc.keys()}"
             )
         kwargs = func_args_from_request(handler, syft_request, self.app)
 
-        response = handler(**kwargs)
-        return response
+        response_body = handler(**kwargs)
+        return self._build_response(syft_request, response_body)
 
 
 def get_connection(
-    sender_client: SyftBoxClient, app: SyftEvents, mock=True
-) -> RPCConnection:
+    sender_client: SyftBoxClient,
+    app: SyftEvents,
+    mock: bool = False,
+) -> BlockingRPCConnection:
     if mock:
-        # TODO
-        conn = DevRPCConnection(sender_client=sender_client, app=app)
-        return conn
+        return MockRPCConnection(sender_client=sender_client, app=app)
     else:
-        return CachingServerRPCConnection(sender_client=sender_client)
+        return FileSyncRPCConnection(sender_client=sender_client)

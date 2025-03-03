@@ -2,6 +2,7 @@ from syft_core import Client
 from syft_rds.models.models import (
     GetAllRequest,
     GetOneRequest,
+    ItemList,
     Runtime,
     RuntimeCreate,
     RuntimeUpdate,
@@ -27,8 +28,9 @@ def get_runtime(request: GetOneRequest) -> Runtime:
 
 
 @runtime_router.on_request("/get_all")
-def get_all_runtimes(request: GetAllRequest) -> list[Runtime]:
-    return runtime_store.list_all()
+def get_all_runtimes(request: GetAllRequest) -> ItemList[Runtime]:
+    items = runtime_store.list_all()
+    return ItemList[Runtime](items=items)
 
 
 @runtime_router.on_request("/update")

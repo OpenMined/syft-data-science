@@ -1,13 +1,14 @@
+from syft_core import Client
 from syft_rds.models.models import (
     GetAllRequest,
     GetOneRequest,
+    ItemList,
     UserCode,
     UserCodeCreate,
     UserCodeUpdate,
 )
 from syft_rds.server.router import RPCRouter
 from syft_rds.store import RDSStore
-from syft_core import Client
 
 user_code_router = RPCRouter()
 # TODO: add DI and remove globals
@@ -26,8 +27,9 @@ def get_user_code(request: GetOneRequest) -> UserCode:
 
 
 @user_code_router.on_request("/get_all")
-def get_all_user_codes(request: GetAllRequest) -> list[UserCode]:
-    return user_code_store.list_all()
+def get_all_user_codes(request: GetAllRequest) -> ItemList[UserCode]:
+    items = user_code_store.list_all()
+    return ItemList[UserCode](items=items)
 
 
 @user_code_router.on_request("/update")

@@ -1,13 +1,12 @@
-from syft_rds.models.base import BaseSchema
-import yaml
 from functools import wraps
 from pathlib import Path
-from syft_core import Client
-from typing import Generic, TypeVar
-from typing import Optional
-from typing import Type
+from typing import Generic, Optional, Type, TypeVar
 from uuid import UUID
 
+import yaml
+from syft_core import Client
+
+from syft_rds.models.base import BaseSchema
 
 PERMS = """
 - path: '**'

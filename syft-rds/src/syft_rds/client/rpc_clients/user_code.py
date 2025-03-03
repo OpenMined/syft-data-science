@@ -4,3 +4,4 @@ from syft_rds.models.models import UserCode, UserCodeCreate, UserCodeUpdate
 
 class UserCodeRPCClient(CRUDRPCClient[UserCode, UserCodeCreate, UserCodeUpdate]):
     MODULE_NAME = "user_code"
+    MODEL_TYPE = UserCode

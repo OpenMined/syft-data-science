@@ -2,6 +2,7 @@ from syft_core import Client
 from syft_rds.models.models import (
     GetAllRequest,
     GetOneRequest,
+    ItemList,
     Job,
     JobCreate,
     JobUpdate,
@@ -28,8 +29,9 @@ def get_job(request: GetOneRequest) -> Job:
 
 
 @job_router.on_request("/get_all")
-def get_all_jobs(request: GetAllRequest) -> list[Job]:
-    return job_store.list_all()
+def get_all_jobs(request: GetAllRequest) -> ItemList[Job]:
+    items = job_store.list_all()
+    return ItemList[Job](items=items)
 
 
 @job_router.on_request("/update")

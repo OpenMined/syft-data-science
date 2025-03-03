@@ -1,13 +1,15 @@
-from collections.abc import Iterable
 import enum
+from collections.abc import Iterable
 from pathlib import Path
+from typing import Generic, TypeVar
 from uuid import UUID
-import uuid
 
 from pydantic import BaseModel, Field, model_validator
 
 from syft_rds.models.base import BaseSchema, BaseSchemaCreate, BaseSchemaUpdate
 from syft_rds.utils.name_generator import generate_name
+
+T = TypeVar("T", bound=BaseSchema)
 
 
 class UserCode(BaseSchema):
@@ -169,3 +171,8 @@ class GetOneRequest(BaseModel):
 
 class GetAllRequest(BaseModel):
     pass
+
+
+class ItemList(BaseModel, Generic[T]):
+    # Used by get_all endpoints
+    items: list[T]
