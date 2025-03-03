@@ -5,6 +5,7 @@ from uuid import UUID, uuid4
 
 from pydantic import BaseModel, Field, PrivateAttr
 
+from syft_core import Client as SyftBoxClient
 from syft_rds.models.formatter import PydanticFormatterMixin
 
 
@@ -19,6 +20,7 @@ class BaseSchema(PydanticFormatterMixin, BaseModel, ABC):
     uid: UUID = Field(default_factory=uuid4)
     created_at: datetime = Field(default_factory=_utcnow)
     updated_at: datetime = Field(default_factory=_utcnow)
+    _syftbox_client = PrivateAttr(default=None)
 
     class Config:
         arbitrary_types_allowed: bool = True
@@ -34,6 +36,11 @@ class BaseSchema(PydanticFormatterMixin, BaseModel, ABC):
 
     def reload_cache(self, client: Any) -> Self:
         raise NotImplementedError
+
+    def with_client(self, client: SyftBoxClient):
+        """Initialize this dataset instance with a SyftBox client."""
+        self._syftbox_client = client
+        return self
 
 
 T = TypeVar("T", bound=BaseSchema)

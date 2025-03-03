@@ -281,7 +281,7 @@ class RDSStore(YAMLFileSystemDatabase):
 
         Directory structure with the current four schemas (code, dataset, job and runtime):
 
-        <SYFTBOX-WORKSPACE>/datasites/<YOUR-EMAIL>/api_data/
+        <SYFTBOX-WORKSPACE>/datasites/<datasite>/api_data/
         ├── rds/                     # RDS application root directory
         │   └── store/               # Database root
         │       ├── code/

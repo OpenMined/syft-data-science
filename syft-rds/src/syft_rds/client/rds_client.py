@@ -1,3 +1,6 @@
+from pathlib import Path
+from typing import Optional, Union
+
 from syft_core import Client as SyftBoxClient
 from syft_event import SyftEvents
 
@@ -10,17 +13,22 @@ from syft_rds.client.rds_clients.jobs import JobRDSClient
 from syft_rds.client.rds_clients.runtime import RuntimeRDSClient
 
 
-def init_session(host: str, mock_server: SyftEvents | None = None) -> "RDSClient":
+def init_session(
+    host: str,
+    mock_server: Optional[SyftEvents] = None,
+    syftbox_client_config_path: Optional[Union[str, Path]] = None,
+) -> "RDSClient":
     """
     Initialize a session with the RDSClient.
 
     If `mock_server` is provided, a in-process RPC connection will be used.
 
     Args:
-        host (str):
+        host (str): The email of the remote datasite
         mock_server (SyftEvents, optional): The server we're connecting to.
             Client will use a mock, in-process RPC connection if provided.
             Defaults to None.
+        syftbox_client_config_path (str, Path, optional): Path to SyftBox client's config
 
     Returns:
         RDSClient: The RDSClient instance.
@@ -28,7 +36,10 @@ def init_session(host: str, mock_server: SyftEvents | None = None) -> "RDSClient
 
     # Implementation note: All dependencies are initiated here so we can inject and mock them in tests.
     config = RDSClientConfig(host=host)
-    syftbox_client = SyftBoxClient.load()
+    if syftbox_client_config_path:
+        syftbox_client = SyftBoxClient.load(syftbox_client_config_path)
+    else:
+        syftbox_client = SyftBoxClient.load()
     connection = get_connection(syftbox_client, mock_server)
     rpc_client = RPCClient(config, connection)
     local_store = LocalStore(config, syftbox_client)
@@ -42,4 +53,4 @@ class RDSClient(RDSClientModule):
         super().__init__(config, rpc_client, local_store)
         self.jobs = JobRDSClient(self.config, self.rpc, self.local_store)
         self.runtime = RuntimeRDSClient(self.config, self.rpc, self.local_store)
-        self.data = DatasetRDSClient(self.config, self.rpc, self.local_store)
+        self.dataset = DatasetRDSClient(self.config, self.rpc, self.local_store)
