@@ -19,7 +19,7 @@ job_router = RPCRouter()
 @job_router.on_request("/create")
 def create_job(create_request: JobCreate, app: SyftEvents) -> Job:
     uid = uuid4()
-    output_dir = app.state["output_dir"] / uid
+    output_dir = app.state["output_dir"] / str(uid)
     output_url = SyftBoxURL.from_path(output_dir, app.client.workspace)
     new_item = create_request.to_item(extra={"uid": uid, "output_url": output_url})
 
