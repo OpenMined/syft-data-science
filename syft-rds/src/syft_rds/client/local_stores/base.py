@@ -1,16 +1,20 @@
-from typing import TYPE_CHECKING
-from typing import ClassVar, Generic, Type
+from typing import TYPE_CHECKING, ClassVar, Generic, Type, TypeVar
 
 from syft_core import Client as SyftBoxClient
-from syft_rds.client.rpc_clients.base import T, CreateT, UpdateT
-from syft_rds.store import RDSStore
+
+from syft_rds.models.base import BaseSchema, BaseSchemaCreate, BaseSchemaUpdate
 from syft_rds.models.models import (
     GetAllRequest,
     GetOneRequest,
 )
+from syft_rds.store import RDSStore
 
 if TYPE_CHECKING:
     from syft_rds.client.rds_client import RDSClientConfig
+
+T = TypeVar("T", bound=BaseSchema)
+CreateT = TypeVar("CreateT", bound=BaseSchemaCreate)
+UpdateT = TypeVar("UpdateT", bound=BaseSchemaUpdate)
 
 
 class LocalStoreModule:

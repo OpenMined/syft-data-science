@@ -2,7 +2,7 @@ from pydantic import BaseModel
 from syft_core import Client as SyftBoxClient
 
 from syft_rds.client.local_store import LocalStore
-from syft_rds.client.rpc_client import RPCClient
+from syft_rds.client.rpc import RPCClient
 
 
 class RDSClientConfig(BaseModel):
