@@ -10,17 +10,20 @@ from syft_runtime import (
     RichConsoleUI,
 )
 
+TEST_DIR = Path(__file__).parent.parent
+DS_PATH = TEST_DIR / "assets/ds"
+DO_PATH = TEST_DIR / "assets/do"
+DO_OUTPUT_PATH = DO_PATH / "job_outputs"
+
 
 def test_job_execution(
     ds_rds_client: RDSClient,
     do_rds_client: RDSClient,
 ):
     # Client Side
-    test_dir = Path(__file__).parent.parent
     job = ds_rds_client.jobs.submit(
-        user_code_path=test_dir / "assets/ds/ds.py",
+        user_code_path=TEST_DIR / "assets/ds/ds.py",
     )
-
     # Server Side
     jobs = do_rds_client.rpc.jobs.get_all(GetAllRequest())
     assert len(jobs) == 1
@@ -44,9 +47,9 @@ def test_job_execution(
         # $ cd job.user_code.path.parent && job.runtime job.user_code.path.name
         function_folder=user_code.path.parent,
         args=[user_code.path.name],
-        data_path=test_dir / "assets/do",
+        data_path=TEST_DIR / "assets/do",
         runtime=job.runtime,
-        job_folder=test_dir / "assets/do/job_outputs" / str(job.name),
+        job_folder=DO_OUTPUT_PATH / str(job.name),
         timeout=1,
     )
 
@@ -65,15 +68,9 @@ def test_job_execution(
     job.share_artifacts()
 
     # check the output and logs
-    assert (
-        test_dir / "assets/do/job_outputs" / str(job.name) / "output" / "my_result.csv"
-    ).exists()
-    assert (
-        test_dir / "assets/do/job_outputs" / str(job.name) / "logs" / "stdout.log"
-    ).exists()
-    assert (
-        test_dir / "assets/do/job_outputs" / str(job.name) / "logs" / "stderr.log"
-    ).exists()
+    assert (DO_OUTPUT_PATH / str(job.name) / "output" / "my_result.csv").exists()
+    assert (DO_OUTPUT_PATH / str(job.name) / "logs" / "stdout.log").exists()
+    assert (DO_OUTPUT_PATH / str(job.name) / "logs" / "stderr.log").exists()
 
     print(ds_rds_client.local_store.jobs.store.db_path)
 
@@ -83,9 +80,8 @@ def test_bash_job_execution(
     do_rds_client: RDSClient,
 ):
     # Client Side
-    test_dir = Path(__file__).parent
     job = ds_rds_client.jobs.submit(
-        user_code_path=test_dir / "assets/ds/ds.sh",
+        user_code_path=DS_PATH / "ds.sh",
     )
 
     # Server Side
@@ -110,9 +106,9 @@ def test_bash_job_execution(
         # $ cd job.user_code.path.parent && job.runtime job.user_code.path.name
         function_folder=job.user_code.path.parent,
         args=[job.user_code.path.name],
-        data_path=test_dir / "assets/do",
+        data_path=DO_PATH,
         runtime="bash",
-        job_folder=test_dir / "assets/do/job_outputs" / str(job.name),
+        job_folder=DO_OUTPUT_PATH / str(job.name),
     )
 
     runner = DockerRunner(handlers=[FileOutputHandler(), RichConsoleUI()])
@@ -130,12 +126,6 @@ def test_bash_job_execution(
     job.share_artifacts()
 
     # check the output and logs
-    assert (
-        test_dir / "assets/do/job_outputs" / str(job.name) / "output" / "my_result.csv"
-    ).exists()
-    assert (
-        test_dir / "assets/do/job_outputs" / str(job.name) / "logs" / "stdout.log"
-    ).exists()
-    assert (
-        test_dir / "assets/do/job_outputs" / str(job.name) / "logs" / "stderr.log"
-    ).exists()
+    assert (DO_OUTPUT_PATH / str(job.name) / "output" / "my_result.csv").exists()
+    assert (DO_OUTPUT_PATH / str(job.name) / "logs" / "stdout.log").exists()
+    assert (DO_OUTPUT_PATH / str(job.name) / "logs" / "stderr.log").exists()
