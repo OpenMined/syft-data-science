@@ -1,57 +1,71 @@
 from pathlib import Path
-import pytest
 
-from syft_core import Client, SyftClientConfig
+import pytest
+from syft_core import Client as SyftBoxClient
+from syft_core import SyftClientConfig
 from syft_event import SyftEvents
 from syft_rds.client.rds_client import RDSClient, init_session
 from syft_rds.server.app import create_app
-from syft_rds.server.routers.job_router import job_store
-from syft_rds.server.routers.user_code_router import user_code_store
-from syft_rds.server.routers.runtime_router import runtime_store
-from syft_rds.models.base import BaseSchema
 from syft_rds.store import YAMLFileSystemDatabase
+
 from tests.mocks import MockUserSchema
 
-HOST_EMAIL = "alice@openmined.org"
+DO_EMAIL = "data_owner@test.openmined.org"
+DS_EMAIL = "data_scientist@test.openmined.org"
 
-
-@pytest.fixture(autouse=True)
-def reset_state():
-    """Reset all internal state between tests"""
-    # Clear all stores
-    job_store.clear()
-    user_code_store.clear()
-    runtime_store.clear()
-
-    # Reset the private attribute to a new empty dict
-    BaseSchema.__private_attributes__["_client_cache"].default = dict()
-    yield
+# NOTE: for testing real RPC and file sharing without launching the full stack, we use a shared data dir.
+SHARED_DATA_DIR = "shared_data_dir"
 
 
 @pytest.fixture
-def host_syftbox_client(tmp_path):
-    return Client(
+def do_syftbox_client(tmp_path: Path) -> SyftBoxClient:
+    return SyftBoxClient(
         SyftClientConfig(
-            email=HOST_EMAIL,
+            email=DO_EMAIL,
             client_url="http://localhost:5000",
             path=tmp_path / "syftbox_client_config.json",
+            data_dir=tmp_path / "clients" / SHARED_DATA_DIR,
         ),
     )
 
 
 @pytest.fixture
-def rds_server(host_syftbox_client: Client):
-    return create_app(host_syftbox_client)
+def ds_syftbox_client(tmp_path: Path) -> SyftBoxClient:
+    return SyftBoxClient(
+        SyftClientConfig(
+            email=DS_EMAIL,
+            client_url="http://localhost:5001",
+            path=tmp_path / "syftbox_client_config.json",
+            data_dir=tmp_path / "clients" / SHARED_DATA_DIR,
+        ),
+    )
 
 
 @pytest.fixture
-def rds_client(rds_server: SyftEvents) -> RDSClient:
-    return init_session(HOST_EMAIL, mock_server=rds_server)
+def rds_server(do_syftbox_client: SyftBoxClient):
+    return create_app(do_syftbox_client)
 
 
 @pytest.fixture
-def server_client(rds_server: SyftEvents) -> RDSClient:
-    return init_session(HOST_EMAIL, mock_server=rds_server)
+def ds_rds_client(
+    rds_server: SyftEvents, ds_syftbox_client: SyftBoxClient
+) -> RDSClient:
+    return init_session(
+        DO_EMAIL,
+        syftbox_client=ds_syftbox_client,
+        mock_server=rds_server,
+    )
+
+
+@pytest.fixture
+def do_rds_client(
+    rds_server: SyftEvents, do_syftbox_client: SyftBoxClient
+) -> RDSClient:
+    return init_session(
+        DO_EMAIL,
+        syftbox_client=do_syftbox_client,
+        mock_server=rds_server,
+    )
 
 
 @pytest.fixture()

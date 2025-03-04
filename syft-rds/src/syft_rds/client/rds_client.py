@@ -1,47 +1,77 @@
 from pathlib import Path
-from typing import Optional, Union
+from typing import Optional
 
 from syft_core import Client as SyftBoxClient
 from syft_event import SyftEvents
 
 from syft_rds.client.connection import get_connection
-from syft_rds.client.rpc_client import RPCClient
 from syft_rds.client.local_store import LocalStore
 from syft_rds.client.rds_clients.base import RDSClientConfig, RDSClientModule
 from syft_rds.client.rds_clients.dataset import DatasetRDSClient
 from syft_rds.client.rds_clients.jobs import JobRDSClient
 from syft_rds.client.rds_clients.runtime import RuntimeRDSClient
+from syft_rds.client.rds_clients.user_code import UserCodeRDSClient
+from syft_rds.client.rpc import RPCClient
+from syft_rds.client.utils import PathLike
 from syft_rds.models.models import Dataset
+
+
+def _resolve_syftbox_client(
+    syftbox_client: Optional[SyftBoxClient] = None,
+    config_path: Optional[PathLike] = None,
+) -> SyftBoxClient:
+    """
+    Resolve a SyftBox client from either a provided instance or config path.
+
+    Args:
+        syftbox_client (SyftBoxClient, optional): Pre-configured client instance
+        config_path (Union[str, Path], optional): Path to client config file
+
+    Returns:
+        SyftBoxClient: The SyftBox client instance
+
+    Raises:
+        ValueError: If both syftbox_client and config_path are provided
+    """
+    if (
+        syftbox_client
+        and config_path
+        and syftbox_client.config_path.resolve() != Path(config_path).resolve()
+    ):
+        raise ValueError("Cannot provide both syftbox_client and config_path.")
+
+    if syftbox_client:
+        return syftbox_client
+
+    return SyftBoxClient.load(filepath=config_path)
 
 
 def init_session(
     host: str,
+    syftbox_client: Optional[SyftBoxClient] = None,
     mock_server: Optional[SyftEvents] = None,
-    syftbox_client_config_path: Optional[Union[str, Path]] = None,
+    syftbox_client_config_path: Optional[PathLike] = None,
 ) -> "RDSClient":
     """
     Initialize a session with the RDSClient.
 
-    If `mock_server` is provided, a in-process RPC connection will be used.
-
     Args:
         host (str): The email of the remote datasite
-        mock_server (SyftEvents, optional): The server we're connecting to.
-            Client will use a mock, in-process RPC connection if provided.
-            Defaults to None.
-        syftbox_client_config_path (str, Path, optional): Path to SyftBox client's config
+        syftbox_client (SyftBoxClient, optional): Pre-configured SyftBox client instance.
+            Takes precedence over syftbox_client_config_path.
+        mock_server (SyftEvents, optional): Server for testing. If provided, uses
+            a mock in-process RPC connection.
+        syftbox_client_config_path (PathLike, optional): Path to client config file.
+            Only used if syftbox_client is not provided.
 
     Returns:
-        RDSClient: The RDSClient instance.
+        RDSClient: The configured RDS client instance.
     """
-
-    # Implementation note: All dependencies are initiated here so we can inject and mock them in tests.
     config = RDSClientConfig(host=host)
-    if syftbox_client_config_path:
-        syftbox_client = SyftBoxClient.load(syftbox_client_config_path)
-    else:
-        syftbox_client = SyftBoxClient.load()
-    connection = get_connection(syftbox_client, mock_server)
+    syftbox_client = _resolve_syftbox_client(syftbox_client, syftbox_client_config_path)
+
+    use_mock = mock_server is not None
+    connection = get_connection(syftbox_client, mock_server, mock=use_mock)
     rpc_client = RPCClient(config, connection)
     local_store = LocalStore(config, syftbox_client)
     return RDSClient(config, rpc_client, local_store)
@@ -55,6 +85,7 @@ class RDSClient(RDSClientModule):
         self.jobs = JobRDSClient(self.config, self.rpc, self.local_store)
         self.runtime = RuntimeRDSClient(self.config, self.rpc, self.local_store)
         self.dataset = DatasetRDSClient(self.config, self.rpc, self.local_store)
+        self.user_code = UserCodeRDSClient(self.config, self.rpc, self.local_store)
 
     @property
     def datasets(self) -> list[Dataset]:

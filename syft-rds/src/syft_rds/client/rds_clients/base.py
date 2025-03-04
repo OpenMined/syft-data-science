@@ -1,9 +1,8 @@
 from pydantic import BaseModel
-
 from syft_core import Client as SyftBoxClient
 
-from syft_rds.client.rpc_client import RPCClient
 from syft_rds.client.local_store import LocalStore
+from syft_rds.client.rpc import RPCClient
 
 
 class RDSClientConfig(BaseModel):
@@ -12,7 +11,6 @@ class RDSClientConfig(BaseModel):
     default_runtime: str = "python"
 
     rpc_expiry: str = "5m"
-    rpc_cache: bool = True
 
 
 class RDSClientModule:

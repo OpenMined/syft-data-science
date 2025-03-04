@@ -68,7 +68,7 @@ setup-test-env:
 test-integration: setup-test-env
     #!/bin/sh
     cd syft-rds && echo "{{ _cyan }}Running integration tests {{ _nc }}"
-    uv run pytest -sq --color=yes tests/integration/crud_test.py tests/integration/dataset_test.py
+    uv run pytest -sq --color=yes tests/integration/
 
 [group('test')]
 test-unit: setup-test-env
