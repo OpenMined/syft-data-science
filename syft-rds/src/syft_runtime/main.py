@@ -271,7 +271,7 @@ class DockerRunner:
             # For direct Python execution, build a command that runs Python directly
             # Assuming the first arg is the Python script to run
             return [
-                "python",
+                config.runtime.value,
                 str(Path(config.function_folder) / config.args[0]),
                 *config.args[1:],
             ]
