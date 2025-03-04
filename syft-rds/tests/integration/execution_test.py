@@ -51,6 +51,7 @@ def test_job_execution(
         runtime=job.runtime,
         job_folder=DO_OUTPUT_PATH / str(job.name),
         timeout=1,
+        use_docker=False,
     )
 
     runner = DockerRunner(handlers=[FileOutputHandler(), RichConsoleUI()])

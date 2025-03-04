@@ -1,4 +1,5 @@
 import enum
+import os
 import subprocess
 import time
 from datetime import datetime
@@ -37,6 +38,7 @@ class JobConfig(BaseModel):
     )
     timeout: int = 60
     data_mount_dir: str = "/data"
+    use_docker: bool = True
 
     @property
     def job_path(self) -> Path:
@@ -265,6 +267,15 @@ class DockerRunner:
     def build_docker_command(self, config: JobConfig) -> list[str]:
         """Build the Docker run command with security constraints"""
 
+        if not config.use_docker:
+            # For direct Python execution, build a command that runs Python directly
+            # Assuming the first arg is the Python script to run
+            return [
+                "python",
+                str(Path(config.function_folder) / config.args[0]),
+                *config.args[1:],
+            ]
+
         docker_mounts = [
             "-v",
             f"{Path(config.function_folder).absolute()}:/code:ro",
@@ -313,6 +324,9 @@ class DockerRunner:
 
     def validate_docker(self, config: JobConfig) -> bool:
         """Validate Docker image availability"""
+        if not config.use_docker:
+            return True  # Skip Docker validation when not using Docker
+
         image_name = f"syft_{config.runtime.value}_runtime"
         # Check Docker daemon availability
         subprocess.run(["docker", "info"], check=True, capture_output=True)
@@ -335,8 +349,8 @@ class DockerRunner:
             raise RuntimeError("Docker not installed or not in PATH")
 
     def run(self, config: JobConfig) -> Tuple[Path, int | None]:
-        """Run a job in a Docker container"""
-        # Check Docker availability first
+        """Run a job in a Docker container or directly as Python"""
+        # Check Docker availability first if using Docker
         if not self.validate_docker(config):
             return -1
 
@@ -347,20 +361,25 @@ class DockerRunner:
             handler.on_job_start(config)
 
         cmd = self.build_docker_command(config)
-        # cmd = [
-        #     "python",
-        #     (config.function_folder / config.args[0]).as_posix(),
-        # ]
+
+        # Set up environment variables for direct Python execution
+        env = None
+        if not config.use_docker:
+            env = os.environ.copy()
+            env.update(
+                {
+                    "OUTPUT_DIR": str(config.output_dir.absolute()),
+                    "DATA_DIR": str(config.data_path.absolute()),
+                    "TIMEOUT": str(config.timeout),
+                }
+            )
+
         process = subprocess.Popen(
             cmd,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
             text=True,
-            # env=os.environ.copy()
-            # | {
-            #     "OUTPUT_DIR": config.output_dir.as_posix(),
-            #     "DATA_DIR": config.data_path.as_posix(),
-            # },
+            env=env,
         )
         # Stream output
         while True:
