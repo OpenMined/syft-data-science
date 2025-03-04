@@ -163,9 +163,6 @@ def test_create_datasets_same_name(do_syftbox_config: SyftClientConfig) -> None:
     # Create a dataset
     _create_dataset(do_rds_client, "DuplicateName")
 
-    # Try to create another with the same name
-    import pytest
-
     with pytest.raises(
         ValueError, match="Dataset with name 'DuplicateName' already exists"
     ):

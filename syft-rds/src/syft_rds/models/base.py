@@ -38,7 +38,6 @@ class BaseSchema(PydanticFormatterMixin, BaseModel, ABC):
         raise NotImplementedError
 
     def with_client(self, client: SyftBoxClient):
-        """Initialize this dataset instance with a SyftBox client."""
         self._syftbox_client = client
         return self
 
