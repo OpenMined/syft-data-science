@@ -55,9 +55,8 @@ def test_job_execution(
 
     runner = DockerRunner(handlers=[FileOutputHandler(), RichConsoleUI()])
 
-    return_code = runner.run(
-        config,
-    )
+    return_code = runner.run(config)
+    assert return_code == 0
 
     # Update job status based on return code
     job.status = (
@@ -97,6 +96,7 @@ def test_bash_job_execution(
         # can't share artifacts before the job is run
         job.share_artifacts()
 
+    user_code = do_rds_client.user_code.get(job.user_code_id)
     # Runner side
     config = JobConfig(
         # we use the parent directory of the user code path as the function folder
@@ -104,8 +104,8 @@ def test_bash_job_execution(
         # the following commands are equivalent to each other:
         # $ cd dir && python main.py
         # $ cd job.user_code.path.parent && job.runtime job.user_code.path.name
-        function_folder=job.user_code.path.parent,
-        args=[job.user_code.path.name],
+        function_folder=user_code.path.parent,
+        args=[user_code.path.name],
         data_path=DO_PATH,
         runtime="bash",
         job_folder=DO_OUTPUT_PATH / str(job.name),
@@ -113,9 +113,7 @@ def test_bash_job_execution(
 
     runner = DockerRunner(handlers=[FileOutputHandler(), RichConsoleUI()])
 
-    return_code = runner.run(
-        config,
-    )
+    return_code = runner.run(config)
 
     # Update job status based on return code
     job.status = (

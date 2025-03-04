@@ -6,7 +6,6 @@ from pathlib import Path
 from typing import Optional, Protocol, Tuple
 
 import ipywidgets as widgets
-import typer
 from IPython.display import display
 from pydantic import BaseModel, Field
 from rich.console import Console
@@ -259,11 +258,9 @@ class DockerRunner:
     def validate_paths(self, config: JobConfig) -> None:
         """Validate input paths exist"""
         if not config.function_folder.exists():
-            raise typer.Abort(
-                f"Function folder {config.function_folder} does not exist"
-            )
+            raise ValueError(f"Function folder {config.function_folder} does not exist")
         if not config.data_path.exists():
-            raise typer.Abort(f"Dataset folder {config.data_path} does not exist")
+            raise ValueError(f"Dataset folder {config.data_path} does not exist")
 
     def build_docker_command(self, config: JobConfig) -> list[str]:
         """Build the Docker run command with security constraints"""
@@ -314,8 +311,35 @@ class DockerRunner:
             *config.args,
         ]
 
+    def validate_docker(self, config: JobConfig) -> bool:
+        """Validate Docker image availability"""
+        image_name = f"syft_{config.runtime.value}_runtime"
+        # Check Docker daemon availability
+        subprocess.run(["docker", "info"], check=True, capture_output=True)
+
+        # Check if required image exists
+        try:
+            result = subprocess.run(
+                ["docker", "image", "inspect", image_name],
+                capture_output=True,
+                check=False,
+                text=True,
+            )
+            if result.returncode != 0:
+                raise RuntimeError(
+                    f"Docker image '{image_name}' not found. Please build the image using the `just build-runtime {config.runtime.value}` command."
+                    f"\n\n{result.stderr}"
+                )
+            return True
+        except FileNotFoundError:
+            raise RuntimeError("Docker not installed or not in PATH")
+
     def run(self, config: JobConfig) -> Tuple[Path, int | None]:
         """Run a job in a Docker container"""
+        # Check Docker availability first
+        if not self.validate_docker(config):
+            return -1
+
         self.validate_paths(config)
         self.prepare_job_folders(config)
 
