@@ -35,22 +35,20 @@ run-jupyter jupyter_args="":
     uv run --frozen --with "jupyterlab" \
         jupyter lab {{ jupyter_args }}
 
-build runtime:
-    docker build -t syft_python_runtime .
-
+# ---------------------------------------------------------------------------------------------------------------------
 # Build a runtime container based on the Dockerfile name
 # Usage: just build-runtime sh (builds syft_sh_runtime from runtimes/sh.Dockerfile)
 [group('utils')]
 build-runtime runtime_name:
     #!/usr/bin/env bash
-    echo "Building syft_{{runtime_name}}_runtime from runtimes/{{runtime_name}}.Dockerfile"
+    echo "{{ _cyan }}Building syft_{{runtime_name}}_runtime from runtimes/{{runtime_name}}.Dockerfile{{ _nc }}"
     docker build -t syft_{{runtime_name}}_runtime -f runtimes/{{runtime_name}}.Dockerfile .
 
 # Build all runtime containers
 [group('utils')]
 build-all-runtimes:
     #!/usr/bin/env bash
-    echo "Building all runtime containers..."
+    echo "{{ _cyan }}Building all runtime containers...{{ _nc }}"
     for dockerfile in runtimes/*.Dockerfile; do
         runtime_name=$(basename "$dockerfile" .Dockerfile)
         if [ "$runtime_name" != "base" ]; then
@@ -60,21 +58,32 @@ build-all-runtimes:
     done
     echo "All runtime containers built successfully!"
 
+# ---------------------------------------------------------------------------------------------------------------------
 [group('test')]
-test-integration:
-    uv run --frozen --with "pytest" \
-        pytest syft-rds/tests/integration/crud_test.py \
-        syft-rds/tests/integration/dataset_test.py
-
-[group('test')]
-test-unit:
-    uv run pytest --color=yes syft-rds/tests/unit/*_test.py
-
-[group('test')]
-test-e2e:
+setup-test-env:
     #!/bin/sh
+    cd syft-rds && uv sync --frozen && . .venv/bin/activate
+
+[group('test')]
+test-integration: setup-test-env
+    #!/bin/sh
+    cd syft-rds && echo "{{ _cyan }}Running integration tests {{ _nc }}"
+    uv run pytest -sq --color=yes tests/integration/crud_test.py tests/integration/dataset_test.py
+
+[group('test')]
+test-unit: setup-test-env
+    #!/bin/sh
+    cd syft-rds && echo "{{ _cyan }}Running unit tests {{ _nc }}"
+    uv run pytest -sq --color=yes tests/unit/*_test.py
+
+[group('test')]
+test-e2e: setup-test-env
+    #!/bin/sh
+    rm -rf .e2e/
+    cd syft-rds
+    echo "{{ _cyan }}Running end-to-end tests {{ _nc }}"
     echo "Using SyftBox from {{ _green }}'$(which syftbox)'{{ _nc }}"
-    uv run pytest -sq --color=yes syft-rds/tests/e2e/*_test.py
+    uv run pytest -sq --color=yes tests/e2e/*_test.py
 
 [group('test')]
 test:
