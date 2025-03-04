@@ -13,6 +13,7 @@ from syft_rds.client.rds_clients.runtime import RuntimeRDSClient
 from syft_rds.client.rds_clients.user_code import UserCodeRDSClient
 from syft_rds.client.rpc import RPCClient
 from syft_rds.client.utils import PathLike
+from syft_rds.models.models import Dataset
 
 
 def _resolve_syftbox_client(
@@ -85,3 +86,12 @@ class RDSClient(RDSClientModule):
         self.runtime = RuntimeRDSClient(self.config, self.rpc, self.local_store)
         self.dataset = DatasetRDSClient(self.config, self.rpc, self.local_store)
         self.user_code = UserCodeRDSClient(self.config, self.rpc, self.local_store)
+
+    @property
+    def datasets(self) -> list[Dataset]:
+        """Returns all available datasets.
+
+        Returns:
+            list[Dataset]: A list of all datasets
+        """
+        return self.dataset.get_all()
