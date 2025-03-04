@@ -70,10 +70,13 @@ def test_get_all_datasets(do_syftbox_config: SyftClientConfig) -> None:
     assert do_rds_client.is_admin
 
     dataset_1 = _create_dataset(do_rds_client, "Test")
-    dataset_2 = _create_dataset(do_rds_client, "Test 2")
+    datasets = do_rds_client.datasets
+    assert len(datasets) == 1
 
+    dataset_2 = _create_dataset(do_rds_client, "Test 2")
     datasets = do_rds_client.dataset.get_all()
     assert len(datasets) == 2
+
     assert dataset_1 in datasets
     assert dataset_2 in datasets
 
@@ -182,8 +185,8 @@ def test_readme_content(do_syftbox_config: SyftClientConfig) -> None:
     # Retrieve the dataset and check README content
     retrieved = do_rds_client.dataset.get(dataset.name)
 
-    # Assuming we've implemented the get_readme_content method
-    readme_content = retrieved.get_readme_content()
+    # Assuming we've implemented the get_description method
+    readme_content = retrieved.get_description()
     assert readme_content is not None
     assert len(readme_content) > 0
 

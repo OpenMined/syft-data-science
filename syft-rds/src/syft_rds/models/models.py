@@ -192,7 +192,7 @@ class Dataset(BaseSchema):
             raise FileNotFoundError(f"Readme file not found at {readme_path}")
         return readme_path
 
-    def get_readme_content(self) -> str:
+    def get_description(self) -> str:
         # read the description .md file
         with open(self.get_readme_path()) as f:
             return f.read()
