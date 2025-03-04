@@ -1,4 +1,3 @@
-import time
 from pathlib import Path
 
 import pytest
@@ -6,6 +5,7 @@ from syft_core import Client as SyftBoxClient
 from syft_core import SyftClientConfig
 from syft_event import SyftEvents
 from syft_rds.client.rds_client import init_session
+from syft_rds.orchestra import RDSStack, setup_rds_stack
 from syft_rds.server.app import create_app
 
 DO_EMAIL = "data_owner@test.openmined.org"
@@ -44,15 +44,6 @@ def rds_server(do_syftbox_client: SyftBoxClient):
     return create_app(do_syftbox_client)
 
 
-@pytest.fixture
-def rds_server_in_thread(rds_server: SyftEvents):
-    rds_server.start()
-
-    yield rds_server
-
-    rds_server.stop()
-
-
 def test_rpc_mocked(rds_server: SyftEvents, ds_syftbox_client):
     ds_rds_client = init_session(
         host=DO_EMAIL, syftbox_client=ds_syftbox_client, mock_server=rds_server
@@ -61,25 +52,36 @@ def test_rpc_mocked(rds_server: SyftEvents, ds_syftbox_client):
         host=DO_EMAIL, syftbox_client=ds_syftbox_client, mock_server=rds_server
     )
 
-    info = ds_rds_client.rpc.info()
+    info = ds_rds_client.rpc.health()
     assert info["app_name"] == "RDS"
 
-    info = do_rds_client.rpc.info()
+    info = do_rds_client.rpc.health()
     assert info["app_name"] == "RDS"
 
 
-def test_rpc_over_file(
-    rds_server_in_thread: SyftEvents, do_syftbox_client, ds_syftbox_client
-):
-    ds_rds_client = init_session(host=DO_EMAIL, syftbox_client=ds_syftbox_client)
-    do_rds_client = init_session(host=DO_EMAIL, syftbox_client=do_syftbox_client)
+@pytest.fixture
+def rds_mock_stack(tmp_path):
+    return setup_rds_stack(
+        root_dir=tmp_path,
+        reset=True,
+        log_level="DEBUG",
+    )
 
-    t0 = time.time()
-    info = ds_rds_client.rpc.info()
-    assert info["app_name"] == "RDS"
-    print("Time taken for ds RPC call without syncing", time.time() - t0)
 
-    t0 = time.time()
-    info = do_rds_client.rpc.info()
+def test_rpc_with_mock_stack(rds_mock_stack: RDSStack):
+    """
+    Test RPC over files, without filesync.
+
+    This means:
+    - DO and DS clients have the same, shared data_dir
+    - Files are not synced via the caching server
+    - Permissions are not checked
+    """
+    do_rds_client = rds_mock_stack.do_rds_client
+    ds_rds_client = rds_mock_stack.ds_rds_client
+
+    info = ds_rds_client.rpc.health()
     assert info["app_name"] == "RDS"
-    print("Time taken for do RPC call without syncing", time.time() - t0)
+
+    info = do_rds_client.rpc.health()
+    assert info["app_name"] == "RDS"
