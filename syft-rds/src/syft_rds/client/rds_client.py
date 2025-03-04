@@ -11,6 +11,7 @@ from syft_rds.client.rds_clients.base import RDSClientConfig, RDSClientModule
 from syft_rds.client.rds_clients.dataset import DatasetRDSClient
 from syft_rds.client.rds_clients.jobs import JobRDSClient
 from syft_rds.client.rds_clients.runtime import RuntimeRDSClient
+from syft_rds.models.models import Dataset
 
 
 def init_session(
@@ -54,3 +55,12 @@ class RDSClient(RDSClientModule):
         self.jobs = JobRDSClient(self.config, self.rpc, self.local_store)
         self.runtime = RuntimeRDSClient(self.config, self.rpc, self.local_store)
         self.dataset = DatasetRDSClient(self.config, self.rpc, self.local_store)
+
+    @property
+    def datasets(self) -> list[Dataset]:
+        """Returns all available datasets.
+
+        Returns:
+            list[Dataset]: A list of all datasets
+        """
+        return self.dataset.get_all()
