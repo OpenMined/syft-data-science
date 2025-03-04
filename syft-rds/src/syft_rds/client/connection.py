@@ -2,13 +2,13 @@ from abc import ABC, abstractmethod
 from datetime import datetime, timezone
 from typing import Optional
 
-from pydantic import BaseModel
 from syft_core import Client as SyftBoxClient
 from syft_core import SyftBoxURL
 from syft_event import SyftEvents
 from syft_event.deps import func_args_from_request
 from syft_rpc import SyftRequest, SyftResponse, rpc
 from syft_rpc.protocol import SyftMethod, SyftStatus
+from syft_rpc.rpc import BodyType
 
 
 class BlockingRPCConnection(ABC):
@@ -24,7 +24,7 @@ class BlockingRPCConnection(ABC):
     def send(
         self,
         url: str,
-        body: BaseModel,
+        body: BodyType,
         headers: Optional[dict] = None,
         expiry: Optional[str] = None,
         cache: bool = False,
@@ -36,7 +36,7 @@ class FileSyncRPCConnection(BlockingRPCConnection):
     def send(
         self,
         url: str,
-        body: BaseModel,
+        body: BodyType,
         headers: Optional[dict] = None,
         expiry: Optional[str] = None,
         cache: bool = False,
@@ -72,7 +72,7 @@ class MockRPCConnection(BlockingRPCConnection):
     def _build_request(
         self,
         url: str,
-        body: BaseModel,
+        body: BodyType,
         headers: Optional[dict] = None,
         expiry: Optional[str] = None,
     ) -> SyftRequest:
@@ -91,7 +91,7 @@ class MockRPCConnection(BlockingRPCConnection):
     def _build_response(
         self,
         request: SyftRequest,
-        response_body: BaseModel,
+        response_body: BodyType,
         status_code: SyftStatus = SyftStatus.SYFT_200_OK,
     ) -> SyftResponse:
         return SyftResponse(
@@ -107,7 +107,7 @@ class MockRPCConnection(BlockingRPCConnection):
     def send(
         self,
         url: str,
-        body: BaseModel,
+        body: BodyType,
         headers: Optional[dict] = None,
         expiry: Optional[str] = None,
         cache: bool = False,

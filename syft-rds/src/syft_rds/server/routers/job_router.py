@@ -34,7 +34,7 @@ def get_job(request: GetOneRequest, app: SyftEvents) -> Job:
 
 
 @job_router.on_request("/get_all")
-def get_all_jobs(request: GetAllRequest, app: SyftEvents) -> ItemList[Job]:
+def get_all_jobs(req: GetAllRequest, app: SyftEvents) -> ItemList[Job]:
     job_store: RDSStore = app.state["job_store"]
     items = job_store.list_all()
     return ItemList[Job](items=items)

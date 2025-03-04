@@ -1,7 +1,7 @@
-from typing import TYPE_CHECKING, ClassVar, Generic, TypeVar
+from typing import TYPE_CHECKING, ClassVar, Generic, Optional, TypeVar, Union
 
-from pydantic import BaseModel
 from syft_rpc import SyftResponse
+from syft_rpc.rpc import BodyType
 
 from syft_rds.client.connection import BlockingRPCConnection
 from syft_rds.models.base import BaseSchema, BaseSchemaCreate, BaseSchemaUpdate
@@ -39,11 +39,17 @@ class RPCClientModule:
 
         self.prefix = f"syft://{self.config.host}/api_data/{self.config.app_name}/rpc"
 
-    def _send(self, path: str, body: BaseModel) -> SyftResponse:
+    def _send(
+        self, path: str, body: BodyType, expiry: Optional[Union[str, int]] = None
+    ) -> SyftResponse:
+        expiry = expiry or self.config.rpc_expiry
+        if isinstance(expiry, int):
+            expiry = f"{expiry}s"
+
         return self.connection.send(
             f"{self.prefix}/{path}",
             body,
-            expiry=self.config.rpc_expiry,
+            expiry=expiry,
             cache=False,
         )
 
@@ -105,3 +111,9 @@ class RPCClient(RPCClientModule):
         self.user_code = UserCodeRPCClient(self.config, self.connection)
         self.runtime = RuntimeRPCClient(self.config, self.connection)
         self.dataset = DatasetRPCClient(self.config, self.connection)
+
+    def health(self, expiry: Optional[Union[str, int]] = None) -> dict:
+        response: SyftResponse = self._send("/health", body=None, expiry=expiry)
+        response.raise_for_status()
+
+        return response.json()
