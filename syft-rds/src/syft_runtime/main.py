@@ -305,7 +305,7 @@ class DockerRunner:
             "--pids-limit",
             "100",
             "--ulimit",
-            "nproc=100:100",
+            "nproc=4096:4096",
             "--ulimit",
             "nofile=50:50",
             "--ulimit",
