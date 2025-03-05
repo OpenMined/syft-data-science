@@ -24,7 +24,7 @@ def deployment_config():
 @pytest.mark.parametrize(
     "e2e_context", [deployment_config()], indirect=True, ids=["deployment"]
 )
-async def test_e2e_dataset_get(e2e_context: E2EContext):
+async def test_e2e_dataset(e2e_context: E2EContext):
     logger.info(f"Starting E2E '{e2e_context.e2e_name}'")
     e2e_context.reset_test_dir()
     await e2e_context.start_all()
@@ -72,5 +72,15 @@ async def test_e2e_dataset_get(e2e_context: E2EContext):
 
     datasets = ds_rds_client.dataset.get_all()
     assert len(datasets) == 2
+
+    do_rds_client.dataset.delete(dataset_name)
+    await asyncio.sleep(3)
+    assert len(do_rds_client.dataset.get_all()) == 1
+    assert len(ds_rds_client.dataset.get_all()) == 1
+
+    do_rds_client.dataset.delete(dataset_2_name)
+    await asyncio.sleep(3)
+    assert len(do_rds_client.dataset.get_all()) == 0
+    assert len(ds_rds_client.dataset.get_all()) == 0
 
     logger.info(f"Test passed for {e2e_context.e2e_name}")
