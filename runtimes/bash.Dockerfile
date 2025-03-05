@@ -37,4 +37,4 @@ ENV INTERPRETER="sh"
 
 # Use the common entrypoint
 ENTRYPOINT ["/entrypoint.sh"]
-CMD [] 
+CMD []

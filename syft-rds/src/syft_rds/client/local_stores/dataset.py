@@ -37,7 +37,6 @@ class DatasetLocalStore(CRUDLocalStore[Dataset, DatasetCreate, DatasetUpdate]):
         name: str,
         path: Union[str, Path],
         mock_path: Union[str, Path],
-        file_type: str,
     ) -> None:
         if (
             self._path_manager.get_local_public_dataset_dir(name).exists()
@@ -47,18 +46,15 @@ class DatasetLocalStore(CRUDLocalStore[Dataset, DatasetCreate, DatasetUpdate]):
         # validate paths
         self._path_manager.check_path_exists(path)
         self._path_manager.check_path_exists(mock_path)
-        self._path_manager.check_are_both_dirs_or_files(path, mock_path)
+        self._path_manager.check_are_both_dirs(path, mock_path)
         # validate dataset file extensions
         self._files_manager.check_same_file_extensions(path, mock_path)
-        self._files_manager.check_file_extensions_for_dir(path, file_type)
-        self._files_manager.check_file_extensions_for_dir(mock_path, file_type)
 
     def create(self, dataset_create: DatasetCreate) -> Dataset:
         self._validate_paths(
             dataset_create.name,
             dataset_create.path,
             dataset_create.mock_path,
-            dataset_create.file_type,
         )
         try:
             self._files_manager.copy_mock_to_public_syftbox_dir(
@@ -108,17 +104,13 @@ class DatasetUrlManager:
     def get_mock_dataset_syftbox_url(
         datasite_email: str, dataset_name: str, mock_path: Union[Path, str]
     ) -> SyftBoxURL:
-        return SyftBoxURL(
-            f"syft://{datasite_email}/public/datasets/{dataset_name}/{Path(mock_path).name}"
-        )
+        return SyftBoxURL(f"syft://{datasite_email}/public/datasets/{dataset_name}")
 
     @staticmethod
     def get_private_dataset_syftbox_url(
         datasite_email: str, dataset_name: str, path: Union[Path, str]
     ) -> str:
-        return (
-            f"syft://{datasite_email}/private/datasets/{dataset_name}/{Path(path).name}"
-        )
+        return f"syft://{datasite_email}/private/datasets/{dataset_name}"
 
     @staticmethod
     def get_readme_syftbox_url(
@@ -166,15 +158,12 @@ class DatasetPathManager:
         if not Path(path).exists():
             raise ValueError(f"Path does not exist: {path}")
 
-    def check_are_both_dirs_or_files(
-        self, path: Union[str, Path], mock_path: Union[str, Path]
-    ):
+    def check_are_both_dirs(self, path: Union[str, Path], mock_path: Union[str, Path]):
         path, mock_path = Path(path), Path(mock_path)
-        if not (
-            (path.is_dir() and mock_path.is_dir())
-            or (path.is_file() and mock_path.is_file())
-        ):
-            raise ValueError(f"Paths are not in the same type: {path} and {mock_path}")
+        if not (path.is_dir() and mock_path.is_dir()):
+            raise ValueError(
+                f"Mock and private data paths must be directories: {path} and {mock_path}"
+            )
 
 
 class DatasetFilesManager:
@@ -183,30 +172,56 @@ class DatasetFilesManager:
 
     def check_same_file_extensions(
         self, path: Union[str, Path], mock_path: Union[str, Path]
-    ):
-        path, mock_path = Path(path), Path(mock_path)
-        if (path.is_file() and mock_path.is_file()) and (
-            not path.suffix == mock_path.suffix
-        ):
-            raise ValueError(f"Files must have same extension: {path} and {mock_path}")
+    ) -> bool:
+        path = Path(path)
+        mock_path = Path(mock_path)
+        if path.is_dir() and mock_path.is_dir():
+            # Get all file extensions from the first directory into a set
+            path_extensions = set()
+            for file_path in path.glob("**/*"):
+                if file_path.is_file() and file_path.suffix:
+                    path_extensions.add(file_path.suffix.lower())
 
-    def check_file_extensions_for_dir(self, path: Union[str, Path], file_type: str):
-        """
-        Check all the file extensions in the dir and compare if they are in the list of file extensions
-        """
-        pass
+            # Get all file extensions from the second directory into a set
+            mock_extensions = set()
+            for file_path in mock_path.glob("**/*"):
+                if file_path.is_file() and file_path.suffix:
+                    mock_extensions.add(file_path.suffix.lower())
+
+            # Compare the sets of extensions
+            if path_extensions != mock_extensions:
+                extra_in_path = path_extensions - mock_extensions
+                extra_in_mock = mock_extensions - path_extensions
+                error_msg = "Directories contain different file extensions:\n"
+                if extra_in_path:
+                    error_msg += f"Extensions in {path} but not in {mock_path}: {', '.join(extra_in_path)}\n"
+                if extra_in_mock:
+                    error_msg += f"Extensions in {mock_path} but not in {path}: {', '.join(extra_in_mock)}"
+                raise ValueError(error_msg)
+
+            return True
+
+        return False
 
     @staticmethod
-    def _copy_file_or_dir(src: Union[str, Path], dest_dir: Path) -> Path:
+    def _copy_dir(src: Union[str, Path], dest_dir: Path) -> Path:
         src_path = Path(src)
         dest_dir.mkdir(parents=True, exist_ok=True)
-        dest_path = dest_dir / src_path.name
 
-        if src_path.is_dir():
-            shutil.copytree(src_path, dest_path, dirs_exist_ok=True)
-        else:
-            shutil.copy2(src_path, dest_path)
-        return dest_path
+        if not src_path.is_dir():
+            raise ValueError(f"Source path is not a directory: {src_path}")
+
+        # Iterate through all items in the source directory
+        for item in src_path.iterdir():
+            item_dest = dest_dir / item.name
+
+            if item.is_dir():
+                # Recursively copy subdirectories
+                shutil.copytree(item, item_dest, dirs_exist_ok=True)
+            else:
+                # Copy files
+                shutil.copy2(item, dest_dir)
+        return dest_dir
 
     def copy_mock_to_public_syftbox_dir(
         self, dataset_name: str, mock_path: Union[str, Path]
@@ -214,7 +229,7 @@ class DatasetFilesManager:
         public_dataset_dir: Path = self._path_manager.get_local_public_dataset_dir(
             dataset_name
         )
-        return self._copy_file_or_dir(mock_path, public_dataset_dir)
+        return self._copy_dir(mock_path, public_dataset_dir)
 
     def copy_private_to_private_syftbox_dir(
         self,
@@ -224,7 +239,7 @@ class DatasetFilesManager:
         private_dataset_dir: Path = self._path_manager.get_syftbox_private_dataset_dir(
             dataset_name
         )
-        return self._copy_file_or_dir(path, private_dataset_dir)
+        return self._copy_dir(path, private_dataset_dir)
 
     def copy_description_file_to_public_syftbox_dir(
         self, dataset_name: str, description_path: Union[str, Path]
@@ -269,7 +284,6 @@ class DatasetSchemaManager:
             name=dataset_create.name,
             private=private_url,
             mock=mock_url,
-            file_type=dataset_create.file_type,
             tags=dataset_create.tags,
             summary=dataset_create.summary,
             readme=readme_url,

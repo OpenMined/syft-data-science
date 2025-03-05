@@ -7,8 +7,8 @@ from syft_core import SyftClientConfig
 
 
 TEST_DIR = Path(__file__).parent
-PRIVATE_DATA_PATH = TEST_DIR / "../assets/do/data.csv"
-MOCK_DATA_PATH = TEST_DIR / "../assets/do/mock.csv"
+PRIVATE_DATA_PATH = TEST_DIR / "../assets/do/private/"
+MOCK_DATA_PATH = TEST_DIR / "../assets/do/mock/"
 README_PATH = TEST_DIR / "../assets/do/README.md"
 
 
@@ -17,7 +17,6 @@ def _create_dataset(do_rds_client: RDSClient, name: str) -> None:
         name=name,
         path=PRIVATE_DATA_PATH,
         mock_path=MOCK_DATA_PATH,
-        file_type="csv",
         summary="Test data",
         description_path=README_PATH,
         tags=["test"],
@@ -36,12 +35,11 @@ def test_create_dataset(do_syftbox_config: SyftClientConfig) -> None:
     assert dataset.get_mock_path().exists()
     assert dataset.get_private_path().exists()
     assert dataset.summary == "Test data"
-    assert dataset.file_type == "csv"
     assert dataset.describe()
-    private_df = pd.read_csv(dataset.get_private_path())
-    assert private_df.equals(pd.read_csv(PRIVATE_DATA_PATH))
-    mock_df = pd.read_csv(dataset.get_mock_path())
-    assert mock_df.equals(pd.read_csv(MOCK_DATA_PATH))
+    private_df = pd.read_csv(dataset.get_private_path() / "data.csv")
+    assert private_df.equals(pd.read_csv(PRIVATE_DATA_PATH / "data.csv"))
+    mock_df = pd.read_csv(dataset.get_mock_path() / "data.csv")
+    assert mock_df.equals(pd.read_csv(MOCK_DATA_PATH / "data.csv"))
 
 
 def test_get_dataset(do_syftbox_config: SyftClientConfig) -> None:
@@ -56,11 +54,10 @@ def test_get_dataset(do_syftbox_config: SyftClientConfig) -> None:
     assert test_data.get_mock_path().exists()
     assert test_data.get_private_path().exists()
     assert test_data.summary == dataset.summary
-    assert test_data.file_type == dataset.file_type
-    private_df = pd.read_csv(test_data.get_private_path())
-    assert private_df.equals(pd.read_csv(PRIVATE_DATA_PATH))
-    mock_df = pd.read_csv(test_data.get_mock_path())
-    assert mock_df.equals(pd.read_csv(MOCK_DATA_PATH))
+    private_df = pd.read_csv(test_data.get_private_path() / "data.csv")
+    assert private_df.equals(pd.read_csv(PRIVATE_DATA_PATH / "data.csv"))
+    mock_df = pd.read_csv(test_data.get_mock_path() / "data.csv")
+    assert mock_df.equals(pd.read_csv(MOCK_DATA_PATH / "data.csv"))
 
 
 def test_get_all_datasets(do_syftbox_config: SyftClientConfig) -> None:

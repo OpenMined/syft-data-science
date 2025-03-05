@@ -155,7 +155,6 @@ class Dataset(BaseSchema):
     name: str = Field(description="Name of the dataset.")
     private: SyftBoxURL = Field(description="Private Syft URL of the dataset.")
     mock: SyftBoxURL = Field(description="Mock Syft URL of the dataset.")
-    file_type: str = Field(description="Type of files in the dataset.")
     summary: str | None = Field(description="Summary string of the dataset.")
     readme: SyftBoxURL | None = Field(description="REAMD.md Syft URL of the dataset.")
     tags: list[str] = Field(description="Tags for the dataset.")
@@ -223,7 +222,7 @@ class Dataset(BaseSchema):
                     yield from tree(path, prefix=prefix + extension)
 
         try:
-            for line in tree(self.get_mock_path().parent):
+            for line in tree(self.get_mock_path()):
                 print(line)
             return True
         except Exception as e:
@@ -235,7 +234,6 @@ class DatasetCreate(BaseSchemaCreate[Dataset]):
     name: str = Field(description="Name of the dataset.")
     path: str = Field(description="Private path of the dataset.")
     mock_path: str = Field(description="Mock path of the dataset.")
-    file_type: str = Field(description="Types of files in the dataset.")
     summary: str | None = Field(description="Summary string of the dataset.")
     description_path: str | None = Field(
         description="Path to the detailed REAMD.md of the dataset."
