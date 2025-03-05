@@ -60,9 +60,10 @@ class DatasetLocalStore(CRUDLocalStore[Dataset, DatasetCreate, DatasetUpdate]):
             self._files_manager.copy_mock_to_public_syftbox_dir(
                 dataset_create.name, dataset_create.mock_path
             )
-            self._files_manager.copy_description_file_to_public_syftbox_dir(
-                dataset_create.name, dataset_create.description_path
-            )
+            if dataset_create.description_path:
+                self._files_manager.copy_description_file_to_public_syftbox_dir(
+                    dataset_create.name, dataset_create.description_path
+                )
             self._files_manager.copy_private_to_private_syftbox_dir(
                 dataset_create.name, dataset_create.path
             )
@@ -275,11 +276,17 @@ class DatasetSchemaManager:
         private_url: SyftBoxURL = DatasetUrlManager.get_private_dataset_syftbox_url(
             syftbox_client_email, dataset_create.name, Path(dataset_create.path)
         )
-        readme_url: SyftBoxURL = DatasetUrlManager.get_readme_syftbox_url(
-            syftbox_client_email,
-            dataset_create.name,
-            Path(dataset_create.description_path),
+
+        readme_url: SyftBoxURL = (
+            DatasetUrlManager.get_readme_syftbox_url(
+                syftbox_client_email,
+                dataset_create.name,
+                Path(dataset_create.description_path),
+            )
+            if dataset_create.description_path
+            else None
         )
+
         dataset = Dataset(
             name=dataset_create.name,
             private=private_url,
