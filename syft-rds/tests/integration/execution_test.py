@@ -47,7 +47,7 @@ def test_job_execution(
         # $ cd job.user_code.path.parent && job.runtime job.user_code.path.name
         function_folder=user_code.path.parent,
         args=[user_code.path.name],
-        data_path=TEST_DIR / "assets/do",
+        data_path=TEST_DIR / "assets/do/private/",
         runtime=job.runtime,
         job_folder=DO_OUTPUT_PATH / str(job.name),
         timeout=1,
@@ -107,7 +107,7 @@ def test_bash_job_execution(
         # $ cd job.user_code.path.parent && job.runtime job.user_code.path.name
         function_folder=user_code.path.parent,
         args=[user_code.path.name],
-        data_path=DO_PATH,
+        data_path=TEST_DIR / "assets/do/mock/",
         runtime="bash",
         job_folder=DO_OUTPUT_PATH / str(job.name),
     )
