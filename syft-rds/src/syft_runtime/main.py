@@ -124,8 +124,8 @@ class RichConsoleUI(JobOutputHandler):
                 "\n".join(
                     [
                         "[bold green]Starting job[/]",
-                        f"[bold white]Function:[/] [cyan]{config.function_folder}[/] → [dim]/code[/]",
-                        f"[bold white]Args:[/] [cyan]{' '.join(config.args)}[/] → [dim]/code[/]",
+                        # f"[bold white]Working Directory:[/] [cyan]{config.function_folder}[/]",
+                        f"[bold white]Execution:[/] [cyan]{config.runtime.value} {' '.join(config.args)}[/]",
                         f"[bold white]Dataset:[/]  [cyan]{config.data_path}[/] → [dim]{data_mount_display}[/]",
                         f"[bold white]Output:[/]   [cyan]{config.output_dir}[/] → [dim]{DEFAULT_OUTPUT_DIR}[/]",
                         f"[bold white]Timeout:[/]  [cyan]{config.timeout}s[/]",

@@ -13,7 +13,8 @@ from syft_rds.client.rds_clients.runtime import RuntimeRDSClient
 from syft_rds.client.rds_clients.user_code import UserCodeRDSClient
 from syft_rds.client.rpc import RPCClient
 from syft_rds.client.utils import PathLike
-from syft_rds.models.models import Dataset
+from syft_rds.models.models import Dataset, Job
+from syft_runtime.main import DockerRunner, FileOutputHandler, JobConfig, RichConsoleUI
 
 
 def _resolve_syftbox_client(
@@ -95,3 +96,24 @@ class RDSClient(RDSClientModule):
             list[Dataset]: A list of all datasets
         """
         return self.dataset.get_all()
+
+    def run(self, job: Job) -> None:
+        """Runs a job.
+
+        Args:
+            job (Job): The job to run
+        """
+
+        config = JobConfig(
+            function_folder=job.user_code.path.parent,
+            args=[job.user_code.path.name],
+            data_path=self.dataset.get(job.dataset_name).get_mock_path(),
+            runtime=job.runtime,
+            job_folder=str(job.name),
+            timeout=1,
+            use_docker=False,
+        )
+
+        runner = DockerRunner(handlers=[FileOutputHandler(), RichConsoleUI()])
+        return_code = runner.run(config)
+        return return_code

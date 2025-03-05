@@ -7,5 +7,4 @@ DATA_DIR = os.environ["DATA_DIR"]
 file_path = os.path.join(DATA_DIR, "{{ filename }}")
 
 with open(file_path, "r") as f:
-    print(f"\First line of {file_path}:")
     print(f.readline())

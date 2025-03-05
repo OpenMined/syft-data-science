@@ -20,6 +20,7 @@ class JobRDSClient(RDSClientModule):
         description: str | None = None,
         runtime: str | None = None,
         user_code_path: PathLike | None = None,
+        dataset_name: str | None = None,
         function: Callable | None = None,
         function_args: list = None,
         function_kwargs: dict = None,
@@ -39,6 +40,7 @@ class JobRDSClient(RDSClientModule):
             runtime=runtime or self.config.default_runtime,
             user_code_id=user_code.uid,
             tags=tags if tags is not None else [],
+            dataset_name=dataset_name,
         )
         if name is not None:
             job_create.name = name
