@@ -59,8 +59,8 @@ async def test_e2e_dataset_get(e2e_context: E2EContext):
     logger.info("Dataset retrieved", test_dataset.name)
     assert test_dataset.get_description()
     assert test_dataset.describe()
-    mock_df = pd.read_csv(test_dataset.get_mock_path())
-    assert mock_df.equals(pd.read_csv(MOCK_DATA_PATH))
+    mock_df = pd.read_csv(test_dataset.get_mock_path() / "data.csv")
+    assert mock_df.equals(pd.read_csv(MOCK_DATA_PATH / "data.csv"))
 
     with pytest.raises(Exception) as excinfo:
         test_dataset.get_private_path()
