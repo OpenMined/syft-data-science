@@ -3,6 +3,7 @@ from types import MethodType
 from syft_core import Client
 from syft_event import SyftEvents
 
+from syft_rds import __version__
 from syft_rds.models.models import Job, Runtime, UserCode
 from syft_rds.server.router import RPCRouter
 from syft_rds.server.routers.job_router import job_router
@@ -22,9 +23,9 @@ def _init_stores(app: SyftEvents) -> None:
 def create_app(client: Client | None = None) -> SyftEvents:
     rds_app = SyftEvents(app_name=APP_NAME, client=client)
 
-    @rds_app.on_request("/info")
-    def info() -> dict:
-        return {"app_name": APP_NAME}
+    @rds_app.on_request("/health")
+    def health() -> dict:
+        return {"app_name": APP_NAME, "version": __version__}
 
     def include_router(self, router: RPCRouter, *, prefix: str = "") -> None:
         for endpoint, func in router.routes.items():
@@ -41,6 +42,3 @@ def create_app(client: Client | None = None) -> SyftEvents:
     rds_app.state["output_dir"] = rds_app.app_dir / "output"
 
     return rds_app
-
-
-rds_app = create_app()

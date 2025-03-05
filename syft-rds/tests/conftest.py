@@ -11,21 +11,10 @@ from syft_rds.store import YAMLFileSystemDatabase
 from tests.mocks import MockUserSchema
 
 DO_EMAIL = "data_owner@test.openmined.org"
-# DS_EMAIL = "data_scientist@test.openmined.org"
-DS_EMAIL = DO_EMAIL
+DS_EMAIL = "data_scientist@test.openmined.org"
 
-
-# @pytest.fixture(autouse=True)
-# def reset_state():
-#     """Reset all internal state between tests"""
-#     # Clear all stores
-#     job_store.clear()
-#     user_code_store.clear()
-#     runtime_store.clear()
-
-#     # Reset the private attribute to a new empty dict
-#     BaseSchema.__private_attributes__["_client_cache"].default = dict()
-#     yield
+# NOTE: for testing real RPC and file sharing without launching the full stack, we use a shared data dir.
+SHARED_DATA_DIR = "shared_data_dir"
 
 
 @pytest.fixture
@@ -35,7 +24,7 @@ def do_syftbox_client(tmp_path: Path) -> SyftBoxClient:
             email=DO_EMAIL,
             client_url="http://localhost:5000",
             path=tmp_path / "syftbox_client_config.json",
-            data_dir=tmp_path / "clients" / DO_EMAIL,
+            data_dir=tmp_path / "clients" / SHARED_DATA_DIR,
         ),
     )
 
@@ -47,7 +36,7 @@ def ds_syftbox_client(tmp_path: Path) -> SyftBoxClient:
             email=DS_EMAIL,
             client_url="http://localhost:5001",
             path=tmp_path / "syftbox_client_config.json",
-            data_dir=tmp_path / "clients" / DS_EMAIL,
+            data_dir=tmp_path / "clients" / SHARED_DATA_DIR,
         ),
     )
 

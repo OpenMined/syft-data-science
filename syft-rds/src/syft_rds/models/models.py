@@ -68,7 +68,7 @@ class Job(BaseSchema):
     user_metadata: dict = {}
     status: JobStatus = JobStatus.pending_code_review
     error: JobErrorKind = JobErrorKind.no_error
-    output_url: SyftBoxURL
+    output_url: str | None = None
 
     @property
     def user_code(self) -> UserCode:
