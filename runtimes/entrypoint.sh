@@ -11,4 +11,4 @@ INTERPRETER=${INTERPRETER:-"sh"}
 # Set up timeout handling
 trap 'echo "$TIMEOUT_MESSAGE"' TERM
 timeout -s TERM $TIMEOUT $INTERPRETER "$@" || \
-{ test $? -eq 124 && echo "$TIMEOUT_MESSAGE" >&2 && exit 124; } 
+{ test $? -eq 124 && echo "$TIMEOUT_MESSAGE" >&2 && exit 124; }
