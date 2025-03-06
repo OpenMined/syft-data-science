@@ -31,6 +31,11 @@ class BlockingRPCConnection(ABC):
     ) -> SyftResponse:
         raise NotImplementedError()
 
+    def _serialize(self, body: BodyType) -> str:
+        # NOTE to enable partial BaseModel updates, always exclude unset fields when serializing
+        # exclude_unset will only affect the serialization of Pydantic models
+        return rpc.serialize(body, exclude_unset=True)
+
 
 class FileSyncRPCConnection(BlockingRPCConnection):
     def send(
@@ -43,6 +48,7 @@ class FileSyncRPCConnection(BlockingRPCConnection):
     ) -> SyftResponse:
         headers = None
 
+        body = self._serialize(body)
         future = rpc.send(
             url=url,
             body=body,
@@ -115,6 +121,9 @@ class MockRPCConnection(BlockingRPCConnection):
         if cache:
             raise NotImplementedError("Cache not implemented for MockRPCConnection")
 
+        # NOTE to match the FileSyncRPCConnection.send implementation, we self._serialize the body here with our custom serde options
+        # in rpc.send the body will be serialized again which will be a no-op when building the request. This is a no-op on already serialized data.
+        body = self._serialize(body)
         syft_request = self._build_request(url, body, headers, expiry)
         receiver_local_path = SyftBoxURL(url).to_local_path(
             self.receiver_client.workspace.datasites

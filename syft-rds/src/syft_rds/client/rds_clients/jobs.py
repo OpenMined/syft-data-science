@@ -86,11 +86,11 @@ class JobRDSClient(RDSClientModule):
     def share_results(self, job: Job, job_output_path: PathLike) -> Job:
         self.local_store.jobs.share_result_files(job, job_output_path)
 
-        job = self.rpc.jobs.update(
+        updated_job = self.rpc.jobs.update(
             JobUpdate(
                 uid=job.uid,
                 status=JobStatus.shared,
                 error=JobErrorKind.no_error,
             )
         )
-        return job
+        return job.apply(updated_job)

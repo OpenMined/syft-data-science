@@ -1,8 +1,9 @@
 from pathlib import Path
-from typing import Optional, Tuple
+from typing import Optional
 
 from syft_core import Client as SyftBoxClient
 from syft_event import SyftEvents
+from syft_runtime.main import DockerRunner, FileOutputHandler, JobConfig, RichConsoleUI
 
 from syft_rds.client.connection import get_connection
 from syft_rds.client.local_store import LocalStore
@@ -14,7 +15,6 @@ from syft_rds.client.rds_clients.user_code import UserCodeRDSClient
 from syft_rds.client.rpc import RPCClient
 from syft_rds.client.utils import PathLike
 from syft_rds.models.models import Dataset, Job, JobStatus, JobUpdate
-from syft_runtime.main import DockerRunner, FileOutputHandler, JobConfig, RichConsoleUI
 
 
 def _resolve_syftbox_client(
@@ -97,7 +97,7 @@ class RDSClient(RDSClientModule):
         """
         return self.dataset.get_all()
 
-    def run_private(self, job:Job, config: Optional[JobConfig] = None) -> Job:
+    def run_private(self, job: Job, config: Optional[JobConfig] = None) -> Job:
         user_code = self.user_code.get(job.user_code_id)
         if config is None:
             config = JobConfig(
@@ -116,10 +116,9 @@ class RDSClient(RDSClientModule):
         new_job = self.rpc.jobs.update(
             JobUpdate(status=status, uid=job.uid, error=job.error)
         )
-        return job.apply_from(new_job)
-        
+        return job.apply(new_job)
 
-    def run_mock(self, job:Job, config: Optional[JobConfig] = None) -> Job:
+    def run_mock(self, job: Job, config: Optional[JobConfig] = None) -> Job:
         user_code = self.user_code.get(job.user_code_id)
         if config is None:
             config = JobConfig(
@@ -131,7 +130,7 @@ class RDSClient(RDSClientModule):
                 timeout=1,
                 use_docker=False,
             )
-        self._run(config=config)    
+        self._run(config=config)
         return job
 
     def _run(self, config: JobConfig) -> int:
