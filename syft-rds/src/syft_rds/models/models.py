@@ -62,7 +62,6 @@ class Job(BaseSchema):
 
     name: str = Field(default_factory=generate_name)
     description: str | None = None
-    runtime: str
     user_code_id: UUID
     tags: list[str] = Field(default_factory=list)
     user_metadata: dict = {}
@@ -123,7 +122,6 @@ class Job(BaseSchema):
 class JobCreate(BaseSchemaCreate[Job]):
     name: str = Field(default_factory=generate_name)
     description: str | None = None
-    runtime: str
     user_code_id: UUID
     tags: list[str] = Field(default_factory=list)
     dataset_name: str
