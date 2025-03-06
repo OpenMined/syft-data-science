@@ -14,11 +14,11 @@ from syft_rds.models.models import (
     RuntimeUpdate,
     UserCodeCreate,
 )
-from syft_rds.orchestra import RDSStack, setup_rds_stack
+from syft_rds.orchestra import RDSStack
 
 
-def test_job_crud_file_rpc(rds_mock_stack: RDSStack):
-    do_rds_client = rds_mock_stack.do_rds_client
+def test_job_crud_file_rpc(rds_no_sync_stack: RDSStack):
+    do_rds_client = rds_no_sync_stack.do_rds_client
 
     job_create = JobCreate(
         name="Test Job",
@@ -209,15 +209,3 @@ def test_apply_update(ds_rds_client: RDSClient):
 
     assert job.status == JobStatus.queued
     assert new_job.status == JobStatus.rejected
-
-
-@pytest.fixture
-def rds_mock_stack(tmp_path):
-    stack = setup_rds_stack(
-        root_dir=tmp_path,
-        reset=True,
-        log_level="DEBUG",
-    )
-
-    yield stack
-    stack.stop()
