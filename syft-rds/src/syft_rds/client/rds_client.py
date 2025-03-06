@@ -124,7 +124,7 @@ class RDSClient(RDSClientModule):
         new_job = self.rpc.jobs.update(
             JobUpdate(status=status, uid=job.uid, error=job.error)
         )
-        return job.apply_from(new_job)
+        return job.apply(new_job)
 
     def run_mock(self, job: Job, config: Optional[JobConfig] = None) -> Job:
         config = config or self.get_default_config_for_job(job)
