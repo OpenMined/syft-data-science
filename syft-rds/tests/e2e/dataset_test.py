@@ -4,9 +4,11 @@ import pandas as pd
 import pytest
 from loguru import logger
 
-from .conftest import Client, E2EContext, Server
-from ..integration.dataset_test import _create_dataset, MOCK_DATA_PATH
 from syft_rds.client.rds_client import RDSClient, init_session
+
+from tests.utils import create_dataset
+from tests.conftest import MOCK_DATA_PATH
+from tests.e2e.conftest import Client, E2EContext, Server
 
 
 def deployment_config():
@@ -24,7 +26,7 @@ def deployment_config():
 @pytest.mark.parametrize(
     "e2e_context", [deployment_config()], indirect=True, ids=["deployment"]
 )
-async def test_e2e_dataset(e2e_context: E2EContext):
+async def test_e2e_dataset_create_get_del(e2e_context: E2EContext):
     logger.info(f"Starting E2E '{e2e_context.e2e_name}'")
     e2e_context.reset_test_dir()
     await e2e_context.start_all()
@@ -52,7 +54,7 @@ async def test_e2e_dataset(e2e_context: E2EContext):
     logger.info("Clients initialized", do_rds_client.email, ds_rds_client.email)
 
     dataset_name = "Test"
-    _create_dataset(do_rds_client, dataset_name)
+    create_dataset(do_rds_client, dataset_name)
     await asyncio.sleep(3)  # wait for the dataset to be synced
 
     test_dataset = ds_rds_client.dataset.get(dataset_name)
@@ -67,7 +69,7 @@ async def test_e2e_dataset(e2e_context: E2EContext):
         logger.error(f"DS tries to access the private data raised {excinfo}")
 
     dataset_2_name = "Test2"
-    _create_dataset(do_rds_client, dataset_2_name)
+    create_dataset(do_rds_client, dataset_2_name)
     await asyncio.sleep(3)
 
     datasets = ds_rds_client.dataset.get_all()
