@@ -20,10 +20,8 @@ class JobLocalStore(CRUDLocalStore[Job, JobCreate, JobUpdate]):
             output_path.mkdir(parents=True)
 
         # TODO add kwargs to ignore logs, outputs, etc.
-        ignore = []
         shutil.copytree(
             job_output_folder,
             output_path / job.name,
             dirs_exist_ok=True,
-            ignore=ignore,
         )

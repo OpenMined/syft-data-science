@@ -1,5 +1,5 @@
 from pathlib import Path
-from typing import Optional
+from typing import Optional, Tuple
 
 from syft_core import Client as SyftBoxClient
 from syft_event import SyftEvents
@@ -13,7 +13,7 @@ from syft_rds.client.rds_clients.runtime import RuntimeRDSClient
 from syft_rds.client.rds_clients.user_code import UserCodeRDSClient
 from syft_rds.client.rpc import RPCClient
 from syft_rds.client.utils import PathLike
-from syft_rds.models.models import Dataset, Job
+from syft_rds.models.models import Dataset, Job, JobStatus, JobUpdate
 from syft_runtime.main import DockerRunner, FileOutputHandler, JobConfig, RichConsoleUI
 
 
@@ -97,23 +97,49 @@ class RDSClient(RDSClientModule):
         """
         return self.dataset.get_all()
 
-    def run(self, job: Job) -> None:
+    def run_private(self, job:Job, config: Optional[JobConfig] = None) -> Job:
+        user_code = self.user_code.get(job.user_code_id)
+        if config is None:
+            config = JobConfig(
+                function_folder=user_code.path.parent,
+                args=[user_code.path.name],
+                data_path=self.dataset.get(job.dataset_name).get_private_path(),
+                runtime=job.runtime,
+                job_folder=str(job.name),
+                timeout=1,
+                use_docker=False,
+            )
+        return_code = self._run(config=config)
+        status = (
+            JobStatus.job_run_finished if return_code == 0 else JobStatus.job_run_failed
+        )
+        new_job = self.rpc.jobs.update(
+            JobUpdate(status=status, uid=job.uid, error=job.error)
+        )
+        return job.apply_from(new_job)
+        
+
+    def run_mock(self, job:Job, config: Optional[JobConfig] = None) -> Job:
+        user_code = self.user_code.get(job.user_code_id)
+        if config is None:
+            config = JobConfig(
+                function_folder=user_code.path.parent,
+                args=[user_code.path.name],
+                data_path=self.dataset.get(job.dataset_name).get_mock_path(),
+                runtime=job.runtime,
+                job_folder=str(job.name),
+                timeout=1,
+                use_docker=False,
+            )
+        self._run(config=config)    
+        return job
+
+    def _run(self, config: JobConfig) -> int:
         """Runs a job.
 
         Args:
             job (Job): The job to run
         """
-
-        user_code = self.user_code.get(job.user_code_id)
-        config = JobConfig(
-            function_folder=user_code.path.parent,
-            args=[user_code.path.name],
-            data_path=self.dataset.get(job.dataset_name).get_mock_path(),
-            runtime=job.runtime,
-            job_folder=str(job.name),
-            timeout=1,
-            use_docker=False,
-        )
 
         runner = DockerRunner(handlers=[FileOutputHandler(), RichConsoleUI()])
         return_code = runner.run(config)

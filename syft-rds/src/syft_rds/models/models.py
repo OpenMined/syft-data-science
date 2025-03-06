@@ -69,6 +69,7 @@ class Job(BaseSchema):
     status: JobStatus = JobStatus.pending_code_review
     error: JobErrorKind = JobErrorKind.no_error
     output_url: str | None = None
+    dataset_name: str
 
     @property
     def user_code(self) -> UserCode:

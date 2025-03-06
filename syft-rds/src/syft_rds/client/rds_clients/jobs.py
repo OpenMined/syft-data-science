@@ -9,6 +9,7 @@ from syft_rds.models.models import (
     GetOneRequest,
     Job,
     JobCreate,
+    JobErrorKind,
     JobStatus,
     JobUpdate,
     UserCodeCreate,
@@ -83,12 +84,13 @@ class JobRDSClient(RDSClientModule):
         return self.rpc.jobs.get_one(GetOneRequest(uid=uid))
 
     def share_results(self, job: Job, job_output_path: PathLike) -> Job:
-        self.local_store.jobs.share_result_artifacts(job, job_output_path)
+        self.local_store.jobs.share_result_files(job, job_output_path)
 
         job = self.rpc.jobs.update(
             JobUpdate(
                 uid=job.uid,
                 status=JobStatus.shared,
+                error=JobErrorKind.no_error,
             )
         )
         return job

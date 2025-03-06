@@ -42,6 +42,13 @@ class BaseSchema(PydanticFormatterMixin, BaseModel, ABC):
         return self
 
 
+    def apply_from(self, other_model: Self) -> Self:
+        if not isinstance(other_model, type(self)):
+            raise ValueError(f"Cannot apply from a different model type {type(other_model)}")
+        for field_name in other_model.model_fields:
+            setattr(self, field_name, getattr(other_model, field_name))
+        return self
+
 T = TypeVar("T", bound=BaseSchema)
 
 
