@@ -104,9 +104,10 @@ class RDSClient(RDSClientModule):
             job (Job): The job to run
         """
 
+        user_code = self.user_code.get(job.user_code_id)
         config = JobConfig(
-            function_folder=job.user_code.path.parent,
-            args=[job.user_code.path.name],
+            function_folder=user_code.path.parent,
+            args=[user_code.path.name],
             data_path=self.dataset.get(job.dataset_name).get_mock_path(),
             runtime=job.runtime,
             job_folder=str(job.name),

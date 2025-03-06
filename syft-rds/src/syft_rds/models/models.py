@@ -1,7 +1,7 @@
 import enum
 from collections.abc import Iterable
 from pathlib import Path
-from typing import Generic, TypeVar
+from typing import Generic, Optional, TypeVar
 from uuid import UUID
 
 from pydantic import BaseModel, Field, model_validator
@@ -130,7 +130,8 @@ class JobCreate(BaseSchemaCreate[Job]):
 
 
 class JobUpdate(BaseSchemaUpdate[Job]):
-    pass
+    status: Optional[JobStatus] = None
+    error: Optional[JobErrorKind] = None
 
 
 class Runtime(BaseSchema):
