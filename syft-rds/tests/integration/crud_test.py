@@ -1,19 +1,73 @@
 from pathlib import Path
 from uuid import uuid4
 
+import pytest
 from syft_rds.client.rds_client import RDSClient
 from syft_rds.models.models import (
     GetAllRequest,
     GetOneRequest,
+    Job,
     JobCreate,
+    JobStatus,
+    JobUpdate,
     RuntimeCreate,
+    RuntimeUpdate,
     UserCodeCreate,
 )
+from syft_rds.orchestra import RDSStack
 
 
-def test_job_crud(ds_rds_client: RDSClient):
+def test_job_crud_file_rpc(rds_no_sync_stack: RDSStack):
+    do_rds_client = rds_no_sync_stack.do_rds_client
+
     job_create = JobCreate(
-        name="Test Job", runtime="python3.9", user_code_id=uuid4(), tags=["test"]
+        name="Test Job",
+        runtime="python3.9",
+        user_code_id=uuid4(),
+        tags=["test"],
+        dataset_name="test",
+    )
+    job = do_rds_client.rpc.jobs.create(job_create)
+    assert job.name == "Test Job"
+
+    # Get One
+    get_req = GetOneRequest(uid=job.uid)
+    fetched_job = do_rds_client.rpc.jobs.get_one(get_req)
+    assert fetched_job == job
+
+    # Insert second, get all
+    job2_create = JobCreate(
+        name="Test Job 2",
+        runtime="python3.9",
+        user_code_id=uuid4(),
+        tags=["test"],
+        dataset_name="test2",
+    )
+    job2 = do_rds_client.rpc.jobs.create(job2_create)
+
+    all_req = GetAllRequest()
+    all_jobs = do_rds_client.rpc.jobs.get_all(all_req)
+    assert len(all_jobs) == 2
+
+    for job in all_jobs:
+        print(job)
+
+    assert job in all_jobs
+    assert job2 in all_jobs
+
+    # partial update
+    job_update = JobUpdate(uid=job.uid, status=JobStatus.queued)
+    job = do_rds_client.rpc.jobs.update(job_update)
+    assert job.status == JobStatus.queued
+
+
+def test_job_crud(ds_rds_client: RDSClient, do_rds_client: RDSClient):
+    job_create = JobCreate(
+        name="Test Job",
+        runtime="python3.9",
+        user_code_id=uuid4(),
+        tags=["test"],
+        dataset_name="test",
     )
     job = ds_rds_client.rpc.jobs.create(job_create)
     assert job.name == "Test Job"
@@ -25,7 +79,11 @@ def test_job_crud(ds_rds_client: RDSClient):
 
     # Insert second, get all
     job2_create = JobCreate(
-        name="Test Job 2", runtime="python3.9", user_code_id=uuid4(), tags=["test"]
+        name="Test Job 2",
+        runtime="python3.9",
+        user_code_id=uuid4(),
+        tags=["test"],
+        dataset_name="test2",
     )
     job2 = ds_rds_client.rpc.jobs.create(job2_create)
 
@@ -37,6 +95,11 @@ def test_job_crud(ds_rds_client: RDSClient):
 
     for job in all_jobs:
         print(job)
+
+    # partial update
+    job_update = JobUpdate(uid=job.uid, status=JobStatus.queued)
+    job = do_rds_client.rpc.jobs.update(job_update)
+    assert job.status == JobStatus.queued
 
 
 def test_user_code_crud(ds_rds_client: RDSClient):
@@ -95,3 +158,54 @@ def test_runtime_crud(ds_rds_client: RDSClient):
     assert len(all_runtimes) == 2
     assert runtime in all_runtimes
     assert runtime2 in all_runtimes
+
+
+def test_apply_update(ds_rds_client: RDSClient):
+    job = Job(
+        runtime="python",
+        dataset_name="test",
+        user_code_id=uuid4(),
+    )
+
+    # apply job update
+    job_update = JobUpdate(uid=job.uid, status=JobStatus.queued)
+    job.apply(job_update)
+    assert job.status == JobStatus.queued
+
+    # apply job model
+    new_job = job.model_copy()
+    new_job.status = JobStatus.shared
+
+    assert job.status != new_job.status
+    job.apply(new_job)
+    assert job.status == JobStatus.shared
+
+    # Cannot apply update with different UID
+    other_job_update = JobUpdate(uid=uuid4(), status=JobStatus.queued)
+    with pytest.raises(ValueError) as e:
+        job.apply(other_job_update)
+    print(e.exconly())
+
+    # Cannot apply job with different uid
+    other_job = Job(
+        runtime="python",
+        dataset_name="test",
+        user_code_id=uuid4(),
+    )
+
+    with pytest.raises(ValueError) as e:
+        job.apply(other_job)
+    print(e.exconly())
+
+    # Cannot apply non-job update to job
+    with pytest.raises(ValueError) as e:
+        job.apply(RuntimeUpdate(uid=job.uid))
+    print(e.exconly())
+
+    # Update in_place=False
+    job.status = JobStatus.queued
+    job_update = JobUpdate(uid=job.uid, status=JobStatus.rejected)
+    new_job = job.apply(job_update, in_place=False)
+
+    assert job.status == JobStatus.queued
+    assert new_job.status == JobStatus.rejected

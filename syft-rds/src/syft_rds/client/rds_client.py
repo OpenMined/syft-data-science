@@ -2,8 +2,11 @@ from pathlib import Path
 from typing import Optional, Tuple
 from loguru import logger
 from pydantic import BaseModel, Field
+from typing import Optional
+
 from syft_core import Client as SyftBoxClient
 from syft_event import SyftEvents
+from syft_runtime.main import DockerRunner, FileOutputHandler, JobConfig, RichConsoleUI
 
 from syft_rds.client.connection import get_connection
 from syft_rds.client.local_store import LocalStore
@@ -15,7 +18,6 @@ from syft_rds.client.rds_clients.user_code import UserCodeRDSClient
 from syft_rds.client.rpc import RPCClient
 from syft_rds.client.utils import PathLike
 from syft_rds.models.models import Dataset, Job, JobStatus, JobUpdate
-from syft_runtime.main import DockerRunner, FileOutputHandler, JobConfig, RichConsoleUI
 
 
 def _resolve_syftbox_client(

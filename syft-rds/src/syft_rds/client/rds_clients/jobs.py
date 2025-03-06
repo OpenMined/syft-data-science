@@ -84,7 +84,7 @@ class JobRDSClient(RDSClientModule):
     def share_results(self, job: Job) -> Path:
         job_output_folder = self.config.runner_config.job_output_folder / job.uid.hex
         output_path = self.local_store.jobs.share_result_files(job, job_output_folder)
-        job = self.rpc.jobs.update(
+        updated_job = self.rpc.jobs.update(
             JobUpdate(
                 uid=job.uid,
                 status=JobStatus.shared,
@@ -92,4 +92,4 @@ class JobRDSClient(RDSClientModule):
             )
         )
         logger.info(f"Shared results for job {job.uid} at {output_path}")
-        return output_path
+        return output_path, job.apply(updated_job)
