@@ -1,27 +1,11 @@
-from pathlib import Path
 import pandas as pd
 import pytest
 
 from syft_rds.client.rds_client import RDSClient, init_session
 from syft_core import SyftClientConfig
 
-
-TEST_DIR = Path(__file__).parent
-PRIVATE_DATA_PATH = TEST_DIR / "../assets/do/private/"
-MOCK_DATA_PATH = TEST_DIR / "../assets/do/mock/"
-README_PATH = TEST_DIR / "../assets/do/README.md"
-
-
-def _create_dataset(do_rds_client: RDSClient, name: str) -> None:
-    data = do_rds_client.dataset.create(
-        name=name,
-        path=PRIVATE_DATA_PATH,
-        mock_path=MOCK_DATA_PATH,
-        summary="Test data",
-        description_path=README_PATH,
-        tags=["test"],
-    )
-    return data
+from tests.conftest import MOCK_DATA_PATH, PRIVATE_DATA_PATH, README_PATH
+from tests.utils import create_dataset
 
 
 def test_create_dataset(do_syftbox_config: SyftClientConfig) -> None:
@@ -30,7 +14,7 @@ def test_create_dataset(do_syftbox_config: SyftClientConfig) -> None:
     )
     assert do_rds_client.is_admin
 
-    dataset = _create_dataset(do_rds_client, "Test")
+    dataset = create_dataset(do_rds_client, "Test")
     assert dataset.name == "Test"
     assert dataset.get_mock_path().exists()
     assert dataset.get_private_path().exists()
@@ -48,7 +32,7 @@ def test_get_dataset(do_syftbox_config: SyftClientConfig) -> None:
     )
     assert do_rds_client.is_admin
 
-    dataset = _create_dataset(do_rds_client, "Test")
+    dataset = create_dataset(do_rds_client, "Test")
     test_data = do_rds_client.dataset.get("Test")
     assert test_data.name == dataset.name
     assert test_data.get_mock_path().exists()
@@ -66,11 +50,11 @@ def test_get_all_datasets(do_syftbox_config: SyftClientConfig) -> None:
     )
     assert do_rds_client.is_admin
 
-    dataset_1 = _create_dataset(do_rds_client, "Test")
+    dataset_1 = create_dataset(do_rds_client, "Test")
     datasets = do_rds_client.datasets
     assert len(datasets) == 1
 
-    dataset_2 = _create_dataset(do_rds_client, "Test 2")
+    dataset_2 = create_dataset(do_rds_client, "Test 2")
     datasets = do_rds_client.dataset.get_all()
     assert len(datasets) == 2
 
@@ -86,7 +70,7 @@ def test_delete_dataset(do_syftbox_config: SyftClientConfig) -> None:
     assert do_rds_client.is_admin
 
     # Create a dataset to delete
-    dataset = _create_dataset(do_rds_client, "TestToDelete")
+    dataset = create_dataset(do_rds_client, "TestToDelete")
 
     # Verify it exists
     mock_path = dataset.get_mock_path()
@@ -143,10 +127,10 @@ def test_permission_error_non_admin(
 
     # Attempt to create a dataset as non-admin
     with pytest.raises(PermissionError, match="You must be the datasite admin"):
-        _create_dataset(ds_rds_client, "TestPermissionError")
+        create_dataset(ds_rds_client, "TestPermissionError")
 
     # Create a dataset as admin first
-    dataset = _create_dataset(do_rds_client, "TestPermissionError")
+    dataset = create_dataset(do_rds_client, "TestPermissionError")
 
     # Then try to delete it as non-admin
     with pytest.raises(PermissionError, match="You must be the datasite admin"):
@@ -161,12 +145,12 @@ def test_create_datasets_same_name(do_syftbox_config: SyftClientConfig) -> None:
     assert do_rds_client.is_admin
 
     # Create a dataset
-    _create_dataset(do_rds_client, "DuplicateName")
+    create_dataset(do_rds_client, "DuplicateName")
 
     with pytest.raises(
         ValueError, match="Dataset with name 'DuplicateName' already exists"
     ):
-        _create_dataset(do_rds_client, "DuplicateName")
+        create_dataset(do_rds_client, "DuplicateName")
 
 
 def test_readme_content(do_syftbox_config: SyftClientConfig) -> None:
@@ -177,7 +161,7 @@ def test_readme_content(do_syftbox_config: SyftClientConfig) -> None:
     assert do_rds_client.is_admin
 
     # Create a dataset with a README
-    dataset = _create_dataset(do_rds_client, "TestReadme")
+    dataset = create_dataset(do_rds_client, "TestReadme")
 
     # Retrieve the dataset and check README content
     retrieved = do_rds_client.dataset.get(dataset.name)

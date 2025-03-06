@@ -1,5 +1,3 @@
-from pathlib import Path
-
 import pytest
 from syft_rds.client.rds_client import RDSClient
 from syft_rds.models.models import GetAllRequest, JobStatus
@@ -9,11 +7,7 @@ from syft_runtime import (
     JobConfig,
     RichConsoleUI,
 )
-
-TEST_DIR = Path(__file__).parent.parent
-DS_PATH = TEST_DIR / "assets/ds"
-DO_PATH = TEST_DIR / "assets/do"
-DO_OUTPUT_PATH = DO_PATH / "job_outputs"
+from tests.conftest import DS_PATH, DO_OUTPUT_PATH, PRIVATE_DATA_PATH, MOCK_DATA_PATH
 
 
 def test_job_execution(
@@ -22,7 +16,7 @@ def test_job_execution(
 ):
     # Client Side
     job = ds_rds_client.jobs.submit(
-        user_code_path=TEST_DIR / "assets/ds/ds.py",
+        user_code_path=DS_PATH / "ds.py",
     )
     # Server Side
     jobs = do_rds_client.rpc.jobs.get_all(GetAllRequest())
@@ -47,7 +41,7 @@ def test_job_execution(
         # $ cd job.user_code.path.parent && job.runtime job.user_code.path.name
         function_folder=user_code.path.parent,
         args=[user_code.path.name],
-        data_path=TEST_DIR / "assets/do/private/",
+        data_path=PRIVATE_DATA_PATH,
         runtime=job.runtime,
         job_folder=DO_OUTPUT_PATH / str(job.name),
         timeout=1,
@@ -107,7 +101,7 @@ def test_bash_job_execution(
         # $ cd job.user_code.path.parent && job.runtime job.user_code.path.name
         function_folder=user_code.path.parent,
         args=[user_code.path.name],
-        data_path=TEST_DIR / "assets/do/mock/",
+        data_path=MOCK_DATA_PATH,
         runtime="bash",
         job_folder=DO_OUTPUT_PATH / str(job.name),
     )
