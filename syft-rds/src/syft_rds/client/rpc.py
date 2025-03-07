@@ -1,5 +1,5 @@
 from functools import partial
-from typing import TYPE_CHECKING, Any, Callable, ClassVar, Generic, Optional, TypeVar, Union
+from typing import TYPE_CHECKING, Callable, ClassVar, Generic, Optional, TypeVar, Union
 from uuid import UUID
 
 from syft_rpc import SyftResponse
@@ -64,11 +64,16 @@ def register_client_id_on_object(res: BaseSchema, client_id: UUID) -> BaseSchema
 class CRUDRPCClient(RPCClientModule, Generic[T, CreateT, UpdateT]):
     MODULE_NAME: ClassVar[str]
     SCHEMA: ClassVar[type[T]]
-    
-    def __init__(self, config: "RDSClientConfig", connection: BlockingRPCConnection, post_response_callback: Callable | None = None):
+
+    def __init__(
+        self,
+        config: "RDSClientConfig",
+        connection: BlockingRPCConnection,
+        post_response_callback: Callable | None = None,
+    ):
         super().__init__(config, connection)
         self.post_response_callback = post_response_callback
-    
+
     def create(self, item: CreateT) -> T:
         response = self._send(f"{self.MODULE_NAME}/create", item)
         response.raise_for_status()
@@ -93,7 +98,9 @@ class CRUDRPCClient(RPCClientModule, Generic[T, CreateT, UpdateT]):
 
         item_list = response.model(ItemList[self.SCHEMA])
         if self.post_response_callback:
-            item_list.items = [self.post_response_callback(item) for item in item_list.items]
+            item_list.items = [
+                self.post_response_callback(item) for item in item_list.items
+            ]
         return item_list.items
 
     def update(self, item: UpdateT) -> T:
@@ -129,11 +136,29 @@ class UserCodeRPCClient(CRUDRPCClient[UserCode, UserCodeCreate, UserCodeUpdate])
 class RPCClient(RPCClientModule):
     def __init__(self, config: "RDSClientConfig", connection: BlockingRPCConnection):
         super().__init__(config, connection)
-        post_object_receive_callback = partial(register_client_id_on_object, client_id=self.config.client_id)
-        self.jobs = JobRPCClient(self.config, self.connection, post_response_callback=post_object_receive_callback)
-        self.user_code = UserCodeRPCClient(self.config, self.connection, post_response_callback=post_object_receive_callback)
-        self.runtime = RuntimeRPCClient(self.config, self.connection, post_response_callback=post_object_receive_callback)
-        self.dataset = DatasetRPCClient(self.config, self.connection, post_response_callback=post_object_receive_callback)
+        post_object_receive_callback = partial(
+            register_client_id_on_object, client_id=self.config.client_id
+        )
+        self.jobs = JobRPCClient(
+            self.config,
+            self.connection,
+            post_response_callback=post_object_receive_callback,
+        )
+        self.user_code = UserCodeRPCClient(
+            self.config,
+            self.connection,
+            post_response_callback=post_object_receive_callback,
+        )
+        self.runtime = RuntimeRPCClient(
+            self.config,
+            self.connection,
+            post_response_callback=post_object_receive_callback,
+        )
+        self.dataset = DatasetRPCClient(
+            self.config,
+            self.connection,
+            post_response_callback=post_object_receive_callback,
+        )
 
     def health(self, expiry: Optional[Union[str, int]] = None) -> dict:
         response: SyftResponse = self._send("/health", body=None, expiry=expiry)

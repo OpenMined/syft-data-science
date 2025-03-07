@@ -1,9 +1,6 @@
 from pathlib import Path
-from typing import Optional, Tuple
-from uuid import UUID, uuid4
-from loguru import logger
-from pydantic import BaseModel, Field
 from typing import Optional
+from loguru import logger
 
 from syft_core import Client as SyftBoxClient
 from syft_event import SyftEvents
@@ -81,7 +78,7 @@ def init_session(
     rpc_client = RPCClient(config, connection)
     local_store = LocalStore(config, syftbox_client)
     return RDSClient(config, rpc_client, local_store)
-        
+
 
 class RDSClient(RDSClientModule):
     def __init__(
@@ -94,7 +91,7 @@ class RDSClient(RDSClientModule):
         self.user_code = UserCodeRDSClient(self.config, self.rpc, self.local_store)
         self.uid = self.config.client_id
         GlobalClientRegistry.register_client(self.uid, self)
-        
+
     @property
     def datasets(self) -> list[Dataset]:
         """Returns all available datasets.

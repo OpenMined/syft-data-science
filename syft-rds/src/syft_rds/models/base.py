@@ -25,14 +25,14 @@ class BaseSchema(PydanticFormatterMixin, BaseModel, ABC):
     created_at: datetime = Field(default_factory=_utcnow)
     updated_at: datetime = Field(default_factory=_utcnow)
     client_id: UUID | None = None
-    
+
     _syftbox_client = PrivateAttr(default=None)
 
     class Config:
         arbitrary_types_allowed: bool = True
 
     _client_cache: dict[UUID, "BaseSchema"] = PrivateAttr(default_factory=dict)
-    
+
     def register_client_id_recursively(self, client_id: UUID):
         self.client_id = client_id
         for field in self.model_fields.keys():
@@ -53,10 +53,11 @@ class BaseSchema(PydanticFormatterMixin, BaseModel, ABC):
     def with_client(self, client: SyftBoxClient):
         self._syftbox_client = client
         return self
-    
+
     @property
     def _client(self) -> "RDSClient":
         from syft_rds.client.client_registry import GlobalClientRegistry
+
         if self.client_id is None:
             raise ValueError("Client ID not set")
         return GlobalClientRegistry.get_client(self.client_id)

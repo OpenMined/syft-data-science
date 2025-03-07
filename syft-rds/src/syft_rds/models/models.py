@@ -97,7 +97,7 @@ class Job(BaseSchema):
             )
         )
         return updated_job
-    
+
     def get_output_path(self) -> Path:
         if self.output_url is None:
             raise ValueError("output_url is not set")
