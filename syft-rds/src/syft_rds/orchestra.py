@@ -94,7 +94,7 @@ def setup_rds_stack(
     do_client = SyftBoxClient(
         SyftClientConfig(
             email=do_email,
-            client_url="http://localhost:5000",
+            client_url="http://localhost:5000",  # not used, just for local dev
             path=root_dir / "do_config.json",
             data_dir=shared_client_dir,
         ),
@@ -103,7 +103,7 @@ def setup_rds_stack(
     ds_client = SyftBoxClient(
         SyftClientConfig(
             email=ds_email,
-            client_url="http://localhost:5001",
+            client_url="http://localhost:5001",  # not used, just for local dev
             path=root_dir / "ds_config.json",
             data_dir=shared_client_dir,
         ),

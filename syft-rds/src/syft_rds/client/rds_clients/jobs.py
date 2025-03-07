@@ -1,6 +1,7 @@
+from pathlib import Path
 from typing import Callable
 from uuid import UUID
-
+from loguru import logger
 from syft_rds.client.exceptions import RDSValidationError
 from syft_rds.client.rds_clients.base import RDSClientModule
 from syft_rds.client.utils import PathLike
@@ -9,7 +10,6 @@ from syft_rds.models.models import (
     GetOneRequest,
     Job,
     JobCreate,
-    JobErrorKind,
     JobStatus,
     JobUpdate,
     UserCodeCreate,
@@ -21,7 +21,6 @@ class JobRDSClient(RDSClientModule):
         self,
         name: str | None = None,
         description: str | None = None,
-        runtime: str | None = None,
         user_code_path: PathLike | None = None,
         dataset_name: str | None = None,
         function: Callable | None = None,
@@ -40,7 +39,6 @@ class JobRDSClient(RDSClientModule):
 
         job_create = JobCreate(
             description=description,
-            runtime=runtime or self.config.default_runtime,
             user_code_id=user_code.uid,
             tags=tags if tags is not None else [],
             dataset_name=dataset_name,
@@ -83,14 +81,15 @@ class JobRDSClient(RDSClientModule):
     def get(self, uid: UUID) -> Job:
         return self.rpc.jobs.get_one(GetOneRequest(uid=uid))
 
-    def share_results(self, job: Job, job_output_path: PathLike) -> Job:
-        self.local_store.jobs.share_result_files(job, job_output_path)
-
+    def share_results(self, job: Job) -> Path:
+        job_output_folder = self.config.runner_config.job_output_folder / job.uid.hex
+        output_path = self.local_store.jobs.share_result_files(job, job_output_folder)
         updated_job = self.rpc.jobs.update(
             JobUpdate(
                 uid=job.uid,
                 status=JobStatus.shared,
-                error=JobErrorKind.no_error,
+                error=job.error,
             )
         )
-        return job.apply(updated_job)
+        logger.info(f"Shared results for job {job.uid} at {output_path}")
+        return output_path, job.apply(updated_job)

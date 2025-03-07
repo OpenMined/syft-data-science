@@ -1,4 +1,7 @@
 from pathlib import Path
+from typing import Optional, Tuple
+from loguru import logger
+from pydantic import BaseModel, Field
 from typing import Optional
 
 from syft_core import Client as SyftBoxClient
@@ -97,18 +100,23 @@ class RDSClient(RDSClientModule):
         """
         return self.dataset.get_all()
 
-    def run_private(self, job: Job, config: Optional[JobConfig] = None) -> Job:
+    def get_default_config_for_job(self, job: Job) -> JobConfig:
         user_code = self.user_code.get(job.user_code_id)
-        if config is None:
-            config = JobConfig(
-                function_folder=user_code.path.parent,
-                args=[user_code.path.name],
-                data_path=self.dataset.get(job.dataset_name).get_private_path(),
-                runtime=job.runtime,
-                job_folder=str(job.name),
-                timeout=1,
-                use_docker=False,
-            )
+        runner_config = self.config.runner_config
+        return JobConfig(
+            function_folder=user_code.path.parent,
+            args=[user_code.path.name],
+            data_path=self.dataset.get(job.dataset_name).get_private_path(),
+            runtime=runner_config.runtime,
+            job_folder=runner_config.job_output_folder / job.uid.hex,
+            timeout=runner_config.timeout,
+            use_docker=runner_config.use_docker,
+        )
+
+    def run_private(self, job: Job, config: Optional[JobConfig] = None) -> Job:
+        config = config or self.get_default_config_for_job(job)
+
+        logger.warning("Running job without docker is not secure")
         return_code = self._run(config=config)
         status = (
             JobStatus.job_run_finished if return_code == 0 else JobStatus.job_run_failed
@@ -119,17 +127,8 @@ class RDSClient(RDSClientModule):
         return job.apply(new_job)
 
     def run_mock(self, job: Job, config: Optional[JobConfig] = None) -> Job:
-        user_code = self.user_code.get(job.user_code_id)
-        if config is None:
-            config = JobConfig(
-                function_folder=user_code.path.parent,
-                args=[user_code.path.name],
-                data_path=self.dataset.get(job.dataset_name).get_mock_path(),
-                runtime=job.runtime,
-                job_folder=str(job.name),
-                timeout=1,
-                use_docker=False,
-            )
+        config = config or self.get_default_config_for_job(job)
+        config.data_path = self.dataset.get(job.dataset_name).get_mock_path()
         self._run(config=config)
         return job
 

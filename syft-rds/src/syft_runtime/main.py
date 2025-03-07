@@ -104,6 +104,14 @@ class FileOutputHandler(JobOutputHandler):
         self.stderr_file.close()
 
 
+# Helper function to limit path depth
+def limit_path_depth(path: Path, max_depth: int = 4) -> str:
+    parts = path.parts
+    if len(parts) <= max_depth:
+        return str(path)
+    return str(Path("...") / Path(*parts[-max_depth:]))
+
+
 class RichConsoleUI(JobOutputHandler):
     """Rich console implementation of JobOutputHandler"""
 
@@ -113,21 +121,14 @@ class RichConsoleUI(JobOutputHandler):
         self.live = Live(spinner, refresh_per_second=10)
 
     def on_job_start(self, config: JobConfig) -> None:
-        if config.data_path.is_file():
-            data_mount_display = str(
-                Path(config.data_mount_dir) / config.data_path.name
-            )
-        else:
-            data_mount_display = config.data_mount_dir
         self.console.print(
             Panel.fit(
                 "\n".join(
                     [
                         "[bold green]Starting job[/]",
-                        # f"[bold white]Working Directory:[/] [cyan]{config.function_folder}[/]",
                         f"[bold white]Execution:[/] [cyan]{config.runtime.value} {' '.join(config.args)}[/]",
-                        f"[bold white]Dataset:[/]  [cyan]{config.data_path}[/] → [dim]{data_mount_display}[/]",
-                        f"[bold white]Output:[/]   [cyan]{config.output_dir}[/] → [dim]{DEFAULT_OUTPUT_DIR}[/]",
+                        f"[bold white]Dataset Dir.:[/]  [cyan]{limit_path_depth(config.data_path)}[/]",
+                        f"[bold white]Output Dir.:[/]   [cyan]{limit_path_depth(config.output_dir)}[/]",
                         f"[bold white]Timeout:[/]  [cyan]{config.timeout}s[/]",
                     ]
                 ),
