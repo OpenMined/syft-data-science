@@ -38,6 +38,7 @@ class JobErrorKind(str, enum.Enum):
     no_error = "no_error"
     timeout = "timeout"
     cancelled = "cancelled"
+    execution_failed = "execution_failed"
     failed_code_review = "failed_code_review"
     failed_output_review = "failed_output_review"
 
@@ -109,6 +110,22 @@ class Job(BaseSchema):
             error_message=self.error_message,
         )
 
+    def get_update_for_return_code(self, return_code: int) -> "JobUpdate":
+        if return_code == 0:
+            self.status = JobStatus.job_run_finished
+        else:
+            self.status = JobStatus.job_run_failed
+            self.error = JobErrorKind.execution_failed
+            self.error_message = (
+                "Job execution failed. Please check the logs for details."
+            )
+        return JobUpdate(
+            uid=self.uid,
+            status=self.status,
+            error=self.error,
+            error_message=self.error_message,
+        )
+
     def share_artifacts(
         self,
         include: Iterable[JobArtifactKind] = (
@@ -147,6 +164,7 @@ class JobCreate(BaseSchemaCreate[Job]):
 class JobUpdate(BaseSchemaUpdate[Job]):
     status: Optional[JobStatus] = None
     error: Optional[JobErrorKind] = None
+    error_message: Optional[str] = None
 
 
 class Runtime(BaseSchema):

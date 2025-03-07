@@ -1,8 +1,6 @@
 from pathlib import Path
-from typing import Optional, Tuple
-from loguru import logger
-from pydantic import BaseModel, Field
 from typing import Optional
+from loguru import logger
 
 from syft_core import Client as SyftBoxClient
 from syft_event import SyftEvents
@@ -17,7 +15,7 @@ from syft_rds.client.rds_clients.runtime import RuntimeRDSClient
 from syft_rds.client.rds_clients.user_code import UserCodeRDSClient
 from syft_rds.client.rpc import RPCClient
 from syft_rds.client.utils import PathLike
-from syft_rds.models.models import Dataset, Job, JobStatus, JobUpdate
+from syft_rds.models.models import Dataset, Job, JobStatus
 
 
 def _resolve_syftbox_client(
@@ -114,16 +112,19 @@ class RDSClient(RDSClientModule):
         )
 
     def run_private(self, job: Job, config: Optional[JobConfig] = None) -> Job:
+        if job.status == JobStatus.rejected:
+            raise ValueError(
+                "Cannot run rejected job, "
+                "if you want to override this, "
+                "set job.status to something else"
+            )
+
         config = config or self.get_default_config_for_job(job)
 
         logger.warning("Running job without docker is not secure")
         return_code = self._run(config=config)
-        status = (
-            JobStatus.job_run_finished if return_code == 0 else JobStatus.job_run_failed
-        )
-        new_job = self.rpc.jobs.update(
-            JobUpdate(status=status, uid=job.uid, error=job.error)
-        )
+        job_update = job.get_update_for_return_code(return_code)
+        new_job = self.rpc.jobs.update(job_update)
         return job.apply(new_job)
 
     def run_mock(self, job: Job, config: Optional[JobConfig] = None) -> Job:

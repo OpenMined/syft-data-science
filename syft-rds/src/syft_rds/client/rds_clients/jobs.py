@@ -99,6 +99,3 @@ class JobRDSClient(RDSClientModule):
         updated_job = self.rpc.jobs.update(job_update)
         job.apply(updated_job)
         return job
-
-    def reject_output(self, job: Job, reason: str = "Unspecified") -> Job:
-        return self.rpc.jobs.reject_output(job, reason)
