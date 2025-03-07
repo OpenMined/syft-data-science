@@ -484,17 +484,13 @@ class DatasetLocalStore(CRUDLocalStore[Dataset, DatasetCreate, DatasetUpdate]):
             dataset_create.path,
             dataset_create.mock_path,
         )
-
         try:
-            # Copy files to appropriate locations
             self._copy_dataset_files(dataset_create)
-
-            # Create schema entry
             dataset = self._schema_manager.create(dataset_create)
             return dataset.with_client(self.syftbox_client)
         except Exception as e:
-            # Clean up any partially created files
             self._files_manager.cleanup_dataset_files(dataset_create.name)
+            self._schema_manager.delete(dataset_create.name)
             raise RuntimeError(
                 f"Failed to create dataset '{dataset_create.name}': {str(e)}"
             ) from e
