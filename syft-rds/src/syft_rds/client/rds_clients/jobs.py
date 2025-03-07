@@ -1,7 +1,9 @@
 from pathlib import Path
 from typing import Callable
 from uuid import UUID
+
 from loguru import logger
+
 from syft_rds.client.exceptions import RDSValidationError
 from syft_rds.client.rds_clients.base import RDSClientModule
 from syft_rds.client.utils import PathLike
@@ -46,7 +48,6 @@ class JobRDSClient(RDSClientModule):
         if name is not None:
             job_create.name = name
         job = self.rpc.jobs.create(job_create)
-        job._client_cache[user_code.uid] = user_code
 
         return job
 

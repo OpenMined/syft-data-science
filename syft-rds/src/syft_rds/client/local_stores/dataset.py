@@ -1,18 +1,18 @@
-from typing import Final, Type, Union, TYPE_CHECKING
-from pathlib import Path
 import shutil
-from loguru import logger
+from pathlib import Path
+from typing import TYPE_CHECKING, Final, Type, Union
 
-from syft_core.url import SyftBoxURL
+from loguru import logger
 from syft_core import Client as SyftBoxClient
+from syft_core.url import SyftBoxURL
 
 from syft_rds.client.local_stores.base import CRUDLocalStore
 from syft_rds.models.models import (
     Dataset,
     DatasetCreate,
     DatasetUpdate,
-    GetOneRequest,
     GetAllRequest,
+    GetOneRequest,
 )
 from syft_rds.store import RDSStore
 
@@ -487,7 +487,7 @@ class DatasetLocalStore(CRUDLocalStore[Dataset, DatasetCreate, DatasetUpdate]):
         try:
             self._copy_dataset_files(dataset_create)
             dataset = self._schema_manager.create(dataset_create)
-            return dataset.with_client(self.syftbox_client)
+            return dataset._register_client_id_recursive(self.config.client_id)
         except Exception as e:
             self._files_manager.cleanup_dataset_files(dataset_create.name)
             self._schema_manager.delete(dataset_create.name)
@@ -522,7 +522,10 @@ class DatasetLocalStore(CRUDLocalStore[Dataset, DatasetCreate, DatasetUpdate]):
             List of all datasets
         """
         datasets: list[Dataset] = self._schema_manager.get_all()
-        return [dataset.with_client(self.syftbox_client) for dataset in datasets]
+        return [
+            dataset._register_client_id_recursive(self.config.client_id)
+            for dataset in datasets
+        ]
 
     def update(self, item: DatasetUpdate) -> Dataset:
         """Not implemented for Dataset."""
@@ -539,7 +542,7 @@ class DatasetLocalStore(CRUDLocalStore[Dataset, DatasetCreate, DatasetUpdate]):
             The dataset
         """
         dataset: Dataset = self._schema_manager.get_by_name(name=name)
-        return dataset.with_client(self.syftbox_client)
+        return dataset._register_client_id_recursive(self.config.client_id)
 
     def delete_by_name(self, name: str) -> bool:
         """

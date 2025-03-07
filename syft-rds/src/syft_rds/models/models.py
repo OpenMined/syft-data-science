@@ -1,6 +1,6 @@
 import enum
-from collections.abc import Iterable
 import os
+from collections.abc import Iterable
 from pathlib import Path
 from typing import Generic, Optional, TypeVar
 from uuid import UUID
@@ -75,10 +75,8 @@ class Job(BaseSchema):
 
     @property
     def user_code(self) -> UserCode:
-        if self.user_code_id in self._client_cache:
-            return self._client_cache[self.user_code_id]
-        else:
-            raise Exception("UserCode not found")
+        client = self._client
+        return client.user_code.get(self.user_code_id)
 
     class Config:
         extra = "forbid"

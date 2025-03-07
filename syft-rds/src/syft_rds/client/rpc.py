@@ -1,5 +1,13 @@
 from functools import partial
-from typing import TYPE_CHECKING, Callable, ClassVar, Generic, Optional, TypeVar, Union
+from typing import (
+    TYPE_CHECKING,
+    Callable,
+    ClassVar,
+    Generic,
+    Optional,
+    TypeVar,
+    Union,
+)
 from uuid import UUID
 
 from syft_rpc import SyftResponse
@@ -57,7 +65,7 @@ class RPCClientModule:
 
 
 def register_client_id_on_object(res: BaseSchema, client_id: UUID) -> BaseSchema:
-    res.register_client_id_recursively(client_id)
+    res._register_client_id_recursive(client_id)
     return res
 
 
