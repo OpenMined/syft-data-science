@@ -42,4 +42,3 @@ build-backend = "hatchling.build"
 [tool.hatch.build.targets.wheel]
 packages = ["src/syft_rds"]
 include = ["src/syft_rds/assets/*"]
-

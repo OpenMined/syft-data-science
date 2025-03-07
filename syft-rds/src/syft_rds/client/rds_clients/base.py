@@ -1,16 +1,27 @@
-from pydantic import BaseModel
+from pathlib import Path
+from uuid import UUID, uuid4
+from pydantic import BaseModel, Field
 from syft_core import Client as SyftBoxClient
 
 from syft_rds.client.local_store import LocalStore
 from syft_rds.client.rpc import RPCClient
+from syft_rds.models.models import Runtime
+
+
+class ClientRunnerConfig(BaseModel):
+    runtime: str = "python"
+    timeout: int = 60
+    use_docker: bool = False
+    job_output_folder: Path = Field(default_factory=lambda: Path("/tmp/syft-rds-jobs"))
 
 
 class RDSClientConfig(BaseModel):
     host: str
     app_name: str = "RDS"
-    default_runtime: str = "python"
-
+    client_id: UUID = Field(default_factory=uuid4)
+    
     rpc_expiry: str = "5m"
+    runner_config: ClientRunnerConfig = Field(default_factory=ClientRunnerConfig)
 
 
 class RDSClientModule:
@@ -20,9 +31,6 @@ class RDSClientModule:
         self.config = config
         self.rpc = rpc_client
         self.local_store = local_store
-
-    def set_default_runtime(self, runtime: str):
-        self.config.default_runtime = runtime
 
     @property
     def host(self) -> str:

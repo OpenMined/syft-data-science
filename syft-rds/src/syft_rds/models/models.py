@@ -1,9 +1,11 @@
 import enum
 from collections.abc import Iterable
+import os
 from pathlib import Path
 from typing import Generic, Optional, TypeVar
 from uuid import UUID
 
+from loguru import logger
 from pydantic import BaseModel, Field, model_validator
 from syft_core import SyftBoxURL
 
@@ -11,6 +13,9 @@ from syft_rds.models.base import BaseSchema, BaseSchemaCreate, BaseSchemaUpdate
 from syft_rds.utils.name_generator import generate_name
 
 T = TypeVar("T", bound=BaseSchema)
+
+SYFT_RDS_DATA_DIR = "SYFT_RDS_DATA_DIR"
+SYFT_RDS_OUTPUT_DIR = "SYFT_RDS_OUTPUT_DIR"
 
 
 class UserCode(BaseSchema):
@@ -62,13 +67,12 @@ class Job(BaseSchema):
 
     name: str = Field(default_factory=generate_name)
     description: str | None = None
-    runtime: str
     user_code_id: UUID
     tags: list[str] = Field(default_factory=list)
     user_metadata: dict = {}
     status: JobStatus = JobStatus.pending_code_review
     error: JobErrorKind = JobErrorKind.no_error
-    output_url: str | None = None
+    output_url: SyftBoxURL | None = None
     dataset_name: str
 
     @property
@@ -86,7 +90,21 @@ class Job(BaseSchema):
             raise ValueError(
                 "job must be pending code review - call submit_for_code_review() first"
             )
-        self.status = JobStatus.queued
+        updated_job = self.rpc.jobs.update(
+            JobUpdate(
+                uid=self.uid,
+                status=JobStatus.queued,
+            )
+        )
+        return updated_job
+    
+    def get_output_path(self) -> Path:
+        if self.output_url is None:
+            raise ValueError("output_url is not set")
+        client = self._client
+        return self.output_url.to_local_path(
+            datasites_path=client._syftbox_client.datasites
+        )
 
     def reject(self, reason: str = "unknown reason"):
         # artifacts are not shared on rejection
@@ -123,7 +141,6 @@ class Job(BaseSchema):
 class JobCreate(BaseSchemaCreate[Job]):
     name: str = Field(default_factory=generate_name)
     description: str | None = None
-    runtime: str
     user_code_id: UUID
     tags: list[str] = Field(default_factory=list)
     dataset_name: str
@@ -231,6 +248,15 @@ class Dataset(BaseSchema):
         except Exception as e:
             print(f"Could not display dataset structure with error: {str(e)}")
             return False
+
+    def set_env(self, mock: bool = True):
+        if mock:
+            os.environ[SYFT_RDS_DATA_DIR] = self.get_mock_path().as_posix()
+        else:
+            os.environ[SYFT_RDS_DATA_DIR] = self.get_private_path().as_posix()
+        logger.info(
+            f"Set {SYFT_RDS_DATA_DIR} to {os.environ[SYFT_RDS_DATA_DIR]} as mock={mock}"
+        )
 
 
 class DatasetCreate(BaseSchemaCreate[Dataset]):

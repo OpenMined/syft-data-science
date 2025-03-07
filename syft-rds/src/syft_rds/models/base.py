@@ -1,12 +1,16 @@
 from abc import ABC
 from datetime import datetime, timezone
-from typing import Any, Generic, Optional, Self, Type, TypeVar
+from typing import Any, Generic, Optional, Self, Type, TypeVar, Union
 from uuid import UUID, uuid4
 
 from pydantic import BaseModel, Field, PrivateAttr
 from syft_core import Client as SyftBoxClient
 
 from syft_rds.models.formatter import PydanticFormatterMixin
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from syft_rds.client.rds_client import RDSClient
 
 
 def _utcnow():
@@ -20,12 +24,21 @@ class BaseSchema(PydanticFormatterMixin, BaseModel, ABC):
     uid: UUID = Field(default_factory=uuid4)
     created_at: datetime = Field(default_factory=_utcnow)
     updated_at: datetime = Field(default_factory=_utcnow)
+    client_id: UUID | None = None
+    
     _syftbox_client = PrivateAttr(default=None)
 
     class Config:
         arbitrary_types_allowed: bool = True
 
     _client_cache: dict[UUID, "BaseSchema"] = PrivateAttr(default_factory=dict)
+    
+    def register_client_id_recursively(self, client_id: UUID):
+        self.client_id = client_id
+        for field in self.model_fields.keys():
+            field_value = getattr(self, field)
+            if isinstance(field_value, BaseSchema):
+                field_value.register_client_id_recursively(client_id)
 
     @classmethod
     def type_name(cls) -> str:
@@ -40,14 +53,41 @@ class BaseSchema(PydanticFormatterMixin, BaseModel, ABC):
     def with_client(self, client: SyftBoxClient):
         self._syftbox_client = client
         return self
+    
+    @property
+    def _client(self) -> "RDSClient":
+        from syft_rds.client.client_registry import GlobalClientRegistry
+        if self.client_id is None:
+            raise ValueError("Client ID not set")
+        return GlobalClientRegistry.get_client(self.client_id)
 
+    def apply(
+        self, other: Union[Self, "BaseSchemaUpdate[Self]"], in_place: bool = True
+    ) -> Self:
+        """Updates this instance with the provided update instance."""
+        if other.uid != self.uid:
+            raise ValueError(
+                f"Cannot apply update with UID {other.uid} to instance with UID {self.uid}"
+            )
+        if isinstance(other, type(self)):
+            update_dict = other.model_dump()
+        elif isinstance(other, BaseSchemaUpdate):
+            update_target_type = other.get_target_model()
+            if other.get_target_model() is not type(self):
+                raise ValueError(
+                    f"Attempted to apply update for {update_target_type} to {type(self)}"
+                )
+            update_dict = other.model_dump(exclude_unset=True)
+            update_dict["updated_at"] = _utcnow()
 
-    def apply_from(self, other_model: Self) -> Self:
-        if not isinstance(other_model, type(self)):
-            raise ValueError(f"Cannot apply from a different model type {type(other_model)}")
-        for field_name in other_model.model_fields:
-            setattr(self, field_name, getattr(other_model, field_name))
-        return self
+        if in_place:
+            for field_name, value in update_dict.items():
+                if field_name in self.model_fields:
+                    setattr(self, field_name, value)
+            return self
+        else:
+            return self.model_copy(update=update_dict)
+
 
 T = TypeVar("T", bound=BaseSchema)
 
@@ -71,7 +111,4 @@ class BaseSchemaUpdate(PydanticFormatterMixin, BaseModel, Generic[T]):
         return cls.__bases__[0].__pydantic_generic_metadata__["args"][0]  # type: ignore
 
     def apply_to(self, item: T) -> T:
-        update_dict = self.model_dump(exclude_unset=True)
-        updated = item.model_copy(update=update_dict)
-        updated.updated_at = _utcnow()
-        return updated
+        return item.apply(self)

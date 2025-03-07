@@ -5,6 +5,7 @@ from syft_core import Client as SyftBoxClient
 from syft_core import SyftClientConfig
 from syft_event import SyftEvents
 from syft_rds.client.rds_client import RDSClient, init_session
+from syft_rds.orchestra import setup_rds_stack
 from syft_rds.server.app import create_app
 from syft_rds.store import YAMLFileSystemDatabase
 
@@ -15,6 +16,16 @@ DS_EMAIL = "data_scientist@test.openmined.org"
 
 # NOTE: for testing real RPC and file sharing without launching the full stack, we use a shared data dir.
 SHARED_DATA_DIR = "shared_data_dir"
+
+# paths to test assets
+TEST_DIR = Path(__file__).parent
+ASSET_PATH = TEST_DIR / "assets"
+DO_PATH = ASSET_PATH / "do"
+PRIVATE_DATA_PATH = DO_PATH / "private"
+MOCK_DATA_PATH = DO_PATH / "mock"
+README_PATH = DO_PATH / "README.md"
+DO_OUTPUT_PATH = DO_PATH / "job_outputs"
+DS_PATH = ASSET_PATH / "ds"
 
 
 @pytest.fixture
@@ -129,3 +140,21 @@ def ds_syftbox_config(tmp_path) -> SyftClientConfig:
     conf.data_dir.mkdir(parents=True, exist_ok=True)
     conf.save()
     return conf
+
+
+@pytest.fixture
+def rds_no_sync_stack(tmp_path):
+    """
+    Setup full RDS stack in memory, with shared data dir. This means:
+    - Real, file-based RPC
+    - No file sync (files are shared by default)
+    - Sync permissions are ignored
+    """
+    stack = setup_rds_stack(
+        root_dir=tmp_path,
+        reset=True,
+        log_level="DEBUG",
+    )
+
+    yield stack
+    stack.stop()
