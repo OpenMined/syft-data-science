@@ -28,6 +28,7 @@ def test_job_execution(
     job = ds_rds_client.jobs.submit(
         user_code_path=user_code_path,
         runtime=runtime,
+        dataset_name="dummy",
     )
 
     # Server Side
@@ -91,6 +92,7 @@ def test_bash_job_execution(
     # Client Side
     job = ds_rds_client.jobs.submit(
         user_code_path=DS_PATH / "ds.sh",
+        dataset_name="dummy",
     )
 
     # Server Side
