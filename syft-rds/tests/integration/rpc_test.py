@@ -5,7 +5,7 @@ from syft_core import Client as SyftBoxClient
 from syft_core import SyftClientConfig
 from syft_event import SyftEvents
 from syft_rds.client.rds_client import init_session
-from syft_rds.orchestra import RDSStack, setup_rds_stack
+from syft_rds.orchestra import RDSStack
 from syft_rds.server.app import create_app
 
 DO_EMAIL = "data_owner@test.openmined.org"
@@ -59,26 +59,9 @@ def test_rpc_mocked(rds_server: SyftEvents, ds_syftbox_client):
     assert info["app_name"] == "RDS"
 
 
-@pytest.fixture
-def rds_mock_stack(tmp_path):
-    return setup_rds_stack(
-        root_dir=tmp_path,
-        reset=True,
-        log_level="DEBUG",
-    )
-
-
-def test_rpc_with_mock_stack(rds_mock_stack: RDSStack):
-    """
-    Test RPC over files, without filesync.
-
-    This means:
-    - DO and DS clients have the same, shared data_dir
-    - Files are not synced via the caching server
-    - Permissions are not checked
-    """
-    do_rds_client = rds_mock_stack.do_rds_client
-    ds_rds_client = rds_mock_stack.ds_rds_client
+def test_rpc_with_files(rds_no_sync_stack: RDSStack):
+    do_rds_client = rds_no_sync_stack.do_rds_client
+    ds_rds_client = rds_no_sync_stack.ds_rds_client
 
     info = ds_rds_client.rpc.health()
     assert info["app_name"] == "RDS"

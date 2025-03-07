@@ -9,6 +9,9 @@ from syft_rds.models.models import (
     GetOneRequest,
     Job,
     JobCreate,
+    JobErrorKind,
+    JobStatus,
+    JobUpdate,
     UserCodeCreate,
 )
 
@@ -20,6 +23,7 @@ class JobRDSClient(RDSClientModule):
         description: str | None = None,
         runtime: str | None = None,
         user_code_path: PathLike | None = None,
+        dataset_name: str | None = None,
         function: Callable | None = None,
         function_args: list = None,
         function_kwargs: dict = None,
@@ -39,6 +43,7 @@ class JobRDSClient(RDSClientModule):
             runtime=runtime or self.config.default_runtime,
             user_code_id=user_code.uid,
             tags=tags if tags is not None else [],
+            dataset_name=dataset_name,
         )
         if name is not None:
             job_create.name = name
@@ -77,3 +82,15 @@ class JobRDSClient(RDSClientModule):
 
     def get(self, uid: UUID) -> Job:
         return self.rpc.jobs.get_one(GetOneRequest(uid=uid))
+
+    def share_results(self, job: Job, job_output_path: PathLike) -> Job:
+        self.local_store.jobs.share_result_files(job, job_output_path)
+
+        updated_job = self.rpc.jobs.update(
+            JobUpdate(
+                uid=job.uid,
+                status=JobStatus.shared,
+                error=JobErrorKind.no_error,
+            )
+        )
+        return job.apply(updated_job)

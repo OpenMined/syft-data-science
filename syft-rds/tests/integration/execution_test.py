@@ -1,3 +1,4 @@
+from pathlib import Path
 import pytest
 from syft_rds.client.rds_client import RDSClient
 from syft_rds.models.models import GetAllRequest, JobStatus
@@ -10,14 +11,26 @@ from syft_runtime import (
 from tests.conftest import DS_PATH, DO_OUTPUT_PATH, PRIVATE_DATA_PATH, MOCK_DATA_PATH
 
 
+@pytest.mark.parametrize(
+    "user_code_path, runtime",
+    [
+        (DS_PATH / "ds.py", "python"),  # Python test case
+        (DS_PATH / "ds.sh", "bash"),  # Bash test case
+    ],
+)
 def test_job_execution(
     ds_rds_client: RDSClient,
     do_rds_client: RDSClient,
+    user_code_path: Path,
+    runtime: str,
 ):
     # Client Side
     job = ds_rds_client.jobs.submit(
-        user_code_path=DS_PATH / "ds.py",
+        user_code_path=user_code_path,
+        runtime=runtime,
+        dataset_name="dummy",
     )
+
     # Server Side
     jobs = do_rds_client.rpc.jobs.get_all(GetAllRequest())
     assert len(jobs) == 1
@@ -66,6 +79,9 @@ def test_job_execution(
     assert (DO_OUTPUT_PATH / str(job.name) / "logs" / "stdout.log").exists()
     assert (DO_OUTPUT_PATH / str(job.name) / "logs" / "stderr.log").exists()
 
+    # Only print this for the Python test case
+    if runtime is None:
+        print(ds_rds_client.local_store.jobs.store.db_path)
     print(ds_rds_client.local_store.jobs.store.db_path)
 
 
@@ -76,6 +92,7 @@ def test_bash_job_execution(
     # Client Side
     job = ds_rds_client.jobs.submit(
         user_code_path=DS_PATH / "ds.sh",
+        dataset_name="dummy",
     )
 
     # Server Side

@@ -1,6 +1,8 @@
-from typing import TYPE_CHECKING, ClassVar, Generic, Type, TypeVar
+from pathlib import Path
+from typing import TYPE_CHECKING, ClassVar, Generic, Type, TypeVar, Union
 
 from syft_core import Client as SyftBoxClient
+from syft_core import SyftBoxURL
 
 from syft_rds.models.base import BaseSchema, BaseSchemaCreate, BaseSchemaUpdate
 from syft_rds.models.models import (
@@ -34,6 +36,15 @@ class LocalStoreModule:
 
 
 class CRUDLocalStore(LocalStoreModule, Generic[T, CreateT, UpdateT]):
+    def _syfturl_to_local_path(self, syfturl: Union[str, SyftBoxURL]) -> str:
+        if isinstance(syfturl, str):
+            syfturl = SyftBoxURL(syfturl)
+
+        return syfturl.to_local_path(self.syftbox_client.datasites)
+
+    def _local_path_to_syfturl(self, local_path: Path) -> SyftBoxURL:
+        return self.syftbox_client.to_syft_url(local_path)
+
     def create(self, item: CreateT) -> T:
         raise NotImplementedError
 
