@@ -63,7 +63,12 @@ class CRUDLocalStore(Generic[T, CreateT, UpdateT]):
     def get_one(self, request: GetOneRequest) -> T:
         # TODO use same logic for datasets (e.g. get_by_name == get_one(GetOneRequest(filters={"name": name}))
         # TODO implement get_all with limit + early return, to prevent loading all items on get_one
-        res = self.get_all(GetAllRequest(filters=request.filters, limit=1))
+        get_all_req = GetAllRequest(filters=request.filters, limit=1)
+        if request.uid is not None:
+            # TODO query by UID directly instead of using .query({uid: uid})
+            get_all_req.filters["uid"] = request.uid
+        res = self.get_all(get_all_req)
+
         if len(res) == 0:
             filters_formatted: str = ", ".join(
                 [f"{k}={v}" for k, v in request.filters.items()]
