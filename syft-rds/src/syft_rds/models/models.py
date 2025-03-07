@@ -38,10 +38,9 @@ class JobErrorKind(str, enum.Enum):
     no_error = "no_error"
     timeout = "timeout"
     cancelled = "cancelled"
-    error = "error"
-    code_review_rejected = "code_review_rejected"
-    output_review_rejected = "output_review_rejected"
-    failed_review = "failed_review"
+    execution_failed = "execution_failed"
+    failed_code_review = "failed_code_review"
+    failed_output_review = "failed_output_review"
 
 
 class JobArtifactKind(str, enum.Enum):
@@ -52,8 +51,6 @@ class JobArtifactKind(str, enum.Enum):
 
 class JobStatus(str, enum.Enum):
     pending_code_review = "pending_code_review"
-    queued = "queued"
-    running = "running"
     job_run_failed = "job_run_failed"
     job_run_finished = "job_run_finished"
 
@@ -72,6 +69,7 @@ class Job(BaseSchema):
     user_metadata: dict = {}
     status: JobStatus = JobStatus.pending_code_review
     error: JobErrorKind = JobErrorKind.no_error
+    error_message: str | None = None
     output_url: SyftBoxURL | None = None
     dataset_name: str
 
@@ -85,18 +83,48 @@ class Job(BaseSchema):
     class Config:
         extra = "forbid"
 
-    def add_to_queue(self):
-        if self.status != JobStatus.pending_code_review:
-            raise ValueError(
-                "job must be pending code review - call submit_for_code_review() first"
-            )
-        updated_job = self.rpc.jobs.update(
-            JobUpdate(
-                uid=self.uid,
-                status=JobStatus.queued,
-            )
+    def get_update_for_reject(self, reason: str = "unknown reason") -> "JobUpdate":
+        """
+        Create a JobUpdate object with the rejected status
+        based on the current status
+        """
+        allowed_statuses = (
+            JobStatus.pending_code_review,
+            JobStatus.job_run_finished,
+            JobStatus.job_run_failed,
         )
-        return updated_job
+        if self.status not in allowed_statuses:
+            raise ValueError(f"Cannot reject job in status: {self.status}")
+
+        self.error_message = reason
+        self.status = JobStatus.rejected
+        self.error = (
+            JobErrorKind.failed_code_review
+            if self.status == JobStatus.pending_code_review
+            else JobErrorKind.failed_output_review
+        )
+        return JobUpdate(
+            uid=self.uid,
+            status=self.status,
+            error=self.error,
+            error_message=self.error_message,
+        )
+
+    def get_update_for_return_code(self, return_code: int) -> "JobUpdate":
+        if return_code == 0:
+            self.status = JobStatus.job_run_finished
+        else:
+            self.status = JobStatus.job_run_failed
+            self.error = JobErrorKind.execution_failed
+            self.error_message = (
+                "Job execution failed. Please check the logs for details."
+            )
+        return JobUpdate(
+            uid=self.uid,
+            status=self.status,
+            error=self.error,
+            error_message=self.error_message,
+        )
 
     def get_output_path(self) -> Path:
         if self.output_url is None:
@@ -105,11 +133,6 @@ class Job(BaseSchema):
         return self.output_url.to_local_path(
             datasites_path=client._syftbox_client.datasites
         )
-
-    def reject(self, reason: str = "unknown reason"):
-        # artifacts are not shared on rejection
-        self.status = JobStatus.rejected
-        self.error = JobErrorKind.failed_review
 
     def share_artifacts(
         self,
@@ -149,6 +172,7 @@ class JobCreate(BaseSchemaCreate[Job]):
 class JobUpdate(BaseSchemaUpdate[Job]):
     status: Optional[JobStatus] = None
     error: Optional[JobErrorKind] = None
+    error_message: Optional[str] = None
 
 
 class Runtime(BaseSchema):
