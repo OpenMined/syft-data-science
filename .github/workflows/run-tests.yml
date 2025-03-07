@@ -22,8 +22,8 @@ jobs:
 
     - name: Install system dependencies
       run: |
-        sudo apt-get update
-        sudo apt-get install -y just
+        - pip install rust-just
+        - source ~/.bashrc
 
     - name: Set up test environment
       run: |
