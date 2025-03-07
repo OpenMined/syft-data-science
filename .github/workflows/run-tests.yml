@@ -1,4 +1,4 @@
-name: End-to-End Tests
+name: RDS Tests
 on:
   pull_request:
     branches: [ main ]
