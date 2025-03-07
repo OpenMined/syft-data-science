@@ -17,6 +17,16 @@ DS_EMAIL = "data_scientist@test.openmined.org"
 # NOTE: for testing real RPC and file sharing without launching the full stack, we use a shared data dir.
 SHARED_DATA_DIR = "shared_data_dir"
 
+# paths to test assets
+TEST_DIR = Path(__file__).parent
+ASSET_PATH = TEST_DIR / "assets"
+DO_PATH = ASSET_PATH / "do"
+PRIVATE_DATA_PATH = DO_PATH / "private"
+MOCK_DATA_PATH = DO_PATH / "mock"
+README_PATH = DO_PATH / "README.md"
+DO_OUTPUT_PATH = DO_PATH / "job_outputs"
+DS_PATH = ASSET_PATH / "ds"
+
 
 @pytest.fixture
 def do_syftbox_client(tmp_path: Path) -> SyftBoxClient:
