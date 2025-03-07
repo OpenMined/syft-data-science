@@ -94,3 +94,9 @@ class JobRDSClient(RDSClientModule):
         )
         logger.info(f"Shared results for job {job.uid} at {output_path}")
         return output_path, job.apply(updated_job)
+
+    def reject(self, job: Job, reason: str = "Unspecified") -> Job:
+        job_update = job.get_update_for_reject(reason)
+        updated_job = self.rpc.jobs.update(job_update)
+        job.apply(updated_job)
+        return job
