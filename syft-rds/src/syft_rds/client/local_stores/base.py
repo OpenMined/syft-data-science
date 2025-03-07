@@ -2,7 +2,6 @@ from typing import TYPE_CHECKING, ClassVar, Generic, List, Type, TypeVar
 
 from syft_core import Client as SyftBoxClient
 
-from syft_rds.jupyter_utils.types import TableList
 from syft_rds.models.base import BaseSchema, BaseSchemaCreate, BaseSchemaUpdate
 from syft_rds.models.models import (
     GetAllRequest,
@@ -21,7 +20,11 @@ UpdateT = TypeVar("UpdateT", bound=BaseSchemaUpdate)
 class CRUDLocalStore(Generic[T, CreateT, UpdateT]):
     SCHEMA: ClassVar[Type[T]]
 
-    def __init__(self, config: "RDSClientConfig", syftbox_client: SyftBoxClient):
+    def __init__(
+        self,
+        config: "RDSClientConfig",
+        syftbox_client: SyftBoxClient,
+    ):
         if not hasattr(self, "SCHEMA"):
             raise ValueError(f"{self.__class__.__name__} must define a SCHEMA.")
 
@@ -33,6 +36,11 @@ class CRUDLocalStore(Generic[T, CreateT, UpdateT]):
             datasite=self.config.host,
         )
 
+    def register_client_id(self, res: T) -> T:
+        if isinstance(T, BaseSchema):
+            res.register_client_id_recursively(self.config.client_id)
+        return res
+
     def create(self, item: CreateT) -> T:
         raise NotImplementedError
 
@@ -41,7 +49,7 @@ class CRUDLocalStore(Generic[T, CreateT, UpdateT]):
 
     def get_one(self, request: GetOneRequest) -> T:
         # TODO implement get_all with limit + early return, to prevent loading all items on get_one
-        res = self.get_all(GetAllRequest(filters=request.filters), limit=1)
+        res = self.get_all(GetAllRequest(filters=request.filters, limit=1))
         if len(res) == 0:
             filters_formatted: str = ", ".join(
                 [f"{k}={v}" for k, v in request.filters.items()]
@@ -61,4 +69,5 @@ class CRUDLocalStore(Generic[T, CreateT, UpdateT]):
         if request.limit:
             items = items[: request.limit]
         # TableList is a custom list subtype for pretty printing in Jupyter
-        return TableList(items)
+        items = [self.register_client_id(item) for item in items]
+        return items
