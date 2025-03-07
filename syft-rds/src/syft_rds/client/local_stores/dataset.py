@@ -1,19 +1,19 @@
-from typing import Final, Type, Union, TYPE_CHECKING
-from pathlib import Path
 import shutil
-from loguru import logger
-
-from syft_core.url import SyftBoxURL
-from syft_core import Client as SyftBoxClient
 import traceback
+from pathlib import Path
+from typing import TYPE_CHECKING, Final, Type, Union
+
+from loguru import logger
+from syft_core import Client as SyftBoxClient
+from syft_core.url import SyftBoxURL
 
 from syft_rds.client.local_stores.base import CRUDLocalStore
 from syft_rds.models.models import (
     Dataset,
     DatasetCreate,
     DatasetUpdate,
-    GetOneRequest,
     GetAllRequest,
+    GetOneRequest,
 )
 from syft_rds.store import RDSStore
 
@@ -24,6 +24,7 @@ if TYPE_CHECKING:
 DIRECTORY_PUBLIC = "public"
 DIRECTORY_PRIVATE = "private"
 DIRECTORY_DATASETS = "datasets"
+
 
 class DatasetLocalStore(CRUDLocalStore[Dataset, DatasetCreate, DatasetUpdate]):
     SCHEMA: Final[Type[Dataset]] = Dataset
@@ -70,7 +71,7 @@ class DatasetLocalStore(CRUDLocalStore[Dataset, DatasetCreate, DatasetUpdate]):
                 dataset_create.name, dataset_create.path
             )
             dataset = self._schema_manager.create(dataset_create)
-            return dataset.with_client(self.syftbox_client)
+            return dataset._register_client_id_recursive(self.config.client_id)
         except Exception as e:
             self._files_manager.cleanup_dataset_files(dataset_create.name)
             raise RuntimeError(
@@ -82,14 +83,17 @@ class DatasetLocalStore(CRUDLocalStore[Dataset, DatasetCreate, DatasetUpdate]):
 
     def get_all(self, request: GetAllRequest) -> list[Dataset]:
         datasets: list[Dataset] = self._schema_manager.get_all()
-        return [dataset.with_client(self.syftbox_client) for dataset in datasets]
+        return [
+            dataset._register_client_id_recursive(self.config.client_id)
+            for dataset in datasets
+        ]
 
     def update(self, item: DatasetUpdate) -> Dataset:
         raise NotImplementedError("Not implemented for Dataset")
 
     def get_by_name(self, name: str) -> Dataset:
         dataset: Dataset = self._schema_manager.get_by_name(name=name)
-        return dataset.with_client(self.syftbox_client)
+        return dataset._register_client_id_recursive(self.config.client_id)
 
     def delete_by_name(self, name: str) -> bool:
         try:
@@ -590,7 +594,7 @@ class DatasetLocalStore(CRUDLocalStore[Dataset, DatasetCreate, DatasetUpdate]):
 
             # Create schema entry
             dataset = self._schema_manager.create(dataset_create)
-            return dataset.with_client(self.syftbox_client)
+            return dataset._register_client_id_recursive(self.config.client_id)
         except Exception as e:
             # Clean up any partially created files
             self._files_manager.cleanup_dataset_files(dataset_create.name)
@@ -625,7 +629,10 @@ class DatasetLocalStore(CRUDLocalStore[Dataset, DatasetCreate, DatasetUpdate]):
             List of all datasets
         """
         datasets: list[Dataset] = self._schema_manager.get_all()
-        return [dataset.with_client(self.syftbox_client) for dataset in datasets]
+        return [
+            dataset._register_client_id_recursive(self.config.client_id)
+            for dataset in datasets
+        ]
 
     def update(self, item: DatasetUpdate) -> Dataset:
         """Not implemented for Dataset."""
@@ -642,7 +649,7 @@ class DatasetLocalStore(CRUDLocalStore[Dataset, DatasetCreate, DatasetUpdate]):
             The dataset
         """
         dataset: Dataset = self._schema_manager.get_by_name(name=name)
-        return dataset.with_client(self.syftbox_client)
+        return dataset._register_client_id_recursive(self.config.client_id)
 
     def delete_by_name(self, name: str) -> bool:
         """
