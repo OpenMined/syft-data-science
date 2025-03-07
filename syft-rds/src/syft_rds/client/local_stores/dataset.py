@@ -1,5 +1,4 @@
 import shutil
-import traceback
 from pathlib import Path
 from typing import TYPE_CHECKING, Final, Type, Union
 
@@ -24,108 +23,6 @@ if TYPE_CHECKING:
 DIRECTORY_PUBLIC = "public"
 DIRECTORY_PRIVATE = "private"
 DIRECTORY_DATASETS = "datasets"
-
-
-class DatasetLocalStore(CRUDLocalStore[Dataset, DatasetCreate, DatasetUpdate]):
-    SCHEMA: Final[Type[Dataset]] = Dataset
-
-    def __init__(self, config: "RDSClientConfig", syftbox_client: SyftBoxClient):
-        super().__init__(config, syftbox_client)
-        self._path_manager = DatasetPathManager(self.syftbox_client, self.config.host)
-        self._schema_manager = DatasetSchemaManager(self._path_manager, self.store)
-        self._files_manager = DatasetFilesManager(self._path_manager)
-
-    def _validate_paths(
-        self,
-        name: str,
-        path: Union[str, Path],
-        mock_path: Union[str, Path],
-    ) -> None:
-        if (
-            self._path_manager.get_local_public_dataset_dir(name).exists()
-            or self._path_manager.get_syftbox_private_dataset_dir(name).exists()
-        ):
-            raise ValueError(f"Dataset with name '{name}' already exists")
-        # validate paths
-        self._path_manager.check_path_exists(path)
-        self._path_manager.check_path_exists(mock_path)
-        self._path_manager.check_are_both_dirs(path, mock_path)
-        # validate dataset file extensions
-        self._files_manager.check_same_file_extensions(path, mock_path)
-
-    def create(self, dataset_create: DatasetCreate) -> Dataset:
-        self._validate_paths(
-            dataset_create.name,
-            dataset_create.path,
-            dataset_create.mock_path,
-        )
-        try:
-            self._files_manager.copy_mock_to_public_syftbox_dir(
-                dataset_create.name, dataset_create.mock_path
-            )
-            if dataset_create.description_path:
-                self._files_manager.copy_description_file_to_public_syftbox_dir(
-                    dataset_create.name, dataset_create.description_path
-                )
-            self._files_manager.copy_private_to_private_syftbox_dir(
-                dataset_create.name, dataset_create.path
-            )
-            dataset = self._schema_manager.create(dataset_create)
-            return dataset._register_client_id_recursive(self.config.client_id)
-        except Exception as e:
-            self._files_manager.cleanup_dataset_files(dataset_create.name)
-            raise RuntimeError(
-                f"Failed to create dataset '{dataset_create.name}': {str(e)}\n {traceback.format_exc()}"
-            ) from e
-
-    def get_one(self, request: GetOneRequest) -> Dataset:
-        raise NotImplementedError("Not implemented for Dataset")
-
-    def get_all(self, request: GetAllRequest) -> list[Dataset]:
-        datasets: list[Dataset] = self._schema_manager.get_all()
-        return [
-            dataset._register_client_id_recursive(self.config.client_id)
-            for dataset in datasets
-        ]
-
-    def update(self, item: DatasetUpdate) -> Dataset:
-        raise NotImplementedError("Not implemented for Dataset")
-
-    def get_by_name(self, name: str) -> Dataset:
-        dataset: Dataset = self._schema_manager.get_by_name(name=name)
-        return dataset._register_client_id_recursive(self.config.client_id)
-
-    def delete_by_name(self, name: str) -> bool:
-        try:
-            schema_deleted = self._schema_manager.delete(name)
-            if schema_deleted:
-                self._files_manager.cleanup_dataset_files(name)
-                return True
-            return False
-        except Exception as e:
-            raise RuntimeError(f"Failed to delete dataset '{name}'") from e
-
-
-class DatasetUrlManager:
-    @staticmethod
-    def get_mock_dataset_syftbox_url(
-        datasite_email: str, dataset_name: str, mock_path: Union[Path, str]
-    ) -> SyftBoxURL:
-        return SyftBoxURL(f"syft://{datasite_email}/public/datasets/{dataset_name}")
-
-    @staticmethod
-    def get_private_dataset_syftbox_url(
-        datasite_email: str, dataset_name: str, path: Union[Path, str]
-    ) -> str:
-        return f"syft://{datasite_email}/private/datasets/{dataset_name}"
-
-    @staticmethod
-    def get_readme_syftbox_url(
-        datasite_email: str, dataset_name: str, readme_path: Union[Path, str]
-    ) -> SyftBoxURL:
-        return SyftBoxURL(
-            f"syft://{datasite_email}/public/datasets/{dataset_name}/{Path(readme_path).name}"
-        )
 
 
 class DatasetPathManager:
@@ -587,17 +484,13 @@ class DatasetLocalStore(CRUDLocalStore[Dataset, DatasetCreate, DatasetUpdate]):
             dataset_create.path,
             dataset_create.mock_path,
         )
-
         try:
-            # Copy files to appropriate locations
             self._copy_dataset_files(dataset_create)
-
-            # Create schema entry
             dataset = self._schema_manager.create(dataset_create)
             return dataset._register_client_id_recursive(self.config.client_id)
         except Exception as e:
-            # Clean up any partially created files
             self._files_manager.cleanup_dataset_files(dataset_create.name)
+            self._schema_manager.delete(dataset_create.name)
             raise RuntimeError(
                 f"Failed to create dataset '{dataset_create.name}': {str(e)}"
             ) from e
