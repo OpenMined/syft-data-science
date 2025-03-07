@@ -5,6 +5,7 @@ from loguru import logger
 
 from syft_core.url import SyftBoxURL
 from syft_core import Client as SyftBoxClient
+import traceback
 
 from syft_rds.client.local_stores.base import CRUDLocalStore
 from syft_rds.models.models import (
@@ -73,7 +74,7 @@ class DatasetLocalStore(CRUDLocalStore[Dataset, DatasetCreate, DatasetUpdate]):
         except Exception as e:
             self._files_manager.cleanup_dataset_files(dataset_create.name)
             raise RuntimeError(
-                f"Failed to create dataset '{dataset_create.name}': {str(e)}"
+                f"Failed to create dataset '{dataset_create.name}': {str(e)}\n {traceback.format_exc()}"
             ) from e
 
     def get_one(self, request: GetOneRequest) -> Dataset:
