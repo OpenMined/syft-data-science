@@ -32,12 +32,13 @@ class BaseSchema(PydanticFormatterMixin, BaseModel, ABC):
         self._register_client_id_recursive(client.uid)
         return self
 
-    def _register_client_id_recursive(self, client_id: UUID):
+    def _register_client_id_recursive(self, client_id: UUID) -> Self:
         self.client_id = client_id
         for field in self.model_fields.keys():
             field_value = getattr(self, field)
             if isinstance(field_value, BaseSchema):
                 field_value._register_client_id_recursive(client_id)
+        return self
 
     @property
     def _client(self) -> "RDSClient":
