@@ -8,7 +8,7 @@ from uuid import UUID
 import jinja2
 from IPython.display import HTML, display
 
-from syft_rds.jupyter_utils.components import Badge, CopyButton, Label
+# from syft_rds.jupyter_utils.components import Badge, CopyButton, Label
 from syft_rds.jupyter_utils.icons import Icon
 from syft_rds.jupyter_utils.table_utils import TABLE_INDEX_KEY, prepare_table_data
 from syft_rds.utils.resources import load_css, load_js
@@ -23,7 +23,7 @@ def make_links(text: str) -> str:
 
 
 DEFAULT_ID_WIDTH = 110
-jinja_env = jinja2.Environment(loader=jinja2.PackageLoader("syft", "assets/jinja"))  # nosec
+jinja_env = jinja2.Environment(loader=jinja2.PackageLoader("syft_rds", "assets/jinja"))  # nosec
 jinja_env.filters["make_links"] = make_links
 
 
@@ -69,19 +69,20 @@ def format_dict(data: Any) -> str:
     if not isinstance(data, dict):
         return data
 
-    is_component_dict = set(data.keys()) == {"type", "value"}
-    if is_component_dict and "badge" in data["type"]:
-        return Badge(value=data["value"], badge_class=data["type"]).to_html()
-    elif is_component_dict and "label" in data["type"]:
-        return Label(value=data["value"], label_class=data["type"]).to_html()
-    if is_component_dict and "clipboard" in data["type"]:
-        return CopyButton(copy_text=data["value"]).to_html()
+    # is_component_dict = set(data.keys()) == {"type", "value"}
+    # if is_component_dict and "badge" in data["type"]:
+    #     return Badge(value=data["value"], badge_class=data["type"]).to_html()
+    # elif is_component_dict and "label" in data["type"]:
+    #     return Label(value=data["value"], label_class=data["type"]).to_html()
+    # if is_component_dict and "clipboard" in data["type"]:
+    #     return CopyButton(copy_text=data["value"]).to_html()
 
     return sanitize_html(str(data))
 
 
 def format_uid(uid: UUID) -> str:
-    return CopyButton(copy_text=str(uid)).to_html()
+    return str(uid)
+    # return CopyButton(copy_text=str(uid)).to_html()
 
 
 def format_table_data(table_data: list[dict[str, Any]]) -> list[dict[str, str]]:

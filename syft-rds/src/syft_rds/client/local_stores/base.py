@@ -1,9 +1,8 @@
-from pathlib import Path
-from typing import TYPE_CHECKING, ClassVar, Generic, Type, TypeVar, Union
+from typing import TYPE_CHECKING, ClassVar, Generic, List, Type, TypeVar
 
 from syft_core import Client as SyftBoxClient
-from syft_core import SyftBoxURL
 
+from syft_rds.jupyter_utils.types import TableList
 from syft_rds.models.base import BaseSchema, BaseSchemaCreate, BaseSchemaUpdate
 from syft_rds.models.models import (
     GetAllRequest,
@@ -19,7 +18,7 @@ CreateT = TypeVar("CreateT", bound=BaseSchemaCreate)
 UpdateT = TypeVar("UpdateT", bound=BaseSchemaUpdate)
 
 
-class LocalStoreModule:
+class CRUDLocalStore(Generic[T, CreateT, UpdateT]):
     SCHEMA: ClassVar[Type[T]]
 
     def __init__(self, config: "RDSClientConfig", syftbox_client: SyftBoxClient):
@@ -34,25 +33,32 @@ class LocalStoreModule:
             datasite=self.config.host,
         )
 
-
-class CRUDLocalStore(LocalStoreModule, Generic[T, CreateT, UpdateT]):
-    def _syfturl_to_local_path(self, syfturl: Union[str, SyftBoxURL]) -> str:
-        if isinstance(syfturl, str):
-            syfturl = SyftBoxURL(syfturl)
-
-        return syfturl.to_local_path(self.syftbox_client.datasites)
-
-    def _local_path_to_syfturl(self, local_path: Path) -> SyftBoxURL:
-        return self.syftbox_client.to_syft_url(local_path)
-
     def create(self, item: CreateT) -> T:
-        raise NotImplementedError
-
-    def get_one(self, request: GetOneRequest) -> T:
-        raise NotImplementedError
-
-    def get_all(self, request: GetAllRequest) -> list[T]:
         raise NotImplementedError
 
     def update(self, item: UpdateT) -> T:
         raise NotImplementedError
+
+    def get_one(self, request: GetOneRequest) -> T:
+        # TODO implement get_all with limit + early return, to prevent loading all items on get_one
+        res = self.get_all(GetAllRequest(filters=request.filters), limit=1)
+        if len(res) == 0:
+            filters_formatted: str = ", ".join(
+                [f"{k}={v}" for k, v in request.filters.items()]
+            )
+            raise ValueError(
+                f"No {self.SCHEMA.__name__} found with filters {filters_formatted}"
+            )
+        return res[0]
+
+    def get_all(self, request: GetAllRequest) -> List[T]:
+        # TODO move this logic to RDSStore and give RDSClient direct access to store instead of this in-between layer.
+        # TODO Merge store get/query/search methods to get_one and get_all? pysyft does the same: https://github.com/OpenMined/PySyft/blob/dev/packages/syft/src/syft/store/db/stash.py#L522
+        # Because: logic is needed both clientside and server side
+        items = self.store.query(**request.filters)
+        if request.offset:
+            items = items[request.offset :]
+        if request.limit:
+            items = items[: request.limit]
+        # TableList is a custom list subtype for pretty printing in Jupyter
+        return TableList(items)

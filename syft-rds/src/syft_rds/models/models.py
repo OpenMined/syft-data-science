@@ -1,8 +1,8 @@
 import enum
-from collections.abc import Iterable
 import os
+from collections.abc import Iterable
 from pathlib import Path
-from typing import Generic, Optional, TypeVar
+from typing import Any, Generic, Literal, Optional, TypeVar
 from uuid import UUID
 
 from loguru import logger
@@ -97,7 +97,7 @@ class Job(BaseSchema):
             )
         )
         return updated_job
-    
+
     def get_output_path(self) -> Path:
         if self.output_url is None:
             raise ValueError("output_url is not set")
@@ -276,12 +276,18 @@ class DatasetUpdate(BaseSchemaUpdate[Dataset]):
 
 class GetOneRequest(BaseModel):
     uid: UUID | None = None
+    filters: dict[str, Any] = {}
 
 
 class GetAllRequest(BaseModel):
-    pass
+    limit: Optional[int] = None
+    offset: int = 0
+    filters: dict[str, Any] = {}
+    order_by: Optional[str] = "created_at"
+    sort_order: Literal["desc", "asc"] = "desc"
 
 
 class ItemList(BaseModel, Generic[T]):
     # Used by get_all endpoints
     items: list[T]
+    total: int
