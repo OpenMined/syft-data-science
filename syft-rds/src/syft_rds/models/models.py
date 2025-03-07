@@ -38,10 +38,8 @@ class JobErrorKind(str, enum.Enum):
     no_error = "no_error"
     timeout = "timeout"
     cancelled = "cancelled"
-    error = "error"
-    code_review_rejected = "code_review_rejected"
-    output_review_rejected = "output_review_rejected"
-    failed_review = "failed_review"
+    failed_code_review = "failed_code_review"
+    failed_output_review = "failed_output_review"
 
 
 class JobArtifactKind(str, enum.Enum):
@@ -52,8 +50,6 @@ class JobArtifactKind(str, enum.Enum):
 
 class JobStatus(str, enum.Enum):
     pending_code_review = "pending_code_review"
-    queued = "queued"
-    running = "running"
     job_run_failed = "job_run_failed"
     job_run_finished = "job_run_finished"
 
@@ -72,6 +68,7 @@ class Job(BaseSchema):
     user_metadata: dict = {}
     status: JobStatus = JobStatus.pending_code_review
     error: JobErrorKind = JobErrorKind.no_error
+    error_message: str | None = None
     output_url: str | None = None
     dataset_name: str
 
@@ -85,23 +82,32 @@ class Job(BaseSchema):
     class Config:
         extra = "forbid"
 
-    def add_to_queue(self):
-        if self.status != JobStatus.pending_code_review:
-            raise ValueError(
-                "job must be pending code review - call submit_for_code_review() first"
-            )
-        updated_job = self.rpc.jobs.update(
-            JobUpdate(
-                uid=self.uid,
-                status=JobStatus.queued,
-            )
+    def get_update_for_reject(self, reason: str = "unknown reason") -> "JobUpdate":
+        """
+        Create a JobUpdate object with the rejected status
+        based on the current status
+        """
+        allowed_statuses = (
+            JobStatus.pending_code_review,
+            JobStatus.job_run_finished,
+            JobStatus.job_run_failed,
         )
-        return updated_job
+        if self.status not in allowed_statuses:
+            raise ValueError(f"Cannot reject job in status: {self.status}")
 
-    def reject(self, reason: str = "unknown reason"):
-        # artifacts are not shared on rejection
+        self.error_message = reason
         self.status = JobStatus.rejected
-        self.error = JobErrorKind.failed_review
+        self.error = (
+            JobErrorKind.failed_code_review
+            if self.status == JobStatus.pending_code_review
+            else JobErrorKind.failed_output_review
+        )
+        return JobUpdate(
+            uid=self.uid,
+            status=self.status,
+            error=self.error,
+            error_message=self.error_message,
+        )
 
     def share_artifacts(
         self,
