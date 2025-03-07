@@ -1,5 +1,6 @@
 from typing import TYPE_CHECKING, ClassVar, Generic, List, Type, TypeVar
 
+from pydantic import TypeAdapter
 from syft_core import Client as SyftBoxClient
 
 from syft_rds.models.base import BaseSchema, BaseSchemaCreate, BaseSchemaUpdate
@@ -36,10 +37,22 @@ class CRUDLocalStore(Generic[T, CreateT, UpdateT]):
             datasite=self.config.host,
         )
 
-    def register_client_id(self, res: T) -> T:
-        if isinstance(T, BaseSchema):
-            res.register_client_id_recursively(self.config.client_id)
-        return res
+        self._field_validators = self._make_field_validators()
+
+    def _make_field_validators(self) -> dict:
+        """
+        Create a dictionary of field_name: TypeAdapter for each field in the schema.
+        These can be used to validate and convert field values to the correct type, required when querying the store.
+        """
+        return {
+            field_name: TypeAdapter(field_info.annotation)
+            for field_name, field_info in self.SCHEMA.model_fields.items()
+        }
+
+    def register_client_id(self, item: T) -> T:
+        if isinstance(item, BaseSchema):
+            item._register_client_id_recursive(self.config.client_id)
+        return item
 
     def create(self, item: CreateT) -> T:
         raise NotImplementedError
@@ -48,6 +61,7 @@ class CRUDLocalStore(Generic[T, CreateT, UpdateT]):
         raise NotImplementedError
 
     def get_one(self, request: GetOneRequest) -> T:
+        # TODO use same logic for datasets (e.g. get_by_name == get_one(GetOneRequest(filters={"name": name}))
         # TODO implement get_all with limit + early return, to prevent loading all items on get_one
         res = self.get_all(GetAllRequest(filters=request.filters, limit=1))
         if len(res) == 0:
@@ -59,15 +73,42 @@ class CRUDLocalStore(Generic[T, CreateT, UpdateT]):
             )
         return res[0]
 
+    def _coerce_field_types(self, filters: dict) -> dict:
+        """
+        If possible, convert filter values to the correct type for the schema.
+        e.g. convert str to UUID, or str to Enum, etc.
+        """
+        # TODO move filter type coercion to RDSStore to avoid duplication serverside
+        resolved_filters = {}
+        for filter_name, filter_value in filters.items():
+            validator = self._field_validators.get(filter_name, None)
+            if validator is None:
+                # Cannot infer type, leave it in the original form
+                resolved_filters[filter_name] = filter_value
+                continue
+            try:
+                type_adapter = self._field_validators[filter_name]
+                validated_value = type_adapter.validate_python(filter_value)
+                resolved_filters[filter_name] = validated_value
+            except Exception:
+                # Cannot convert to the correct type, leave it in the original form
+                # logger.exception(
+                #     f"Could not convert filter value {filter_value} to {field_info.annotation} for field {filter_name}"
+                # )
+                resolved_filters[filter_name] = filter_value
+        return resolved_filters
+
     def get_all(self, request: GetAllRequest) -> List[T]:
+        # TODO use same logic for datasets
         # TODO move this logic to RDSStore and give RDSClient direct access to store instead of this in-between layer.
         # TODO Merge store get/query/search methods to get_one and get_all? pysyft does the same: https://github.com/OpenMined/PySyft/blob/dev/packages/syft/src/syft/store/db/stash.py#L522
         # Because: logic is needed both clientside and server side
-        items = self.store.query(**request.filters)
+        filters = self._coerce_field_types(request.filters)
+        items = self.store.query(**filters)
         if request.offset:
             items = items[request.offset :]
         if request.limit:
             items = items[: request.limit]
-        # TableList is a custom list subtype for pretty printing in Jupyter
+
         items = [self.register_client_id(item) for item in items]
         return items

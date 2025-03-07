@@ -1,5 +1,6 @@
+from datetime import datetime
 from pathlib import Path
-from uuid import uuid4
+from uuid import UUID, uuid4
 
 import pytest
 from syft_rds.client.rds_client import RDSClient
@@ -207,3 +208,57 @@ def test_apply_update(ds_rds_client: RDSClient):
 
     assert job.status == JobStatus.rejected
     assert new_job.status == JobStatus.rejected
+
+
+def test_search_with_filters(do_rds_client):
+    # Create 10 sample jobs
+    for i in range(10):
+        job_create = JobCreate(
+            name=f"Job {i}",
+            runtime="python3.9",
+            user_code_id=uuid4(),
+            dataset_name="test",
+        )
+        do_rds_client.rpc.jobs.create(job_create)
+
+    # Test successful coercion cases
+    test_uuid = uuid4()
+    coerced_filters = do_rds_client.local_store.jobs._coerce_field_types(
+        {
+            "status": "pending_code_review",
+            "created_at": "2025-03-07T15:10:40.146495+00:00",
+            "uid": test_uuid.hex,
+        }
+    )
+
+    # Verify successful coercions
+    assert isinstance(coerced_filters["status"], JobStatus)
+    assert coerced_filters["status"] == JobStatus.pending_code_review
+    assert isinstance(coerced_filters["created_at"], datetime)
+    assert isinstance(coerced_filters["uid"], UUID)
+    assert coerced_filters["uid"] == test_uuid
+
+    # Test failed coercion cases - should return original values
+    invalid_filters = do_rds_client.local_store.jobs._coerce_field_types(
+        {
+            "status": 1234,  # Not a valid enum string
+            "created_at": "invalid-date",  # Not a valid date string
+            "uid": "not-a-uuid",  # Not a valid UUID format
+            "unknown_field": "some value",  # Field not in schema
+        }
+    )
+
+    # Verify failed coercions returned original values
+    assert invalid_filters["status"] == 1234
+    assert invalid_filters["created_at"] == "invalid-date"
+    assert invalid_filters["uid"] == "not-a-uuid"
+    assert invalid_filters["unknown_field"] == "some value"
+
+    # Test search using coerced enum works
+    jobs = do_rds_client.jobs.get_all(status="pending_code_review")
+    assert all(job.status == JobStatus.pending_code_review for job in jobs)
+
+    # Test search with non-coercible value
+    # This should work fine since store is schemaless
+    jobs_with_invalid = do_rds_client.jobs.get_all(status=1234)
+    assert len(jobs_with_invalid) == 0  # Assuming no job has status=1234
