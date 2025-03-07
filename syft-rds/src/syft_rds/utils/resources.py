@@ -2,9 +2,9 @@ import importlib.resources
 from functools import lru_cache
 
 ASSETS = "syft_rds.assets"
-CSS_ASSETS = f"{ASSETS}.assets.css"
-JS_ASSETS = f"{ASSETS}.assets.js"
-SVG_ASSETS = f"{ASSETS}.assets.svg"
+CSS_ASSETS = f"{ASSETS}.css"
+JS_ASSETS = f"{ASSETS}.js"
+SVG_ASSETS = f"{ASSETS}.svg"
 
 
 def load_css(fname: str) -> str:

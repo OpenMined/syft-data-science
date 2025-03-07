@@ -61,6 +61,13 @@ class JobStatus(str, enum.Enum):
 
 class Job(BaseSchema):
     __schema_name__ = "job"
+    __table_extra_fields__ = [
+        "name",
+        "dataset_name",
+        "status",
+        "error",
+        "error_message",
+    ]
 
     name: str = Field(default_factory=generate_name)
     description: str | None = None

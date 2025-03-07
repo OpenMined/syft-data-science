@@ -177,7 +177,7 @@ def prepare_table_data(
         grid_template_cell_columns = None
 
     table_data = _create_table_rows(
-        data=obj,
+        items=obj,
         is_homogenous=is_homogenous,
         extra_fields=extra_fields,
         add_index=add_index,

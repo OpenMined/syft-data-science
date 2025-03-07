@@ -84,6 +84,7 @@ class JobRDSClient(RDSClientModule):
         offset: int = 0,
         **filters: Any,
     ) -> list[Job]:
+        # TODO make generic for all rds clients
         return self.local_store.jobs.get_all(
             GetAllRequest(
                 order_by=order_by,

@@ -98,6 +98,13 @@ class CRUDLocalStore(Generic[T, CreateT, UpdateT]):
                 resolved_filters[filter_name] = filter_value
         return resolved_filters
 
+    def _sort_results(self, items: List[T], order_by: str, sort_order: str) -> List[T]:
+        return sorted(
+            items,
+            key=lambda x: getattr(x, order_by, None),
+            reverse=sort_order == "desc",
+        )
+
     def get_all(self, request: GetAllRequest) -> List[T]:
         # TODO use same logic for datasets
         # TODO move this logic to RDSStore and give RDSClient direct access to store instead of this in-between layer.
@@ -105,6 +112,7 @@ class CRUDLocalStore(Generic[T, CreateT, UpdateT]):
         # Because: logic is needed both clientside and server side
         filters = self._coerce_field_types(request.filters)
         items = self.store.query(**filters)
+        items = self._sort_results(items, request.order_by, request.sort_order)
         if request.offset:
             items = items[request.offset :]
         if request.limit:
