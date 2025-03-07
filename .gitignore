@@ -176,6 +176,7 @@ experimental/
 experimentals/
 syft-rds/tests/integration/assets/do/job_outputs/*
 notebooks/data/
+notebooks/quickstart/data/
 
 # VSCode
 .vscode/
