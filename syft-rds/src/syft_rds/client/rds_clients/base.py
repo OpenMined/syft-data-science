@@ -1,4 +1,5 @@
 from pathlib import Path
+from uuid import UUID, uuid4
 from pydantic import BaseModel, Field
 from syft_core import Client as SyftBoxClient
 
@@ -17,7 +18,8 @@ class ClientRunnerConfig(BaseModel):
 class RDSClientConfig(BaseModel):
     host: str
     app_name: str = "RDS"
-
+    client_id: UUID = Field(default_factory=uuid4)
+    
     rpc_expiry: str = "5m"
     runner_config: ClientRunnerConfig = Field(default_factory=ClientRunnerConfig)
 

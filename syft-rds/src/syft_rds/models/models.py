@@ -72,7 +72,7 @@ class Job(BaseSchema):
     user_metadata: dict = {}
     status: JobStatus = JobStatus.pending_code_review
     error: JobErrorKind = JobErrorKind.no_error
-    output_url: str | None = None
+    output_url: SyftBoxURL | None = None
     dataset_name: str
 
     @property
@@ -97,6 +97,14 @@ class Job(BaseSchema):
             )
         )
         return updated_job
+    
+    def get_output_path(self) -> Path:
+        if self.output_url is None:
+            raise ValueError("output_url is not set")
+        client = self._client
+        return self.output_url.to_local_path(
+            datasites_path=client._syftbox_client.datasites
+        )
 
     def reject(self, reason: str = "unknown reason"):
         # artifacts are not shared on rejection
