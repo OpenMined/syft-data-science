@@ -22,7 +22,6 @@ jobs:
         
     - name: Set up test environment
       run: |
-        cd rds
         just setup-test-env
         
     - name: Install system dependencies
@@ -32,15 +31,12 @@ jobs:
 
     - name: Run unit tests
       run: |
-        cd rds
         just test-unit
         
     - name: Run E2E tests
       run: |
-        cd rds
         just test-e2e
         
     - name: Run notebook tests
       run: |
-        cd rds
         just test-notebooks 
