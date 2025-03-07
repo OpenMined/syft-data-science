@@ -45,6 +45,7 @@ repos:
     rev: "v3.0.0-alpha.9-for-vscode"
     hooks:
       - id: prettier
+        exclude: \.min\.(js|css)$
 
   # todo - re-enable mypy & fixes in a separate PR
   # - repo: https://github.com/pre-commit/mirrors-mypy
