@@ -4,6 +4,7 @@ from loguru import logger
 
 from syft_core import Client as SyftBoxClient
 from syft_event import SyftEvents
+from syft_rds.client.client_registry import GlobalClientRegistry
 from syft_runtime.main import DockerRunner, FileOutputHandler, JobConfig, RichConsoleUI
 
 from syft_rds.client.connection import get_connection
@@ -88,6 +89,8 @@ class RDSClient(RDSClientModule):
         self.runtime = RuntimeRDSClient(self.config, self.rpc, self.local_store)
         self.dataset = DatasetRDSClient(self.config, self.rpc, self.local_store)
         self.user_code = UserCodeRDSClient(self.config, self.rpc, self.local_store)
+        self.uid = self.config.client_id
+        GlobalClientRegistry.register_client(self.uid, self)
 
     @property
     def datasets(self) -> list[Dataset]:

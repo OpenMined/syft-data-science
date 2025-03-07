@@ -15,7 +15,7 @@ class JobLocalStore(CRUDLocalStore[Job, JobCreate, JobUpdate]):
         to the output folder on SyftBox.
         """
 
-        output_path = self._syfturl_to_local_path(job.output_url)
+        output_path = job.output_url.to_local_path(self.syftbox_client.datasites)
         if not output_path.exists():
             output_path.mkdir(parents=True)
 

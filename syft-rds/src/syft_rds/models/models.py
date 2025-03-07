@@ -70,7 +70,7 @@ class Job(BaseSchema):
     status: JobStatus = JobStatus.pending_code_review
     error: JobErrorKind = JobErrorKind.no_error
     error_message: str | None = None
-    output_url: str | None = None
+    output_url: SyftBoxURL | None = None
     dataset_name: str
 
     @property
@@ -124,6 +124,14 @@ class Job(BaseSchema):
             status=self.status,
             error=self.error,
             error_message=self.error_message,
+        )
+
+    def get_output_path(self) -> Path:
+        if self.output_url is None:
+            raise ValueError("output_url is not set")
+        client = self._client
+        return self.output_url.to_local_path(
+            datasites_path=client._syftbox_client.datasites
         )
 
     def share_artifacts(

@@ -7,6 +7,10 @@ from pydantic import BaseModel, Field, PrivateAttr
 from syft_core import Client as SyftBoxClient
 
 from syft_rds.models.formatter import PydanticFormatterMixin
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from syft_rds.client.rds_client import RDSClient
 
 
 def _utcnow():
@@ -20,12 +24,21 @@ class BaseSchema(PydanticFormatterMixin, BaseModel, ABC):
     uid: UUID = Field(default_factory=uuid4)
     created_at: datetime = Field(default_factory=_utcnow)
     updated_at: datetime = Field(default_factory=_utcnow)
+    client_id: UUID | None = None
+
     _syftbox_client = PrivateAttr(default=None)
 
     class Config:
         arbitrary_types_allowed: bool = True
 
     _client_cache: dict[UUID, "BaseSchema"] = PrivateAttr(default_factory=dict)
+
+    def register_client_id_recursively(self, client_id: UUID):
+        self.client_id = client_id
+        for field in self.model_fields.keys():
+            field_value = getattr(self, field)
+            if isinstance(field_value, BaseSchema):
+                field_value.register_client_id_recursively(client_id)
 
     @classmethod
     def type_name(cls) -> str:
@@ -40,6 +53,14 @@ class BaseSchema(PydanticFormatterMixin, BaseModel, ABC):
     def with_client(self, client: SyftBoxClient):
         self._syftbox_client = client
         return self
+
+    @property
+    def _client(self) -> "RDSClient":
+        from syft_rds.client.client_registry import GlobalClientRegistry
+
+        if self.client_id is None:
+            raise ValueError("Client ID not set")
+        return GlobalClientRegistry.get_client(self.client_id)
 
     def apply(
         self, other: Union[Self, "BaseSchemaUpdate[Self]"], in_place: bool = True
