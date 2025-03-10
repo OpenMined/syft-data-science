@@ -22,49 +22,7 @@ jobs:
           python-version: "3.12"
       - uses: pre-commit/action@v3.0.1
 
-  unit:
-    strategy:
-      max-parallel: 99
-      matrix:
-        os: [ubuntu-latest]
-        python-version: ["3.12"]
-      fail-fast: false
-
-    runs-on: ${{ matrix.os }}
-
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Set up Python ${{ matrix.python-version }}
-        uses: actions/setup-python@v5
-        with:
-          python-version: ${{ matrix.python-version }}
-
-      - name: Install uv
-        uses: astral-sh/setup-uv@v5
-        with:
-          version: "0.4.25"
-
-      - name: Get uv cache dir
-        id: pip-cache
-        shell: bash
-        run: |
-          echo "dir=$(uv cache dir)" >> $GITHUB_OUTPUT
-
-      - name: Load github cache
-        uses: actions/cache@v4
-        with:
-          path: ${{ steps.pip-cache.outputs.dir }}
-          key: pr-uv-${{ runner.os }}-py${{ matrix.python-version }}-${{ hashFiles('pyproject.toml') }}
-          restore-keys: |
-            pr-uv-${{ runner.os }}-py${{ matrix.python-version }}
-
-      - name: Install Just
-        uses: extractions/setup-just@v2
-        with:
-          just-version: "1.36.0"
-
-      - name: Run unit tests
-        run: |
-          just test-unit
+  call-pr-tests-unit:
+    uses: ./.github/workflows/pr-tests-base.yml
+    with:
+      test-type: test-unit
