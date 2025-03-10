@@ -51,6 +51,6 @@ jobs:
         with:
           just-version: "1.36.0"
 
-      - name: Run ${{ github.event.inputs.test-type }}
+      - name: Run ${{ inputs.test-type }}
         run: |
-          just ${{ github.event.inputs.test-type }}
+          just ${{ inputs.test-type }}
