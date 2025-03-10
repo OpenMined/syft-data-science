@@ -2,7 +2,7 @@ import enum
 import os
 from collections.abc import Iterable
 from pathlib import Path
-from typing import Generic, Optional, TypeVar
+from typing import Any, Generic, Literal, Optional, TypeVar
 from uuid import UUID
 
 from loguru import logger
@@ -61,6 +61,13 @@ class JobStatus(str, enum.Enum):
 
 class Job(BaseSchema):
     __schema_name__ = "job"
+    __table_extra_fields__ = [
+        "name",
+        "dataset_name",
+        "status",
+        "error",
+        "error_message",
+    ]
 
     name: str = Field(default_factory=generate_name)
     description: str | None = None
@@ -298,10 +305,15 @@ class DatasetUpdate(BaseSchemaUpdate[Dataset]):
 
 class GetOneRequest(BaseModel):
     uid: UUID | None = None
+    filters: dict[str, Any] = {}
 
 
 class GetAllRequest(BaseModel):
-    pass
+    limit: Optional[int] = None
+    offset: int = 0
+    filters: dict[str, Any] = {}
+    order_by: Optional[str] = "created_at"
+    sort_order: Literal["desc", "asc"] = "desc"
 
 
 class ItemList(BaseModel, Generic[T]):

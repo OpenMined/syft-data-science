@@ -57,7 +57,7 @@ async def test_e2e_dataset_create_get_del(e2e_context: E2EContext):
     create_dataset(do_rds_client, dataset_name)
     await asyncio.sleep(3)  # wait for the dataset to be synced
 
-    test_dataset = ds_rds_client.dataset.get(dataset_name)
+    test_dataset = ds_rds_client.dataset.get(name=dataset_name)
     logger.info("Dataset retrieved", test_dataset.name)
     assert test_dataset.get_description()
     assert test_dataset.describe()

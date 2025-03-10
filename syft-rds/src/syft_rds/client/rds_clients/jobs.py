@@ -1,5 +1,5 @@
 from pathlib import Path
-from typing import Callable
+from typing import Any, Callable, Optional
 from uuid import UUID
 
 from loguru import logger
@@ -76,11 +76,32 @@ class JobRDSClient(RDSClientModule):
                 "You must provide either a user_code_path or a function, function_args, and function_kwargs"
             )
 
-    def get_all(self) -> list[Job]:
-        return self.rpc.jobs.get_all(GetAllRequest())
+    def get_all(
+        self,
+        order_by: str = "created_at",
+        sort_order: str = "desc",
+        limit: Optional[int] = None,
+        offset: int = 0,
+        **filters: Any,
+    ) -> list[Job]:
+        # TODO make generic for all rds clients
+        return self.local_store.jobs.get_all(
+            GetAllRequest(
+                order_by=order_by,
+                sort_order=sort_order,
+                limit=limit,
+                offset=offset,
+                filters=filters,
+            )
+        )
 
-    def get(self, uid: UUID) -> Job:
-        return self.rpc.jobs.get_one(GetOneRequest(uid=uid))
+    def get(self, uid: Optional[UUID] = None, **filters: Any) -> Job:
+        return self.local_store.jobs.get_one(
+            GetOneRequest(
+                uid=uid,
+                filters=filters,
+            )
+        )
 
     def share_results(self, job: Job) -> Path:
         job_output_folder = self.config.runner_config.job_output_folder / job.uid.hex

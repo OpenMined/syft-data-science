@@ -33,7 +33,7 @@ def test_get_dataset(do_syftbox_config: SyftClientConfig) -> None:
     assert do_rds_client.is_admin
 
     dataset = create_dataset(do_rds_client, "Test")
-    test_data = do_rds_client.dataset.get("Test")
+    test_data = do_rds_client.dataset.get(name="Test")
     assert test_data.name == dataset.name
     assert test_data.get_mock_path().exists()
     assert test_data.get_private_path().exists()
@@ -92,8 +92,8 @@ def test_delete_dataset(do_syftbox_config: SyftClientConfig) -> None:
     assert len(datasets_after) == len(datasets_before) - 1
 
     # Try to get the deleted dataset (should raise an error)
-    with pytest.raises(ValueError, match="Dataset with name 'TestToDelete' not found"):
-        do_rds_client.dataset.get("TestToDelete")
+    with pytest.raises(ValueError, match="No Dataset found with"):
+        do_rds_client.dataset.get(name="TestToDelete")
 
     # Verify files are cleaned up (should no longer exist)
     assert not mock_path.parent.exists() or not any(mock_path.parent.iterdir())
@@ -164,7 +164,7 @@ def test_readme_content(do_syftbox_config: SyftClientConfig) -> None:
     dataset = create_dataset(do_rds_client, "TestReadme")
 
     # Retrieve the dataset and check README content
-    retrieved = do_rds_client.dataset.get(dataset.name)
+    retrieved = do_rds_client.dataset.get(name=dataset.name)
 
     # Assuming we've implemented the get_description method
     readme_content = retrieved.get_description()
