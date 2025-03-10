@@ -125,7 +125,7 @@ def build_tabulator_table(
     header_sort: bool = True,
 ) -> str | None:
     """
-    Builds a Tabulator table from the given object if possible.
+    Builds a Tabulator table from the given object. If no table can be built, returns None.
 
     If the object cannot be represented as a table, returns None.
 
@@ -158,6 +158,7 @@ def build_tabulator_table(
 
 
 def show_table(obj: Any) -> None:
+    """Utility function to display a Tabulator table in Jupyter, without overwriting `obj._html_repr_`."""
     table = build_tabulator_table(obj)
     if table is not None:
         display(HTML(table))

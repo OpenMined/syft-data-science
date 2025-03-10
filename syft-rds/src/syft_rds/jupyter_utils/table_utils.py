@@ -1,3 +1,4 @@
+import datetime
 from collections import defaultdict
 from collections.abc import Iterable
 from typing import Any, Dict, List, Mapping, Optional, Union
@@ -12,8 +13,10 @@ TABLE_INDEX_KEY = "_table_repr_index"
 TABLE_EXTRA_FIELDS = "__table_extra_fields__"
 TABLE_COL_WIDTHS = "__table_col_widths__"
 CUSTOM_ROW_REPR = "__table_row_repr__"
+DATETIME_FORMAT = "%Y-%m-%d %H:%M:%S"
 
 ID_FIELD = "uid"
+DATE_FIELD = "created_at"
 TYPE_FIELD = "type"
 MAPPING_KEY_FIELD = "key"
 RESERVED_COLUMNS = {ID_FIELD, TYPE_FIELD, MAPPING_KEY_FIELD, TABLE_INDEX_KEY}
@@ -93,6 +96,10 @@ def _create_table_rows(
         uid = getattr(item, ID_FIELD, None)
         if uid is not None:
             column_data[ID_FIELD].append(uid)
+
+        # Add date_created field if present
+        if hasattr(item, DATE_FIELD):
+            column_data[DATE_FIELD].append(getattr(item, DATE_FIELD))
 
         # Add type information for heterogeneous collections
         if not is_homogenous:
@@ -220,9 +227,14 @@ def format_uid(uid: UUID) -> str:
 
 
 def format_table_value(value: Any) -> str:
-    """Format a single cell value for display in a table."""
+    """
+    Format a single cell value for display in a table.
+    TODO add support for more complex types like components from PySyft.
+    """
     if isinstance(value, UUID):
         return format_uid(value)
+    elif isinstance(value, datetime.datetime):
+        return value.strftime(DATETIME_FORMAT)
     elif isinstance(value, dict):
         return format_dict(value)
     else:
