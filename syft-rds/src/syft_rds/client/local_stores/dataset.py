@@ -375,35 +375,6 @@ class DatasetSchemaManager:
         first_res: Dataset = queried_result[0]
         return self._schema_store.delete(first_res.uid)
 
-    def get_by_name(self, name: str) -> Dataset:
-        """
-        Get a dataset by name.
-
-        Args:
-            name: Name of the dataset to retrieve
-
-        Returns:
-            The dataset
-
-        Raises:
-            ValueError: If dataset not found or multiple datasets found
-        """
-        queried_result: list[Dataset] = self._schema_store.query(name=name)
-        if not queried_result:
-            raise ValueError(f"Dataset with name '{name}' not found")
-        if len(queried_result) > 1:
-            raise ValueError(f"Multiple datasets found with name '{name}'")
-        return queried_result[0]
-
-    def get_all(self) -> list[Dataset]:
-        """
-        Get all datasets.
-
-        Returns:
-            List of all datasets
-        """
-        return self._schema_store.list_all()
-
 
 class DatasetLocalStore(CRUDLocalStore[Dataset, DatasetCreate, DatasetUpdate]):
     """Local store for dataset operations."""
@@ -507,42 +478,33 @@ class DatasetLocalStore(CRUDLocalStore[Dataset, DatasetCreate, DatasetUpdate]):
             dataset_create.name, dataset_create.path
         )
 
-    def get_one(self, request: GetOneRequest) -> Dataset:
-        """Not implemented for Dataset."""
-        raise NotImplementedError("Not implemented for Dataset")
-
     def get_all(self, request: GetAllRequest) -> list[Dataset]:
         """
         Get all datasets.
 
         Args:
-            request: The get all request
+            request: The get all request object
 
         Returns:
             List of all datasets
         """
-        datasets: list[Dataset] = self._schema_manager.get_all()
-        return [
-            dataset._register_client_id_recursive(self.config.client_id)
-            for dataset in datasets
-        ]
+        return super().get_all(request)
 
     def update(self, item: DatasetUpdate) -> Dataset:
         """Not implemented for Dataset."""
         raise NotImplementedError("Not implemented for Dataset")
 
-    def get_by_name(self, name: str) -> Dataset:
+    def get(self, request: GetOneRequest) -> Dataset:
         """
-        Get a dataset by name.
+        Get a dataset based on name / id
 
         Args:
-            name: Name of the dataset to retrieve
+            request: The get one request object
 
         Returns:
             The dataset
         """
-        dataset: Dataset = self._schema_manager.get_by_name(name=name)
-        return dataset._register_client_id_recursive(self.config.client_id)
+        return super().get_one(request)
 
     def delete_by_name(self, name: str) -> bool:
         """

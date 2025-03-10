@@ -107,7 +107,7 @@ class RDSClient(RDSClientModule):
         return JobConfig(
             function_folder=user_code.path.parent,
             args=[user_code.path.name],
-            data_path=self.dataset.get(job.dataset_name).get_private_path(),
+            data_path=self.dataset.get(name=job.dataset_name).get_private_path(),
             runtime=runner_config.runtime,
             job_folder=runner_config.job_output_folder / job.uid.hex,
             timeout=runner_config.timeout,
@@ -132,7 +132,7 @@ class RDSClient(RDSClientModule):
 
     def run_mock(self, job: Job, config: Optional[JobConfig] = None) -> Job:
         config = config or self.get_default_config_for_job(job)
-        config.data_path = self.dataset.get(job.dataset_name).get_mock_path()
+        config.data_path = self.dataset.get(name=job.dataset_name).get_mock_path()
         self._run(config=config)
         return job
 
