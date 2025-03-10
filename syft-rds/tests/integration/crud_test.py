@@ -56,9 +56,9 @@ def test_job_crud_file_rpc(rds_no_sync_stack: RDSStack):
     assert job2 in all_jobs
 
     # partial update
-    job_update = JobUpdate(uid=job.uid, status=JobStatus.queued)
+    job_update = JobUpdate(uid=job.uid, status=JobStatus.rejected)
     job = do_rds_client.rpc.jobs.update(job_update)
-    assert job.status == JobStatus.queued
+    assert job.status == JobStatus.rejected
 
 
 def test_job_crud(ds_rds_client: RDSClient, do_rds_client: RDSClient):
@@ -97,9 +97,9 @@ def test_job_crud(ds_rds_client: RDSClient, do_rds_client: RDSClient):
         print(job)
 
     # partial update
-    job_update = JobUpdate(uid=job.uid, status=JobStatus.queued)
+    job_update = JobUpdate(uid=job.uid, status=JobStatus.rejected)
     job = do_rds_client.rpc.jobs.update(job_update)
-    assert job.status == JobStatus.queued
+    assert job.status == JobStatus.rejected
 
 
 def test_user_code_crud(ds_rds_client: RDSClient):
@@ -162,15 +162,14 @@ def test_runtime_crud(ds_rds_client: RDSClient):
 
 def test_apply_update(ds_rds_client: RDSClient):
     job = Job(
-        runtime="python",
         dataset_name="test",
         user_code_id=uuid4(),
     )
 
     # apply job update
-    job_update = JobUpdate(uid=job.uid, status=JobStatus.queued)
+    job_update = JobUpdate(uid=job.uid, status=JobStatus.rejected)
     job.apply(job_update)
-    assert job.status == JobStatus.queued
+    assert job.status == JobStatus.rejected
 
     # apply job model
     new_job = job.model_copy()
@@ -181,14 +180,13 @@ def test_apply_update(ds_rds_client: RDSClient):
     assert job.status == JobStatus.shared
 
     # Cannot apply update with different UID
-    other_job_update = JobUpdate(uid=uuid4(), status=JobStatus.queued)
+    other_job_update = JobUpdate(uid=uuid4(), status=JobStatus.rejected)
     with pytest.raises(ValueError) as e:
         job.apply(other_job_update)
     print(e.exconly())
 
     # Cannot apply job with different uid
     other_job = Job(
-        runtime="python",
         dataset_name="test",
         user_code_id=uuid4(),
     )
@@ -203,9 +201,9 @@ def test_apply_update(ds_rds_client: RDSClient):
     print(e.exconly())
 
     # Update in_place=False
-    job.status = JobStatus.queued
+    job.status = JobStatus.rejected
     job_update = JobUpdate(uid=job.uid, status=JobStatus.rejected)
     new_job = job.apply(job_update, in_place=False)
 
-    assert job.status == JobStatus.queued
+    assert job.status == JobStatus.rejected
     assert new_job.status == JobStatus.rejected

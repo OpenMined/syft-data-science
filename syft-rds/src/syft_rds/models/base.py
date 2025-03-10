@@ -1,13 +1,12 @@
 from abc import ABC
 from datetime import datetime, timezone
-from typing import Any, Generic, Optional, Self, Type, TypeVar, Union
+from typing import TYPE_CHECKING, Any, Generic, Optional, Self, Type, TypeVar, Union
 from uuid import UUID, uuid4
 
-from pydantic import BaseModel, Field, PrivateAttr
+from pydantic import BaseModel, Field
 from syft_core import Client as SyftBoxClient
 
 from syft_rds.models.formatter import PydanticFormatterMixin
-from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from syft_rds.client.rds_client import RDSClient
@@ -25,41 +24,37 @@ class BaseSchema(PydanticFormatterMixin, BaseModel, ABC):
     created_at: datetime = Field(default_factory=_utcnow)
     updated_at: datetime = Field(default_factory=_utcnow)
     client_id: UUID | None = None
-    
-    _syftbox_client = PrivateAttr(default=None)
 
     class Config:
         arbitrary_types_allowed: bool = True
 
-    _client_cache: dict[UUID, "BaseSchema"] = PrivateAttr(default_factory=dict)
-    
-    def register_client_id_recursively(self, client_id: UUID):
+    def register_client(self, client: "RDSClient") -> Self:
+        self._register_client_id_recursive(client.uid)
+        return self
+
+    def _register_client_id_recursive(self, client_id: UUID) -> Self:
         self.client_id = client_id
         for field in self.model_fields.keys():
             field_value = getattr(self, field)
             if isinstance(field_value, BaseSchema):
-                field_value.register_client_id_recursively(client_id)
+                field_value._register_client_id_recursive(client_id)
+        return self
+
+    @property
+    def _client(self) -> "RDSClient":
+        from syft_rds.client.client_registry import GlobalClientRegistry
+
+        if self.client_id is None:
+            raise ValueError("Client ID not set")
+        return GlobalClientRegistry.get_client(self.client_id)
+
+    @property
+    def _syftbox_client(self) -> SyftBoxClient:
+        return self._client._syftbox_client
 
     @classmethod
     def type_name(cls) -> str:
         return cls.__name__.lower()
-
-    def clear_cache(self):
-        self._client_cache.clear()
-
-    def reload_cache(self, client: Any) -> Self:
-        raise NotImplementedError
-
-    def with_client(self, client: SyftBoxClient):
-        self._syftbox_client = client
-        return self
-    
-    @property
-    def _client(self) -> "RDSClient":
-        from syft_rds.client.client_registry import GlobalClientRegistry
-        if self.client_id is None:
-            raise ValueError("Client ID not set")
-        return GlobalClientRegistry.get_client(self.client_id)
 
     def apply(
         self, other: Union[Self, "BaseSchemaUpdate[Self]"], in_place: bool = True
