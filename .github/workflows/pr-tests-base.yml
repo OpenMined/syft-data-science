@@ -5,15 +5,7 @@ on:
       test-type:
         description: "Type of tests to run"
         required: true
-        type: choice
-        options:
-          - test-unit
-          - test-e2e
-          - test-notebooks
-
-concurrency:
-  group: rds-${{ github.event_name == 'pull_request' && format('{0}-{1}', github.workflow, github.event.pull_request.number) || github.workflow_ref }}
-  cancel-in-progress: true
+        type: string
 
 jobs:
   tests:
@@ -59,6 +51,6 @@ jobs:
         with:
           just-version: "1.36.0"
 
-      - name: Run ${{ github.event.inputs.test-type }}
+      - name: Run ${{ inputs.test-type }}
         run: |
-          just ${{ github.event.inputs.test-type }}
+          just ${{ inputs.test-type }}
