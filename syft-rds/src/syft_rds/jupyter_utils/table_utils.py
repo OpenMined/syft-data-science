@@ -1,10 +1,12 @@
 from collections import defaultdict
 from collections.abc import Iterable
 from typing import Any, Dict, List, Mapping, Optional, Union
+from uuid import UUID
 
 from loguru import logger
 
 from syft_rds.jupyter_utils.icons import Icon
+from syft_rds.utils.sanitize import sanitize_html
 
 TABLE_INDEX_KEY = "_table_repr_index"
 TABLE_EXTRA_FIELDS = "__table_extra_fields__"
@@ -195,3 +197,43 @@ def prepare_table_data(
     }
 
     return table_data, table_metadata
+
+
+def format_dict(data: Any) -> str:
+    if not isinstance(data, dict):
+        return data
+
+    # is_component_dict = set(data.keys()) == {"type", "value"}
+    # if is_component_dict and "badge" in data["type"]:
+    #     return Badge(value=data["value"], badge_class=data["type"]).to_html()
+    # elif is_component_dict and "label" in data["type"]:
+    #     return Label(value=data["value"], label_class=data["type"]).to_html()
+    # if is_component_dict and "clipboard" in data["type"]:
+    #     return CopyButton(copy_text=data["value"]).to_html()
+
+    return sanitize_html(str(data))
+
+
+def format_uid(uid: UUID) -> str:
+    return str(uid)
+    # return CopyButton(copy_text=str(uid)).to_html()
+
+
+def format_table_value(value: Any) -> str:
+    """Format a single cell value for display in a table."""
+    if isinstance(value, UUID):
+        return format_uid(value)
+    elif isinstance(value, dict):
+        return format_dict(value)
+    else:
+        return sanitize_html(str(value).replace("\n", "<br>"))
+
+
+def format_table_data(table_data: list[dict[str, Any]]) -> list[dict[str, str]]:
+    formatted: list[dict[str, str]] = []
+    for row in table_data:
+        row_formatted: dict[str, str] = {}
+        for k, v in row.items():
+            row_formatted[k] = format_table_value(v)
+        formatted.append(row_formatted)
+    return formatted

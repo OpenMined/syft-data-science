@@ -2,17 +2,19 @@ import json
 import logging
 import re
 import secrets
-from typing import Any
-from uuid import UUID
+from typing import Any, Optional
 
 import jinja2
 from IPython.display import HTML, display
 
 # from syft_rds.jupyter_utils.components import Badge, CopyButton, Label
 from syft_rds.jupyter_utils.icons import Icon
-from syft_rds.jupyter_utils.table_utils import TABLE_INDEX_KEY, prepare_table_data
+from syft_rds.jupyter_utils.table_utils import (
+    TABLE_INDEX_KEY,
+    format_table_data,
+    prepare_table_data,
+)
 from syft_rds.utils.resources import load_css, load_js
-from syft_rds.utils.sanitize import sanitize_html
 
 logger = logging.getLogger(__name__)
 
@@ -65,50 +67,17 @@ def create_tabulator_columns(
     return columns, row_header
 
 
-def format_dict(data: Any) -> str:
-    if not isinstance(data, dict):
-        return data
-
-    # is_component_dict = set(data.keys()) == {"type", "value"}
-    # if is_component_dict and "badge" in data["type"]:
-    #     return Badge(value=data["value"], badge_class=data["type"]).to_html()
-    # elif is_component_dict and "label" in data["type"]:
-    #     return Label(value=data["value"], label_class=data["type"]).to_html()
-    # if is_component_dict and "clipboard" in data["type"]:
-    #     return CopyButton(copy_text=data["value"]).to_html()
-
-    return sanitize_html(str(data))
-
-
-def format_uid(uid: UUID) -> str:
-    return str(uid)
-    # return CopyButton(copy_text=str(uid)).to_html()
-
-
-def format_table_data(table_data: list[dict[str, Any]]) -> list[dict[str, str]]:
-    formatted: list[dict[str, str]] = []
-    for row in table_data:
-        row_formatted: dict[str, str] = {}
-        for k, v in row.items():
-            if isinstance(v, UUID):
-                v_formatted = format_uid(v)
-            elif isinstance(v, dict):
-                v_formatted = format_dict(v)
-            else:
-                v_formatted = sanitize_html(str(v).replace("\n", "<br>"))
-            row_formatted[k] = v_formatted
-        formatted.append(row_formatted)
-    return formatted
-
-
-def _render_tabulator_table(
-    uid: str,
+def _build_table_html(
     table_data: list[dict],
     table_metadata: dict,
-    max_height: int | None,
+    max_height: Optional[int],
     pagination: bool,
     header_sort: bool,
+    uid: Optional[str],
 ) -> str:
+    # UID is used to identify the table in the DOM
+    uid = uid if uid is not None else secrets.token_hex(8)
+
     table_template = jinja_env.get_template("table.jinja2")
     tabulator_js = load_js("tabulator.min.js")
     tabulator_css = load_css("tabulator_pysyft.min.css")
@@ -148,35 +117,6 @@ def _render_tabulator_table(
     return table_html
 
 
-def build_tabulator_table_with_data(
-    table_data: list[dict],
-    table_metadata: dict,
-    uid: str | None = None,
-    max_height: int | None = None,
-    pagination: bool = True,
-    header_sort: bool = True,
-) -> str:
-    """
-    Builds a Tabulator table for the provided data and metadata.
-
-    Args:
-        table_data (list[dict]): The data to populate the table.
-        table_metadata (dict): The metadata for the table.
-        uid (str, optional): The unique identifier for the table. Defaults to None.
-        max_height (int, optional): The maximum height of the table. Defaults to None.
-        pagination (bool, optional): Whether to enable pagination. Defaults to True.
-        header_sort (bool, optional): Whether to enable header sorting. Defaults to True.
-
-    Returns:
-        str: The HTML representation of the Tabulator table.
-
-    """
-    uid = uid if uid is not None else secrets.token_hex(4)
-    return _render_tabulator_table(
-        uid, table_data, table_metadata, max_height, pagination, header_sort
-    )
-
-
 def build_tabulator_table(
     obj: Any,
     uid: str | None = None,
@@ -207,8 +147,13 @@ def build_tabulator_table(
         else:
             return None
 
-    return build_tabulator_table_with_data(
-        table_data, table_metadata, uid, max_height, pagination, header_sort
+    return _build_table_html(
+        table_data=table_data,
+        table_metadata=table_metadata,
+        max_height=max_height,
+        pagination=pagination,
+        header_sort=header_sort,
+        uid=uid,
     )
 
 
