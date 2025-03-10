@@ -86,7 +86,16 @@ test-e2e: setup-test-env
     uv run pytest -sq --color=yes tests/e2e/*_test.py
 
 [group('test')]
+test-notebooks: setup-test-env
+    #!/bin/sh
+    cd syft-rds
+    echo "{{ _cyan }}Running notebook tests {{ _nc }}"
+
+    uv run --with "nbmake" pytest -sq --color=yes --nbmake ../notebooks/quickstart/full_flow.ipynb
+
+[group('test')]
 test:
     just test-unit
     just test-integration
     just test-e2e
+    just test-notebooks

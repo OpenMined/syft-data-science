@@ -1,0 +1,38 @@
+name: PR Tests - RDS
+on:
+  workflow_dispatch:
+
+  workflow_call:
+
+  pull_request:
+    branches:
+      - main
+
+concurrency:
+  group: rds-${{ github.event_name == 'pull_request' && format('{0}-{1}', github.workflow, github.event.pull_request.number) || github.workflow_ref }}
+  cancel-in-progress: true
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - uses: pre-commit/action@v3.0.1
+
+  call-pr-tests-unit:
+    uses: ./.github/workflows/pr-tests-base.yml
+    with:
+      test-type: test-unit
+
+  call-pr-tests-e2e:
+    uses: ./.github/workflows/pr-tests-base.yml
+    with:
+      test-type: test-e2e
+
+  call-pr-tests-notebooks:
+    uses: ./.github/workflows/pr-tests-base.yml
+    with:
+      test-type: test-notebooks
