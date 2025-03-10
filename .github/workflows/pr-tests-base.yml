@@ -5,11 +5,7 @@ on:
       test-type:
         description: "Type of tests to run"
         required: true
-        type: choice
-        options:
-          - test-unit
-          - test-e2e
-          - test-notebooks
+        type: string
 
 concurrency:
   group: rds-${{ github.event_name == 'pull_request' && format('{0}-{1}', github.workflow, github.event.pull_request.number) || github.workflow_ref }}
