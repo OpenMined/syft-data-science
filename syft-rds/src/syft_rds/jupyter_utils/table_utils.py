@@ -19,7 +19,13 @@ ID_FIELD = "uid"
 DATE_FIELD = "created_at"
 TYPE_FIELD = "type"
 MAPPING_KEY_FIELD = "key"
-RESERVED_COLUMNS = {ID_FIELD, TYPE_FIELD, MAPPING_KEY_FIELD, TABLE_INDEX_KEY}
+RESERVED_COLUMNS = {
+    ID_FIELD,
+    TYPE_FIELD,
+    MAPPING_KEY_FIELD,
+    TABLE_INDEX_KEY,
+    DATE_FIELD,
+}
 
 
 def _get_values_for_table_repr(obj: Any) -> list:
