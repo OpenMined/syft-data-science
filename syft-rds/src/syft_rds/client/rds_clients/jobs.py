@@ -14,20 +14,6 @@ from syft_rds.models.models import (
     UserCode,
 )
 
-# code = client.code.create(my_file)
-# client.jobs.create(
-#     name="My Job",
-#     code=code,
-#     dataset_name="my_dataset"
-# )
-
-# client.jobs.submit(
-#     code_file=my_file
-# )
-# RDSClientModule.rpc.for_type(Job) -> RPCClient[Job]
-# RDSClientModule.local_store.for_type(Job) -> LocalStore[Job]
-# RDSClientModule.rds.for_type(Job) -> RDSClientModule[Job]
-
 
 class JobRDSClient(RDSClientModule[Job]):
     SCHEMA = Job
