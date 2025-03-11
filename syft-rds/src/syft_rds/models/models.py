@@ -1,3 +1,4 @@
+import base64
 import enum
 import os
 from collections.abc import Iterable
@@ -6,7 +7,13 @@ from typing import Any, Generic, Literal, Optional, TypeVar
 from uuid import UUID
 
 from loguru import logger
-from pydantic import BaseModel, Field, field_validator, model_validator
+from pydantic import (
+    BaseModel,
+    Field,
+    field_serializer,
+    field_validator,
+    model_validator,
+)
 from syft_core import SyftBoxURL
 
 from syft_rds.models.base import BaseSchema, BaseSchemaCreate, BaseSchemaUpdate
@@ -23,14 +30,45 @@ class UserCode(BaseSchema):
     __schema_name__ = "usercode"
 
     name: str
-    path: Path
+    dir_url: SyftBoxURL | None = None
+    file_name: str
+
+    @property
+    def local_dir(self) -> Path:
+        if self.dir_url is None:
+            raise ValueError("dir_url is not set")
+        client = self._client
+        return self.dir_url.to_local_path(
+            datasites_path=client._syftbox_client.datasites
+        )
+
+    @property
+    def local_file(self) -> Path:
+        return self.local_dir / self.file_name
 
 
 class UserCodeCreate(BaseSchemaCreate[UserCode]):
     name: Optional[str] = None
-    files_zipped: bytes
+    files_zipped: bytes | None = None
+    # TODO add support for multiple files
+    file_name: str
 
-    @field_validator("files_zipped")
+    @field_serializer("files_zipped")
+    def serialize_to_str(self, v: bytes | None) -> str | None:
+        # Custom serialize for zipped binary data
+        if v is None:
+            return None
+        return base64.b64encode(v).decode()
+
+    @field_validator("files_zipped", mode="before")
+    @classmethod
+    def deserialize_from_str(cls, v):
+        # Custom deserialize for zipped binary data
+        if isinstance(v, str):
+            return base64.b64decode(v)
+        return v
+
+    @field_validator("files_zipped", mode="after")
     @classmethod
     def validate_code_size(cls, v: bytes) -> bytes:
         zip_size_mb = len(v) / 1024 / 1024

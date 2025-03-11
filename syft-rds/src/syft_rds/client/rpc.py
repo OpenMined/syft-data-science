@@ -170,10 +170,10 @@ class RPCClient(RPCClientModule):
             Dataset: self.dataset,
         }
 
-    def for_type(self, schema_type: Type[T]) -> CRUDRPCClient[Job]:
-        if schema_type not in self._type_map:
-            raise ValueError(f"No client registered for type {schema_type}")
-        return self._type_map[schema_type]
+    def for_type(self, type_: Type[BaseSchema]) -> CRUDRPCClient:
+        if type_ not in self._type_map:
+            raise ValueError(f"No client registered for type {type_}")
+        return self._type_map[type_]
 
     def health(self, expiry: Optional[Union[str, int]] = None) -> dict:
         response: SyftResponse = self._send("/health", body=None, expiry=expiry)
