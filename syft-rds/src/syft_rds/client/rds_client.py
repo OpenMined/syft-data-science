@@ -87,11 +87,16 @@ class RDSClient(RDSClientBase):
         self, config: RDSClientConfig, rpc_client: RPCClient, local_store: LocalStore
     ) -> None:
         super().__init__(config, rpc_client, local_store)
-        self.jobs = JobRDSClient(self.config, self.rpc, self.local_store)
+        self.jobs = JobRDSClient(self.config, self.rpc, self.local_store, parent=self)
+        self.dataset = DatasetRDSClient(
+            self.config, self.rpc, self.local_store, parent=self
+        )
+        self.user_code = UserCodeRDSClient(
+            self.config, self.rpc, self.local_store, parent=self
+        )
+
         # TODO implement and enable runtime client
         # self.runtime = RuntimeRDSClient(self.config, self.rpc, self.local_store)
-        self.dataset = DatasetRDSClient(self.config, self.rpc, self.local_store)
-        self.user_code = UserCodeRDSClient(self.config, self.rpc, self.local_store)
         self.uid = self.config.client_id
         GlobalClientRegistry.register_client(self.uid, self)
 
