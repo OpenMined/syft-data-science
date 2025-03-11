@@ -103,7 +103,7 @@ class JobRDSClient(RDSClientModule):
             )
         )
 
-    def share_results(self, job: Job) -> Path:
+    def share_results(self, job: Job) -> tuple[Path, Job]:
         job_output_folder = self.config.runner_config.job_output_folder / job.uid.hex
         output_path = self.local_store.jobs.share_result_files(job, job_output_folder)
         updated_job = self.rpc.jobs.update(
