@@ -1,6 +1,5 @@
 from pathlib import Path
-from typing import Any, Optional, Union
-from uuid import UUID
+from typing import Optional, Union
 
 from syft_rds.client.rds_clients.base import RDSClientModule
 from syft_rds.client.rds_clients.utils import ensure_is_admin
@@ -8,12 +7,12 @@ from syft_rds.models.models import (
     Dataset,
     DatasetCreate,
     DatasetUpdate,
-    GetAllRequest,
-    GetOneRequest,
 )
 
 
-class DatasetRDSClient(RDSClientModule):
+class DatasetRDSClient(RDSClientModule[Dataset]):
+    SCHEMA = Dataset
+
     @ensure_is_admin
     def create(
         self,
@@ -33,32 +32,6 @@ class DatasetRDSClient(RDSClientModule):
             tags=tags,
         )
         return self.local_store.dataset.create(dataset_create)
-
-    def get(self, uid: Optional[UUID] = None, **filters: Any) -> Dataset:
-        return self.local_store.dataset.get(
-            GetOneRequest(
-                uid=uid,
-                filters=filters,
-            )
-        )
-
-    def get_all(
-        self,
-        order_by: str = "created_at",
-        sort_order: str = "desc",
-        limit: Optional[int] = None,
-        offset: int = 0,
-        **filters: Any,
-    ) -> list[Dataset]:
-        return self.local_store.dataset.get_all(
-            GetAllRequest(
-                order_by=order_by,
-                sort_order=sort_order,
-                limit=limit,
-                offset=offset,
-                filters=filters,
-            )
-        )
 
     @ensure_is_admin
     def delete(self, name: str) -> bool:
