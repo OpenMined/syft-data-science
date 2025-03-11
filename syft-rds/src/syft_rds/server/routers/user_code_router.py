@@ -1,6 +1,3 @@
-from io import BytesIO
-from zipfile import ZipFile
-
 from syft_core import SyftBoxURL
 from syft_event import SyftEvents
 from syft_event.types import Request
@@ -15,15 +12,9 @@ from syft_rds.models.models import (
 from syft_rds.server.router import RPCRouter
 from syft_rds.server.user_file_service import UserFileService
 from syft_rds.store import RDSStore
+from syft_rds.utils.zip_utils import extract_zip
 
 user_code_router = RPCRouter()
-
-
-def _store_usercode_files(create_request: UserCodeCreate, user_code_dir: str) -> None:
-    zipped_bytes: bytes = create_request.files_zipped
-    # unzip in memory and write to user_code_dir
-    with ZipFile(BytesIO(zipped_bytes)) as z:
-        z.extractall(user_code_dir)
 
 
 @user_code_router.on_request("/create")
@@ -38,8 +29,10 @@ def create_user_code(
     user_code = create_request.to_item()
     user_code_dir = user_file_service.dir_for_item(user=user, item=user_code)
 
-    _store_usercode_files(create_request, user_code_dir)
-    user_code.files_url = SyftBoxURL.from_path(user_code_dir, app.client.workspace)
+    if create_request.files_zipped is not None:
+        extract_zip(create_request.files_zipped, user_code_dir)
+
+    user_code.dir_url = SyftBoxURL.from_path(user_code_dir, app.client.workspace)
 
     return user_code_store.create(user_code)
 

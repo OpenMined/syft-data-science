@@ -25,6 +25,7 @@ class UserCodeRDSClient(RDSClientModule[UserCode]):
         user_code_create = UserCodeCreate(
             name=name,
             files_zipped=files_zipped,
+            file_name=file_path.name,
         )
 
         user_code = self.rpc.user_code.create(user_code_create)

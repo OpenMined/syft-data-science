@@ -1,4 +1,4 @@
-from typing import TYPE_CHECKING, TypeVar
+from typing import TYPE_CHECKING, Type
 
 from syft_core import Client as SyftBoxClient
 
@@ -12,8 +12,6 @@ from syft_rds.models.models import Dataset, Job, Runtime, UserCode
 
 if TYPE_CHECKING:
     from syft_rds.client.rds_client import RDSClientConfig
-
-T = TypeVar("T", bound=BaseSchema)
 
 
 class LocalStore:
@@ -32,7 +30,7 @@ class LocalStore:
             Dataset: self.dataset,
         }
 
-    def for_type(self, type_: T) -> CRUDLocalStore[T]:
+    def for_type(self, type_: Type[BaseSchema]) -> CRUDLocalStore:
         if type_ not in self._type_map:
             raise ValueError(f"No local store found for type {type_}")
         return self._type_map[type_]
