@@ -68,13 +68,13 @@ setup-test-env:
 test-unit: setup-test-env
     #!/bin/sh
     cd syft-rds && echo "{{ _cyan }}Running unit tests {{ _nc }}"
-    uv run --with "pytest-xdist" pytest -sq --color=yes -n 4 tests/unit/
+    uv run --with "pytest-xdist" pytest -sq --color=yes -n auto tests/unit/
 
 [group('test')]
 test-integration: setup-test-env
     #!/bin/sh
     cd syft-rds && echo "{{ _cyan }}Running integration tests {{ _nc }}"
-    uv run --with "pytest-xdist" pytest -sq --color=yes -n 4 tests/integration/
+    uv run --with "pytest-xdist" pytest -sq --color=yes -n auto tests/integration/
 
 [group('test')]
 test-e2e: setup-test-env
@@ -83,7 +83,7 @@ test-e2e: setup-test-env
     cd syft-rds
     echo "{{ _cyan }}Running end-to-end tests {{ _nc }}"
     echo "Using SyftBox from {{ _green }}'$(which syftbox)'{{ _nc }}"
-    uv run --with "pytest-xdist" pytest -sq --color=yes -n 4 tests/e2e/
+    uv run --with "pytest-xdist" pytest -sq --color=yes -n auto tests/e2e/
 
 [group('test')]
 test-notebooks: setup-test-env
@@ -91,11 +91,15 @@ test-notebooks: setup-test-env
     cd syft-rds
     echo "{{ _cyan }}Running notebook tests {{ _nc }}"
 
-    uv run --with "nbmake" --with "pytest-xdist" pytest -sq --color=yes -n 4 --nbmake ../notebooks/quickstart/full_flow.ipynb
+    uv run --with "nbmake" --with "pytest-xdist" pytest -sq --color=yes -n auto --nbmake ../notebooks/quickstart/full_flow.ipynb
 
 [group('test')]
 test:
-    just test-unit
-    just test-integration
-    just test-e2e
-    just test-notebooks
+    #!/bin/sh
+    echo "{{ _cyan }}Running all tests in parallel{{ _nc }}"
+    just test-unit &
+    just test-integration &
+    just test-e2e &
+    just test-notebooks &
+    wait
+    echo "{{ _green }}All tests completed!{{ _nc }}"
