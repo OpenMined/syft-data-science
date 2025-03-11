@@ -6,7 +6,7 @@ from typing import Any, Generic, Literal, Optional, TypeVar
 from uuid import UUID
 
 from loguru import logger
-from pydantic import BaseModel, Field, model_validator
+from pydantic import BaseModel, Field, field_validator, model_validator
 from syft_core import SyftBoxURL
 
 from syft_rds.models.base import BaseSchema, BaseSchemaCreate, BaseSchemaUpdate
@@ -16,6 +16,7 @@ T = TypeVar("T", bound=BaseSchema)
 
 SYFT_RDS_DATA_DIR = "SYFT_RDS_DATA_DIR"
 SYFT_RDS_OUTPUT_DIR = "SYFT_RDS_OUTPUT_DIR"
+MAX_USERCODE_ZIP_SIZE = 1  # MB
 
 
 class UserCode(BaseSchema):
@@ -26,8 +27,18 @@ class UserCode(BaseSchema):
 
 
 class UserCodeCreate(BaseSchemaCreate[UserCode]):
-    name: str = "My UserCode"
-    path: Path
+    name: Optional[str] = None
+    files_zipped: bytes
+
+    @field_validator("files_zipped")
+    @classmethod
+    def validate_code_size(cls, v: bytes) -> bytes:
+        zip_size_mb = len(v) / 1024 / 1024
+        if zip_size_mb > MAX_USERCODE_ZIP_SIZE:
+            raise ValueError(
+                f"Provided files too large: {zip_size_mb:.2f}MB. Max size is {MAX_USERCODE_ZIP_SIZE}MB"
+            )
+        return v
 
 
 class UserCodeUpdate(BaseSchemaUpdate[UserCode]):
@@ -167,7 +178,7 @@ class Job(BaseSchema):
 
 
 class JobCreate(BaseSchemaCreate[Job]):
-    name: str = Field(default_factory=generate_name)
+    name: str | None = None
     description: str | None = None
     user_code_id: UUID
     tags: list[str] = Field(default_factory=list)

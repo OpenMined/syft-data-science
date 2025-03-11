@@ -5,6 +5,7 @@ from typing import (
     ClassVar,
     Generic,
     Optional,
+    Type,
     TypeVar,
     Union,
 )
@@ -144,29 +145,35 @@ class UserCodeRPCClient(CRUDRPCClient[UserCode, UserCodeCreate, UserCodeUpdate])
 class RPCClient(RPCClientModule):
     def __init__(self, config: "RDSClientConfig", connection: BlockingRPCConnection):
         super().__init__(config, connection)
-        post_object_receive_callback = partial(
+        callback = partial(
             register_client_id_on_object, client_id=self.config.client_id
         )
+
         self.jobs = JobRPCClient(
-            self.config,
-            self.connection,
-            post_response_callback=post_object_receive_callback,
+            self.config, self.connection, post_response_callback=callback
         )
         self.user_code = UserCodeRPCClient(
-            self.config,
-            self.connection,
-            post_response_callback=post_object_receive_callback,
+            self.config, self.connection, post_response_callback=callback
         )
         self.runtime = RuntimeRPCClient(
-            self.config,
-            self.connection,
-            post_response_callback=post_object_receive_callback,
+            self.config, self.connection, post_response_callback=callback
         )
         self.dataset = DatasetRPCClient(
-            self.config,
-            self.connection,
-            post_response_callback=post_object_receive_callback,
+            self.config, self.connection, post_response_callback=callback
         )
+
+        # Create lookup table for type-based access
+        self._type_map = {
+            Job: self.jobs,
+            UserCode: self.user_code,
+            Runtime: self.runtime,
+            Dataset: self.dataset,
+        }
+
+    def for_type(self, schema_type: Type[T]) -> CRUDRPCClient[Job]:
+        if schema_type not in self._type_map:
+            raise ValueError(f"No client registered for type {schema_type}")
+        return self._type_map[schema_type]
 
     def health(self, expiry: Optional[Union[str, int]] = None) -> dict:
         response: SyftResponse = self._send("/health", body=None, expiry=expiry)
