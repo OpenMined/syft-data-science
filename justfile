@@ -68,7 +68,7 @@ setup-test-env:
 test-unit: setup-test-env
     #!/bin/sh
     cd syft-rds && echo "{{ _cyan }}Running unit tests {{ _nc }}"
-    uv run --with "pytest-xdist" pytest -sq --color=yes -n 4 tests/unit/*_test.py
+    uv run --with "pytest-xdist" pytest -sq --color=yes -n 4 tests/unit/
 
 [group('test')]
 test-integration: setup-test-env
@@ -83,7 +83,7 @@ test-e2e: setup-test-env
     cd syft-rds
     echo "{{ _cyan }}Running end-to-end tests {{ _nc }}"
     echo "Using SyftBox from {{ _green }}'$(which syftbox)'{{ _nc }}"
-    uv run --with "pytest-xdist" pytest -sq --color=yes -n 4 tests/e2e/*_test.py
+    uv run --with "pytest-xdist" pytest -sq --color=yes -n 4 tests/e2e/
 
 [group('test')]
 test-notebooks: setup-test-env
