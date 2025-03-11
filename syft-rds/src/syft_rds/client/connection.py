@@ -10,11 +10,11 @@ from syft_event.deps import func_args_from_request
 from syft_rpc import SyftRequest, SyftResponse, rpc
 from syft_rpc.protocol import SyftMethod, SyftStatus
 from syft_rpc.rpc import BodyType
-from syft_core.permissions import (
-    PermissionType,
+from .syft_permission import (
     get_computed_permission,
     ComputedPermission,
 )
+from syftbox.lib.permissions import PermissionType
 
 
 class BlockingRPCConnection(ABC):
