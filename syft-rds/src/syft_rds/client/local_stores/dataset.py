@@ -379,7 +379,7 @@ class DatasetSchemaManager:
 class DatasetLocalStore(CRUDLocalStore[Dataset, DatasetCreate, DatasetUpdate]):
     """Local store for dataset operations."""
 
-    SCHEMA: Final[Type[Dataset]] = Dataset
+    ITEM_TYPE: Final[Type[Dataset]] = Dataset
 
     def __init__(self, config: "RDSClientConfig", syftbox_client: SyftBoxClient):
         """

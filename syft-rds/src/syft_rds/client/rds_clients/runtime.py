@@ -3,4 +3,4 @@ from syft_rds.models.models import Runtime
 
 
 class RuntimeRDSClient(RDSClientModule[Runtime]):
-    SCHEMA = Runtime
+    ITEM_TYPE = Runtime

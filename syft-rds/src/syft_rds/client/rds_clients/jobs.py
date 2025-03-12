@@ -16,7 +16,7 @@ from syft_rds.models.models import (
 
 
 class JobRDSClient(RDSClientModule[Job]):
-    SCHEMA = Job
+    ITEM_TYPE = Job
 
     def submit(
         self,

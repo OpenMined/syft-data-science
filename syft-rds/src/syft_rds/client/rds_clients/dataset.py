@@ -11,7 +11,7 @@ from syft_rds.models.models import (
 
 
 class DatasetRDSClient(RDSClientModule[Dataset]):
-    SCHEMA = Dataset
+    ITEM_TYPE = Dataset
 
     @ensure_is_admin
     def create(

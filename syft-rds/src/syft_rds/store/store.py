@@ -6,7 +6,7 @@ from uuid import UUID
 import yaml
 from syft_core import Client
 
-from syft_rds.models.base import BaseSchema
+from syft_rds.models.base import ItemBase
 
 PERMS = """
 - path: '**'
@@ -15,7 +15,7 @@ PERMS = """
   user: '*'
 """
 
-T = TypeVar("T", bound=BaseSchema)
+T = TypeVar("T", bound=ItemBase)
 
 
 def ensure_store_exists(func):
@@ -84,14 +84,14 @@ class YAMLFileSystemDatabase(Generic[T]):
 
         Args:
             schema: The Pydantic model class that defines the schema for stored records.
-                Must inherit from BaseSchema.
+                Must inherit from ItemBase.
             db_path: Directory path where the database files will be stored.
                     Can be string or Path object.
 
         Notes:
             - The database automatically creates the necessary directory structure
             - Each model type gets its own subdirectory based on __schema_name__
-            - Records must be instances of Pydantic models inheriting from BaseSchema
+            - Records must be instances of Pydantic models inheriting from ItemBase
             - All operations are file-system based for now (no in-memory caching)
             - Suitable for smaller datasets where simple CRUD operations are needed
             - Provides human-readable storage format

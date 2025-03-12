@@ -12,7 +12,7 @@ from syft_rpc import SyftResponse
 from syft_rpc.rpc import BodyType
 
 from syft_rds.client.connection import BlockingRPCConnection
-from syft_rds.models.base import BaseSchema, BaseSchemaCreate, BaseSchemaUpdate
+from syft_rds.models.base import ItemBase, ItemBaseCreate, ItemBaseUpdate
 from syft_rds.models.models import (
     Dataset,
     DatasetCreate,
@@ -35,9 +35,9 @@ if TYPE_CHECKING:
     from syft_rds.client.rds_client import RDSClientConfig
 
 
-T = TypeVar("T", bound=BaseSchema)
-CreateT = TypeVar("CreateT", bound=BaseSchemaCreate)
-UpdateT = TypeVar("UpdateT", bound=BaseSchemaUpdate)
+T = TypeVar("T", bound=ItemBase)
+CreateT = TypeVar("CreateT", bound=ItemBaseCreate)
+UpdateT = TypeVar("UpdateT", bound=ItemBaseUpdate)
 
 
 class RPCClientModule:
@@ -64,10 +64,10 @@ class RPCClientModule:
 
 class CRUDRPCClient(RPCClientModule, Generic[T, CreateT, UpdateT]):
     MODULE_NAME: ClassVar[str]
-    SCHEMA: ClassVar[type[T]]
+    ITEM_TYPE: ClassVar[type[T]]
 
     def register_client_id(self, item: T) -> T:
-        if isinstance(item, BaseSchema):
+        if isinstance(item, ItemBase):
             item._register_client_id_recursive(self.config.client_id)
         return item
 
@@ -75,49 +75,49 @@ class CRUDRPCClient(RPCClientModule, Generic[T, CreateT, UpdateT]):
         response = self._send(f"{self.MODULE_NAME}/create", item)
         response.raise_for_status()
 
-        res = response.model(self.SCHEMA)
+        res = response.model(self.ITEM_TYPE)
         return self.register_client_id(res)
 
     def get_one(self, request: GetOneRequest) -> T:
         response = self._send(f"{self.MODULE_NAME}/get_one", request)
         response.raise_for_status()
 
-        res = response.model(self.SCHEMA)
+        res = response.model(self.ITEM_TYPE)
         return self.register_client_id(res)
 
     def get_all(self, request: GetAllRequest) -> list[T]:
         response = self._send(f"{self.MODULE_NAME}/get_all", request)
         response.raise_for_status()
 
-        item_list = response.model(ItemList[self.SCHEMA])
+        item_list = response.model(ItemList[self.ITEM_TYPE])
         return [self.register_client_id(item) for item in item_list.items]
 
     def update(self, item: UpdateT) -> T:
         response = self._send(f"{self.MODULE_NAME}/update", item)
         response.raise_for_status()
 
-        res = response.model(self.SCHEMA)
+        res = response.model(self.ITEM_TYPE)
         return self.register_client_id(res)
 
 
 class DatasetRPCClient(CRUDRPCClient[Dataset, DatasetCreate, DatasetUpdate]):
     MODULE_NAME = "dataset"
-    SCHEMA = Dataset
+    ITEM_TYPE = Dataset
 
 
 class JobRPCClient(CRUDRPCClient[Job, JobCreate, JobUpdate]):
     MODULE_NAME = "job"
-    SCHEMA = Job
+    ITEM_TYPE = Job
 
 
 class RuntimeRPCClient(CRUDRPCClient[Runtime, RuntimeCreate, RuntimeUpdate]):
     MODULE_NAME = "runtime"
-    SCHEMA = Runtime
+    ITEM_TYPE = Runtime
 
 
 class UserCodeRPCClient(CRUDRPCClient[UserCode, UserCodeCreate, UserCodeUpdate]):
     MODULE_NAME = "user_code"
-    SCHEMA = UserCode
+    ITEM_TYPE = UserCode
 
 
 class RPCClient(RPCClientModule):
@@ -137,7 +137,7 @@ class RPCClient(RPCClientModule):
             Dataset: self.dataset,
         }
 
-    def for_type(self, type_: Type[BaseSchema]) -> CRUDRPCClient:
+    def for_type(self, type_: Type[ItemBase]) -> CRUDRPCClient:
         if type_ not in self._type_map:
             raise ValueError(f"No client registered for type {type_}")
         return self._type_map[type_]

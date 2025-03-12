@@ -7,7 +7,7 @@ from syft_rds.models.models import Job, JobCreate, JobUpdate
 
 
 class JobLocalStore(CRUDLocalStore[Job, JobCreate, JobUpdate]):
-    SCHEMA: Final[Type[Job]] = Job
+    ITEM_TYPE: Final[Type[Job]] = Job
 
     def share_result_files(self, job: Job, job_output_folder: Path) -> Path:
         """
