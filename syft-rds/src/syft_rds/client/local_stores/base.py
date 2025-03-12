@@ -4,6 +4,7 @@ from uuid import UUID
 from pydantic import TypeAdapter
 from syft_core import Client as SyftBoxClient
 
+from syft_rds.jupyter_utils.types import TableList
 from syft_rds.models.base import BaseSchema, BaseSchemaCreate, BaseSchemaUpdate
 from syft_rds.models.models import (
     GetAllRequest,
@@ -131,4 +132,4 @@ class CRUDLocalStore(Generic[T, CreateT, UpdateT]):
             items = items[: request.limit]
 
         items = [self.register_client_id(item) for item in items]
-        return items
+        return TableList(items)

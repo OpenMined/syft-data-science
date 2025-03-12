@@ -1,4 +1,5 @@
 from pathlib import Path
+
 import pytest
 from syft_rds.client.rds_client import RDSClient
 from syft_rds.models.models import GetAllRequest, JobStatus
@@ -8,7 +9,7 @@ from syft_runtime import (
     JobConfig,
     RichConsoleUI,
 )
-from tests.conftest import DS_PATH, DO_OUTPUT_PATH, PRIVATE_DATA_PATH
+from tests.conftest import DO_OUTPUT_PATH, DS_PATH, PRIVATE_DATA_PATH
 
 
 @pytest.mark.parametrize(
@@ -43,14 +44,15 @@ def test_job_execution(
 
     # Runner side
     user_code = do_rds_client.user_code.get(job.user_code_id)
+    assert user_code.local_dir.is_dir() and user_code.local_file.is_file()
     config = JobConfig(
         # we use the parent directory of the user code path as the function folder
         # and the name of the user code file as the args.
         # the following commands are equivalent to each other:
         # $ cd dir && python main.py
         # $ cd job.user_code.path.parent && job.runtime job.user_code.path.name
-        function_folder=user_code.path.parent,
-        args=[user_code.path.name],
+        function_folder=user_code.local_dir,
+        args=[user_code.file_name],
         data_path=PRIVATE_DATA_PATH,
         runtime=runtime,
         job_folder=DO_OUTPUT_PATH / str(job.name),

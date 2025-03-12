@@ -1,18 +1,20 @@
 from pathlib import Path
 from typing import Optional
-from loguru import logger
 
+from loguru import logger
 from syft_core import Client as SyftBoxClient
 from syft_event import SyftEvents
-from syft_rds.client.client_registry import GlobalClientRegistry
 from syft_runtime.main import DockerRunner, FileOutputHandler, JobConfig, RichConsoleUI
 
+from syft_rds.client.client_registry import GlobalClientRegistry
 from syft_rds.client.connection import get_connection
 from syft_rds.client.local_store import LocalStore
-from syft_rds.client.rds_clients.base import RDSClientConfig, RDSClientModule
+from syft_rds.client.rds_clients.base import (
+    RDSClientBase,
+    RDSClientConfig,
+)
 from syft_rds.client.rds_clients.dataset import DatasetRDSClient
 from syft_rds.client.rds_clients.jobs import JobRDSClient
-from syft_rds.client.rds_clients.runtime import RuntimeRDSClient
 from syft_rds.client.rds_clients.user_code import UserCodeRDSClient
 from syft_rds.client.rpc import RPCClient
 from syft_rds.client.utils import PathLike
@@ -80,15 +82,21 @@ def init_session(
     return RDSClient(config, rpc_client, local_store)
 
 
-class RDSClient(RDSClientModule):
+class RDSClient(RDSClientBase):
     def __init__(
         self, config: RDSClientConfig, rpc_client: RPCClient, local_store: LocalStore
     ) -> None:
         super().__init__(config, rpc_client, local_store)
-        self.jobs = JobRDSClient(self.config, self.rpc, self.local_store)
-        self.runtime = RuntimeRDSClient(self.config, self.rpc, self.local_store)
-        self.dataset = DatasetRDSClient(self.config, self.rpc, self.local_store)
-        self.user_code = UserCodeRDSClient(self.config, self.rpc, self.local_store)
+        self.jobs = JobRDSClient(self.config, self.rpc, self.local_store, parent=self)
+        self.dataset = DatasetRDSClient(
+            self.config, self.rpc, self.local_store, parent=self
+        )
+        self.user_code = UserCodeRDSClient(
+            self.config, self.rpc, self.local_store, parent=self
+        )
+
+        # TODO implement and enable runtime client
+        # self.runtime = RuntimeRDSClient(self.config, self.rpc, self.local_store)
         self.uid = self.config.client_id
         GlobalClientRegistry.register_client(self.uid, self)
 
@@ -105,8 +113,8 @@ class RDSClient(RDSClientModule):
         user_code = self.user_code.get(job.user_code_id)
         runner_config = self.config.runner_config
         return JobConfig(
-            function_folder=user_code.path.parent,
-            args=[user_code.path.name],
+            function_folder=user_code.local_dir,
+            args=[user_code.file_name],
             data_path=self.dataset.get(name=job.dataset_name).get_private_path(),
             runtime=runner_config.runtime,
             job_folder=runner_config.job_output_folder / job.uid.hex,
