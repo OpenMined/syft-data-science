@@ -10,7 +10,7 @@ from syft_rds.utils.zip_utils import zip_to_bytes
 
 
 class UserCodeRDSClient(RDSClientModule[UserCode]):
-    SCHEMA = UserCode
+    ITEM_TYPE = UserCode
 
     def create(
         self,

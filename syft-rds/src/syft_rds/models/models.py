@@ -16,17 +16,17 @@ from pydantic import (
 )
 from syft_core import SyftBoxURL
 
-from syft_rds.models.base import BaseSchema, BaseSchemaCreate, BaseSchemaUpdate
+from syft_rds.models.base import ItemBase, ItemBaseCreate, ItemBaseUpdate
 from syft_rds.utils.name_generator import generate_name
 
-T = TypeVar("T", bound=BaseSchema)
+T = TypeVar("T", bound=ItemBase)
 
 SYFT_RDS_DATA_DIR = "SYFT_RDS_DATA_DIR"
 SYFT_RDS_OUTPUT_DIR = "SYFT_RDS_OUTPUT_DIR"
 MAX_USERCODE_ZIP_SIZE = 1  # MB
 
 
-class UserCode(BaseSchema):
+class UserCode(ItemBase):
     __schema_name__ = "usercode"
 
     name: str
@@ -47,7 +47,7 @@ class UserCode(BaseSchema):
         return self.local_dir / self.file_name
 
 
-class UserCodeCreate(BaseSchemaCreate[UserCode]):
+class UserCodeCreate(ItemBaseCreate[UserCode]):
     name: Optional[str] = None
     files_zipped: bytes | None = None
     # TODO add support for multiple files
@@ -79,7 +79,7 @@ class UserCodeCreate(BaseSchemaCreate[UserCode]):
         return v
 
 
-class UserCodeUpdate(BaseSchemaUpdate[UserCode]):
+class UserCodeUpdate(ItemBaseUpdate[UserCode]):
     pass
 
 
@@ -108,7 +108,7 @@ class JobStatus(str, enum.Enum):
     shared = "shared"  # shared with the user
 
 
-class Job(BaseSchema):
+class Job(ItemBase):
     __schema_name__ = "job"
     __table_extra_fields__ = [
         "name",
@@ -215,7 +215,7 @@ class Job(BaseSchema):
         return self
 
 
-class JobCreate(BaseSchemaCreate[Job]):
+class JobCreate(ItemBaseCreate[Job]):
     name: str | None = None
     description: str | None = None
     user_code_id: UUID
@@ -223,13 +223,13 @@ class JobCreate(BaseSchemaCreate[Job]):
     dataset_name: str
 
 
-class JobUpdate(BaseSchemaUpdate[Job]):
+class JobUpdate(ItemBaseUpdate[Job]):
     status: Optional[JobStatus] = None
     error: Optional[JobErrorKind] = None
     error_message: Optional[str] = None
 
 
-class Runtime(BaseSchema):
+class Runtime(ItemBase):
     __schema_name__ = "runtime"
 
     name: str
@@ -237,17 +237,17 @@ class Runtime(BaseSchema):
     tags: list[str] = Field(default_factory=list)
 
 
-class RuntimeCreate(BaseSchemaCreate[Runtime]):
+class RuntimeCreate(ItemBaseCreate[Runtime]):
     name: str
     description: str
     tags: list[str] = Field(default_factory=list)
 
 
-class RuntimeUpdate(BaseSchemaUpdate[Runtime]):
+class RuntimeUpdate(ItemBaseUpdate[Runtime]):
     pass
 
 
-class Dataset(BaseSchema):
+class Dataset(ItemBase):
     __schema_name__ = "dataset"
 
     name: str = Field(description="Name of the dataset.")
@@ -340,7 +340,7 @@ class Dataset(BaseSchema):
         )
 
 
-class DatasetCreate(BaseSchemaCreate[Dataset]):
+class DatasetCreate(ItemBaseCreate[Dataset]):
     name: str = Field(description="Name of the dataset.")
     path: str = Field(description="Private path of the dataset.")
     mock_path: str = Field(description="Mock path of the dataset.")
@@ -351,7 +351,7 @@ class DatasetCreate(BaseSchemaCreate[Dataset]):
     tags: list[str] | None = Field(description="Tags for the dataset.")
 
 
-class DatasetUpdate(BaseSchemaUpdate[Dataset]):
+class DatasetUpdate(ItemBaseUpdate[Dataset]):
     pass
 
 

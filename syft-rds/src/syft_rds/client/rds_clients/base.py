@@ -55,7 +55,7 @@ class RDSClientBase:
 
 
 class RDSClientModule(RDSClientBase, Generic[T]):
-    SCHEMA: ClassVar[Type[T]]
+    ITEM_TYPE: ClassVar[Type[T]]
 
     def __init__(
         self,
@@ -85,7 +85,7 @@ class RDSClientModule(RDSClientBase, Generic[T]):
         offset: int = 0,
         **filters: Any,
     ) -> list[Job]:
-        store = self.local_store.for_type(self.SCHEMA)
+        store = self.local_store.for_type(self.ITEM_TYPE)
         return store.get_all(
             GetAllRequest(
                 order_by=order_by,
@@ -97,7 +97,7 @@ class RDSClientModule(RDSClientBase, Generic[T]):
         )
 
     def get(self, uid: Optional[UUID] = None, **filters: Any) -> T:
-        store = self.local_store.for_type(self.SCHEMA)
+        store = self.local_store.for_type(self.ITEM_TYPE)
         return store.get_one(
             GetOneRequest(
                 uid=uid,

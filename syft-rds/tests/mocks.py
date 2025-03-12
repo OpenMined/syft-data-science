@@ -1,7 +1,7 @@
-from syft_rds.models.base import BaseSchema
+from syft_rds.models.base import ItemBase
 
 
-class MockUserSchema(BaseSchema):
+class MockUserSchema(ItemBase):
     __schema_name__ = "user"
 
     name: str

@@ -5,7 +5,7 @@ from pydantic import TypeAdapter
 from syft_core import Client as SyftBoxClient
 
 from syft_rds.jupyter_utils.types import TableList
-from syft_rds.models.base import BaseSchema, BaseSchemaCreate, BaseSchemaUpdate
+from syft_rds.models.base import ItemBase, ItemBaseCreate, ItemBaseUpdate
 from syft_rds.models.models import (
     GetAllRequest,
     GetOneRequest,
@@ -15,26 +15,26 @@ from syft_rds.store import RDSStore
 if TYPE_CHECKING:
     from syft_rds.client.rds_client import RDSClientConfig
 
-T = TypeVar("T", bound=BaseSchema)
-CreateT = TypeVar("CreateT", bound=BaseSchemaCreate)
-UpdateT = TypeVar("UpdateT", bound=BaseSchemaUpdate)
+T = TypeVar("T", bound=ItemBase)
+CreateT = TypeVar("CreateT", bound=ItemBaseCreate)
+UpdateT = TypeVar("UpdateT", bound=ItemBaseUpdate)
 
 
 class CRUDLocalStore(Generic[T, CreateT, UpdateT]):
-    SCHEMA: ClassVar[Type[T]]
+    ITEM_TYPE: ClassVar[Type[T]]
 
     def __init__(
         self,
         config: "RDSClientConfig",
         syftbox_client: SyftBoxClient,
     ):
-        if not hasattr(self, "SCHEMA"):
-            raise ValueError(f"{self.__class__.__name__} must define a SCHEMA.")
+        if not hasattr(self, "ITEM_TYPE"):
+            raise ValueError(f"{self.__class__.__name__} must define a ITEM_TYPE.")
 
         self.config = config
         self.syftbox_client = syftbox_client
         self.store = RDSStore(
-            schema=self.SCHEMA,
+            schema=self.ITEM_TYPE,
             client=self.syftbox_client,
             datasite=self.config.host,
         )
@@ -48,7 +48,7 @@ class CRUDLocalStore(Generic[T, CreateT, UpdateT]):
         """
         return {
             field_name: TypeAdapter(field_info.annotation)
-            for field_name, field_info in self.SCHEMA.model_fields.items()
+            for field_name, field_info in self.ITEM_TYPE.model_fields.items()
         }
 
     def _coerce_field_types(self, filters: dict) -> dict:
@@ -77,7 +77,7 @@ class CRUDLocalStore(Generic[T, CreateT, UpdateT]):
         return resolved_filters
 
     def register_client_id(self, item: T) -> T:
-        if isinstance(item, BaseSchema):
+        if isinstance(item, ItemBase):
             item._register_client_id_recursive(self.config.client_id)
         return item
 
@@ -90,7 +90,7 @@ class CRUDLocalStore(Generic[T, CreateT, UpdateT]):
     def get_by_uid(self, uid: str | UUID) -> T:
         res = self.store.read(uid)
         if res is None:
-            raise ValueError(f"No {self.SCHEMA.__name__} found with uid {uid}")
+            raise ValueError(f"No {self.ITEM_TYPE.__name__} found with uid {uid}")
         return self.register_client_id(res)
 
     def get_one(self, request: GetOneRequest) -> T:
@@ -109,7 +109,7 @@ class CRUDLocalStore(Generic[T, CreateT, UpdateT]):
                 [f"{k}={v}" for k, v in request.filters.items()]
             )
             raise ValueError(
-                f"No {self.SCHEMA.__name__} found with filters {filters_formatted}"
+                f"No {self.ITEM_TYPE.__name__} found with filters {filters_formatted}"
             )
         return res[0]
 
