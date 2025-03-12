@@ -14,12 +14,6 @@ class PydanticFormatter(ABC):
     @abstractmethod
     def format_repr(self, model: BaseModel) -> str: ...
 
-    def format_html(self, model: BaseModel) -> str:
-        return None  # type: ignore
-
-    def format_markdown(self, model: BaseModel) -> str:
-        return None  # type: ignore
-
 
 class DefaultPydanticFormatter(PydanticFormatter):
     """Use the default __str__ and __repr__ methods of Pydantic BaseModel"""
