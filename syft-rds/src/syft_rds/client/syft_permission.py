@@ -13,7 +13,7 @@ def get_computed_permission(
     snapshot_folder = client.workspace.datasites
     # validate the paths
 
-    path = RelativePath(path.relative_to(snapshot_folder))
+    path = RelativePath(path)
     snapshot_folder = AbsolutePath(snapshot_folder)
 
     # get all the rules

@@ -5,9 +5,10 @@ from syft_rds.models.base import BaseSchema
 
 USER_FILES_DIR = "user_files"
 USER_FILES_PERMISSION = """
-- permission: read
-  path: {useremail}/**
-  user: *
+- path: '**'
+  permissions:
+  - read
+  user: '*'
 """
 
 

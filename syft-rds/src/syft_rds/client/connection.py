@@ -2,7 +2,6 @@ from abc import ABC, abstractmethod
 from datetime import datetime, timezone
 from typing import Optional
 
-from loguru import logger
 from syft_core import Client as SyftBoxClient
 from syft_core import SyftBoxURL
 from syft_event import SyftEvents
@@ -15,6 +14,7 @@ from .syft_permission import (
     ComputedPermission,
 )
 from syftbox.lib.permissions import PermissionType
+from syftbox.lib.exceptions import SyftBoxException
 
 
 class BlockingRPCConnection(ABC):
@@ -71,7 +71,7 @@ class FileSyncRPCConnection(BlockingRPCConnection):
 
 def check_permission(
     client: SyftBoxClient,
-    url: str,
+    path: str,
     permission: PermissionType,
 ) -> bool:
     """
@@ -80,18 +80,16 @@ def check_permission(
     but for now we will just log a warning.
     """
 
-    syft_url = SyftBoxURL(url)
-    sender_local_path = syft_url.to_local_path(client.workspace.datasites)
+    relative_path = path.relative_to(client.workspace.datasites)
     sender_permission: ComputedPermission = get_computed_permission(
-        client=client, path=sender_local_path
+        client=client, path=relative_path
     )
     has_permission = sender_permission.has_permission(permission)
     if not has_permission:
-        # TODO: implement proper permissions for rpc and raise an error
-        logger.warning(
-            f"User {client.email} does not have {permission} permission for {url}. "
-            "But we will send the request anyway."
+        raise SyftBoxException(
+            f"User {client.email} does not have {permission} permission for {path}"
         )
+
     return has_permission
 
 
@@ -101,6 +99,7 @@ class MockRPCConnection(BlockingRPCConnection):
 
     def __init__(self, sender_client: SyftBoxClient, app: SyftEvents):
         self.app = app
+        self.app.init()
         super().__init__(sender_client)
 
     @property
@@ -159,9 +158,14 @@ class MockRPCConnection(BlockingRPCConnection):
         syft_request = self._build_request(url, body, headers, expiry)
         syft_url = SyftBoxURL(url)
 
-        check_permission(self.sender_client, url, PermissionType.WRITE)
+        req_path = (
+            syft_url.to_local_path(self.sender_client.workspace.datasites)
+            / f"{syft_request.id}.request"
+        )
 
-        check_permission(self.receiver_client, url, PermissionType.READ)
+        check_permission(self.sender_client, req_path, PermissionType.WRITE)
+
+        check_permission(self.receiver_client, req_path, PermissionType.READ)
 
         receiver_local_path = syft_url.to_local_path(
             self.receiver_client.workspace.datasites
