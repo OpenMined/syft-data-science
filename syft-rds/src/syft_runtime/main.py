@@ -1,4 +1,3 @@
-import enum
 import os
 import subprocess
 import time
@@ -20,10 +19,9 @@ JUPYTER_AVAILABLE = True
 DEFAULT_OUTPUT_DIR = "/output"
 
 
-class CodeRuntime(str, enum.Enum):
-    python = "python"
-    bash = "bash"
-    sql = "sql"
+class CodeRuntime(BaseModel):
+    cmd: str
+    image_name: str | None = None
 
 
 class JobConfig(BaseModel):
@@ -32,7 +30,7 @@ class JobConfig(BaseModel):
     function_folder: Path
     args: list[str]
     data_path: Path
-    runtime: CodeRuntime = CodeRuntime.python
+    runner_args: list[str] = Field(default_factory=lambda: ["python"])
     job_folder: Optional[Path] = Field(
         default_factory=lambda: Path("jobs") / datetime.now().strftime("%Y%m%d_%H%M%S")
     )
@@ -126,7 +124,7 @@ class RichConsoleUI(JobOutputHandler):
                 "\n".join(
                     [
                         "[bold green]Starting job[/]",
-                        f"[bold white]Execution:[/] [cyan]{config.runtime.value} {' '.join(config.args)}[/]",
+                        f"[bold white]Execution:[/] [cyan]{' '.join(config.runner_args)} {' '.join(config.args)}[/]",
                         f"[bold white]Dataset Dir.:[/]  [cyan]{limit_path_depth(config.data_path)}[/]",
                         f"[bold white]Output Dir.:[/]   [cyan]{limit_path_depth(config.output_dir)}[/]",
                         f"[bold white]Timeout:[/]  [cyan]{config.timeout}s[/]",
@@ -272,7 +270,7 @@ class DockerRunner:
             # For direct Python execution, build a command that runs Python directly
             # Assuming the first arg is the Python script to run
             return [
-                config.runtime.value,
+                *config.runner_args,
                 str(Path(config.function_folder) / config.args[0]),
                 *config.args[1:],
             ]
@@ -319,7 +317,8 @@ class DockerRunner:
             "-e",
             f"OUTPUT_DIR={DEFAULT_OUTPUT_DIR}",
             *docker_mounts,
-            f"syft_{config.runtime.value}_runtime",
+            "syft_python_runtime",
+            *config.runner_args,
             *config.args,
         ]
 
@@ -328,7 +327,7 @@ class DockerRunner:
         if not config.use_docker:
             return True  # Skip Docker validation when not using Docker
 
-        image_name = f"syft_{config.runtime.value}_runtime"
+        image_name = "syft_python_runtime"
         # Check Docker daemon availability
         subprocess.run(["docker", "info"], check=True, capture_output=True)
 
@@ -341,10 +340,7 @@ class DockerRunner:
                 text=True,
             )
             if result.returncode != 0:
-                raise RuntimeError(
-                    f"Docker image '{image_name}' not found. Please build the image using the `just build-runtime {config.runtime.value}` command."
-                    f"\n\n{result.stderr}"
-                )
+                raise RuntimeError(f"\n\n{result.stderr}")
             return True
         except FileNotFoundError:
             raise RuntimeError("Docker not installed or not in PATH")

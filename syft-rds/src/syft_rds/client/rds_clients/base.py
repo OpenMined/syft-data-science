@@ -5,10 +5,11 @@ from syft_core import Client as SyftBoxClient
 
 from syft_rds.client.local_store import LocalStore
 from syft_rds.client.rpc import RPCClient
+from syft_runtime.main import CodeRuntime
 
 
 class ClientRunnerConfig(BaseModel):
-    runtime: str = "python"
+    runtime: CodeRuntime = CodeRuntime(cmd="python")
     timeout: int = 60
     use_docker: bool = False
     job_output_folder: Path = Field(default_factory=lambda: Path("/tmp/syft-rds-jobs"))
