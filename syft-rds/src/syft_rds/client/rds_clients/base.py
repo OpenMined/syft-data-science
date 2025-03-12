@@ -1,5 +1,5 @@
 from pathlib import Path
-from typing import Any, ClassVar, Generic, Optional, Type
+from typing import TYPE_CHECKING, Any, ClassVar, Generic, Optional, Type
 from uuid import UUID, uuid4
 
 from pydantic import BaseModel, Field
@@ -8,6 +8,9 @@ from syft_core import Client as SyftBoxClient
 from syft_rds.client.local_store import LocalStore
 from syft_rds.client.rpc import RPCClient, T
 from syft_rds.models.models import GetAllRequest, GetOneRequest, Job
+
+if TYPE_CHECKING:
+    from syft_rds.client.rds_client import RDSClient
 
 
 class ClientRunnerConfig(BaseModel):
@@ -53,6 +56,26 @@ class RDSClientBase:
 
 class RDSClientModule(RDSClientBase, Generic[T]):
     SCHEMA: ClassVar[Type[T]]
+
+    def __init__(
+        self,
+        config: RDSClientConfig,
+        rpc_client: RPCClient,
+        local_store: LocalStore,
+        parent: "Optional[RDSClient]" = None,
+    ) -> None:
+        """
+        NOTE `parent` is used to access other client modules from the current module.
+        for example: in the Job client, we can access the Dataset client using `self.rds.dataset`
+        """
+        super().__init__(config, rpc_client, local_store)
+        self.parent = parent
+
+    @property
+    def rds(self) -> "RDSClient":
+        if self.parent is None:
+            raise ValueError("Parent client not set")
+        return self.parent
 
     def get_all(
         self,

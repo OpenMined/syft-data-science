@@ -1,5 +1,4 @@
 from datetime import datetime
-from pathlib import Path
 from uuid import UUID, uuid4
 
 import pytest
@@ -106,8 +105,7 @@ def test_job_crud(ds_rds_client: RDSClient, do_rds_client: RDSClient):
 def test_user_code_crud(ds_rds_client: RDSClient):
     user_code_create = UserCodeCreate(
         name="Test UserCode",
-        path=Path("~/test.py"),
-        dataset_id=uuid4(),
+        file_name="test.py",
     )
     user_code = ds_rds_client.rpc.user_code.create(user_code_create)
     assert user_code.name == "Test UserCode"
@@ -120,8 +118,7 @@ def test_user_code_crud(ds_rds_client: RDSClient):
     # Insert second, get all
     code2_create = UserCodeCreate(
         name="Test UserCode 2",
-        path=Path("~/test2.py"),
-        dataset_id=uuid4(),
+        file_name="test2.py",
     )
     code2 = ds_rds_client.rpc.user_code.create(code2_create)
 
