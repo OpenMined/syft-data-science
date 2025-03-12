@@ -17,6 +17,8 @@ _cyan := '\033[1;36m'
 _green := '\033[1;32m'
 _yellow := '\033[1;33m'
 _nc := '\033[0m'
+_test_workers := env_var_or_default('TEST_WORKERS', 'auto')
+_test_verbosity := env_var_or_default('TEST_VERBOSE', 'sq')
 
 # ---------------------------------------------------------------------------------------------------------------------
 # Aliases
@@ -62,19 +64,19 @@ build-all-runtimes:
 [group('test')]
 setup-test-env:
     #!/bin/sh
-    cd syft-rds && uv sync --frozen && . .venv/bin/activate
+    cd syft-rds && uv sync --frozen --cache-dir=.uv-cache && . .venv/bin/activate
 
 [group('test')]
 test-unit: setup-test-env
     #!/bin/sh
     cd syft-rds && echo "{{ _cyan }}Running unit tests {{ _nc }}"
-    uv run --with "pytest-xdist" pytest -sq --color=yes -n auto tests/unit/
+    uv run --with "pytest-xdist" pytest -{{ _test_verbosity }} --color=yes -n {{ _test_workers }} tests/unit/
 
 [group('test')]
 test-integration: setup-test-env
     #!/bin/sh
     cd syft-rds && echo "{{ _cyan }}Running integration tests {{ _nc }}"
-    uv run --with "pytest-xdist" pytest -sq --color=yes -n auto tests/integration/
+    uv run --with "pytest-xdist" pytest -{{ _test_verbosity }} --color=yes -n {{ _test_workers }} tests/integration/
 
 [group('test')]
 test-e2e: setup-test-env
@@ -83,7 +85,7 @@ test-e2e: setup-test-env
     cd syft-rds
     echo "{{ _cyan }}Running end-to-end tests {{ _nc }}"
     echo "Using SyftBox from {{ _green }}'$(which syftbox)'{{ _nc }}"
-    uv run --with "pytest-xdist" pytest -sq --color=yes -n auto tests/e2e/
+    uv run --with "pytest-xdist" pytest -{{ _test_verbosity }} --color=yes -n {{ _test_workers }} tests/e2e/
 
 [group('test')]
 test-notebooks: setup-test-env
@@ -91,10 +93,10 @@ test-notebooks: setup-test-env
     cd syft-rds
     echo "{{ _cyan }}Running notebook tests {{ _nc }}"
 
-    uv run --with "nbmake" --with "pytest-xdist" pytest -sq --color=yes -n auto --nbmake ../notebooks/quickstart/full_flow.ipynb
+    uv run --with "nbmake" --with "pytest-xdist" pytest -{{ _test_verbosity }} --color=yes -n {{ _test_workers }} --nbmake ../notebooks/quickstart/full_flow.ipynb
 
 [group('test')]
-test:
+test: setup-test-env
     #!/bin/sh
     echo "{{ _cyan }}Running all tests in parallel{{ _nc }}"
     just test-unit &

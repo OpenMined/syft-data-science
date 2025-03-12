@@ -274,7 +274,10 @@ class Dataset(ItemBase):
             datasites_path=self._syftbox_client.datasites
         )
         if not private_path.exists():
-            raise FileNotFoundError(f"Private data not found at {private_path}")
+            raise FileNotFoundError(
+                f"Private data not found at {private_path}. "
+                f"Probably you don't have admin permission to the dataset."
+            )
         return private_path
 
     def get_readme_path(self) -> Path:
