@@ -88,4 +88,4 @@ async def test_e2e_full_flow(e2e_context: E2EContext):
     await asyncio.sleep(3)
     ds_job_output_path = job.get_output_path()
     logger.info(f"{ds_job_output_path = }")
-    # assert ds_job_output_path.exists() . # TODO: fix this since it fails. Somehow outputs are not synced
+    assert ds_job_output_path.exists()
