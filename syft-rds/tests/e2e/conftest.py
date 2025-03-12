@@ -5,7 +5,9 @@ import sys
 from asyncio.subprocess import Process
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Dict, List
+from typing import Dict, List, Optional
+
+from syft_core import SyftClientConfig, SyftWorkspace
 
 import httpx
 import pytest_asyncio
@@ -46,6 +48,19 @@ class Client:
     apps: List[str] = field(default_factory=list)
 
     @property
+    def config(self):
+        return SyftClientConfig(
+            email=self.email,
+            client_url=f"http://localhost:{self.port}",
+            path=self.config_path,
+            data_dir=self.data_dir,
+        )
+
+    @property
+    def workspace(self):
+        return SyftWorkspace(self.config.data_dir)
+
+    @property
     def email(self):
         return f"{self.name}@openmined.org"
 
@@ -79,13 +94,20 @@ class Client:
         """data_dir/datasites/{email}/public"""
         return self.my_datasite / "public"
 
-    def api_path(self, api_name: str):
-        """data_dir/apis/{api_name}"""
-        return self.api_dir / api_name
+    @property
+    def api_request_name(self) -> str:
+        api_path = Path.cwd()
+        api_name = api_path.name
+        return api_name
 
-    def api_data_dir(self, app_name: str):
-        """data_dir/datasites/{email}/api_data/{app_name}"""
-        return self.my_datasite / "api_data" / app_name
+    def api_data(
+        self,
+        api_request_name: Optional[str] = None,
+        datasite: Optional[str] = None,
+    ) -> Path:
+        api_request_name = api_request_name or self.api_request_name
+        datasite = datasite or self.email
+        return self.datasite_dir / datasite / "api_data" / api_request_name
 
 
 class E2EContext:
