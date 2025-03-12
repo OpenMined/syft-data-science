@@ -354,17 +354,24 @@ class Dataset(ItemBase):
             return f.read()
 
     def describe(self):
+        field_to_include = [
+            "uid",
+            "created_at",
+            "updated_at",
+            "name",
+            "readme_path",
+            "mock_path",
+        ]
+        try:
+            # Only include private path if it exists
+            _ = self.private_path
+            field_to_include.append("private_path")
+        except FileNotFoundError:
+            pass
+
         description = create_html_repr(
             obj=self,
-            fields=[
-                "uid",
-                "created_at",
-                "updated_at",
-                "name",
-                "readme_path",
-                "private_path",
-                "mock_path",
-            ],
+            fields=field_to_include,
             display_paths=["mock_path", "readme_path"],
         )
 
