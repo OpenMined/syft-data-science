@@ -369,7 +369,9 @@ class DatasetSchemaManager:
         Returns:
             True if deleted, False if not found
         """
-        queried_result: list[Dataset] = self._schema_store.query(name=name)
+        queried_result: list[Dataset] = self._schema_store.get_all(
+            filters={"name": name}
+        )
         if not queried_result:
             return False
         first_res: Dataset = queried_result[0]

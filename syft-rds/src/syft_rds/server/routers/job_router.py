@@ -37,7 +37,7 @@ def create_job(create_request: JobCreate, app: SyftEvents, request: Request) -> 
 @job_router.on_request("/get_one")
 def get_job(request: GetOneRequest, app: SyftEvents) -> Job:
     job_store: RDSStore = app.state["job_store"]
-    return job_store.read(request.uid)
+    return job_store.get_by_uid(request.uid)
 
 
 @job_router.on_request("/get_all")
@@ -50,6 +50,6 @@ def get_all_jobs(req: GetAllRequest, app: SyftEvents) -> ItemList[Job]:
 @job_router.on_request("/update")
 def update_job(update_request: JobUpdate, app: SyftEvents) -> Job:
     job_store: RDSStore = app.state["job_store"]
-    existing_item = job_store.read(update_request.uid)
+    existing_item = job_store.get_by_uid(update_request.uid)
     updated_item = update_request.apply_to(existing_item)
     return job_store.update(updated_item.uid, updated_item)

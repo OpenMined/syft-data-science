@@ -8,7 +8,7 @@ def test_create_record(
     record = mock_user_store.create(mock_user_1)
 
     assert record.uid == mock_user_1.uid
-    assert mock_user_store.read(record.uid) == mock_user_1
+    assert mock_user_store.get_by_uid(record.uid) == mock_user_1
     assert mock_user_store.list_all() == [mock_user_1]
 
 
@@ -21,7 +21,7 @@ def test_update_record(
 
     assert updated_record is not None
     assert updated_record.name == mock_user_1.name
-    assert mock_user_store.read(updated_record.uid) == mock_user_1
+    assert mock_user_store.get_by_uid(updated_record.uid) == mock_user_1
 
 
 def test_delete_record(
@@ -43,8 +43,14 @@ def test_query_record(
     assert len(mock_user_store.list_all()) == 1
 
     # Query the Record
-    query = {"name": "Alice"}
-    results = mock_user_store.query(**query)
+    filters = {"name": "Alice"}
+    results = mock_user_store.get_all(
+        limit=100,
+        offset=0,
+        order_by="name",
+        sort_order="asc",
+        filters=filters,
+    )
     assert len(results) == 1
     assert results[0] == mock_user_1
 

@@ -4,6 +4,7 @@ from typing import Generic, Optional, Type, TypeVar
 from uuid import UUID
 
 import yaml
+from pydantic import TypeAdapter
 from syft_core import Client
 
 from syft_rds.models.base import ItemBase
@@ -98,6 +99,42 @@ class YAMLFileSystemDatabase(Generic[T]):
         """
         self.schema = schema
         self.db_path = Path(db_path)
+        self._field_validators = self._make_field_validators()
+
+    def _make_field_validators(self) -> dict:
+        """
+        Create a dictionary of field_name: TypeAdapter for each field in the schema.
+        These can be used to validate and convert field values to the correct type, required when querying the store.
+        """
+        return {
+            field_name: TypeAdapter(field_info.annotation)
+            for field_name, field_info in self.ITEM_TYPE.model_fields.items()
+        }
+
+    def _coerce_field_types(self, filters: dict) -> dict:
+        """
+        If possible, convert filter values to the correct type for the schema.
+        e.g. convert str to UUID, or str to Enum, etc.
+        """
+        # TODO move filter type coercion to RDSStore to avoid duplication serverside
+        resolved_filters = {}
+        for filter_name, filter_value in filters.items():
+            validator = self._field_validators.get(filter_name, None)
+            if validator is None:
+                # Cannot infer type, leave it in the original form
+                resolved_filters[filter_name] = filter_value
+                continue
+            try:
+                type_adapter = self._field_validators[filter_name]
+                validated_value = type_adapter.validate_python(filter_value)
+                resolved_filters[filter_name] = validated_value
+            except Exception:
+                # Cannot convert to the correct type, leave it in the original form
+                # logger.exception(
+                #     f"Could not convert filter value {filter_value} to {field_info.annotation} for field {filter_name}"
+                # )
+                resolved_filters[filter_name] = filter_value
+        return resolved_filters
 
     @property
     def store_path(self) -> Path:
@@ -156,19 +193,6 @@ class YAMLFileSystemDatabase(Generic[T]):
         return record
 
     @ensure_store_exists
-    def read(self, uid: str | UUID) -> Optional[T]:
-        """
-        Read a record by UID
-
-        Args:
-            uid: Record UID to fetch
-
-        Returns:
-            Record if found, None otherwise
-        """
-        return self._load_record(uid)
-
-    @ensure_store_exists
     def update(self, uid: str | UUID, record: T) -> Optional[T]:
         """
         Update a record by UID
@@ -212,19 +236,57 @@ class YAMLFileSystemDatabase(Generic[T]):
         return True
 
     @ensure_store_exists
-    def query(self, **filters) -> list[T]:
+    def get_by_uid(self, uid: str | UUID) -> Optional[T]:
         """
-        Query records with exact match filters
+        Read a record by UID
+
+        Args:
+            uid: Record UID to fetch
+
+        Returns:
+            Record if found, None otherwise
+        """
+        return self._load_record(uid)
+
+    @ensure_store_exists
+    def get_one(self, **filters) -> Optional[T]:
+        """
+        Get one record with exact match filters
 
         Args:
             **filters: Field-value pairs to filter by
 
         Returns:
-            List of matching records
+            Matching record or None
         """
-        # TODO optimize later by using database or in-memory indexes, etc?
+        if len(filters.keys()) == 1 and "uid" in filters:
+            return self.get_by_uid(filters["uid"])
+
+        else:
+            res = self.get_all(filters=filters, limit=1)
+            if len(res) == 0:
+                return None
+            return res[0]
+
+    def _sort_items(self, items: list[T], order_by: str, sort_order: str) -> list[T]:
+        return sorted(
+            items,
+            key=lambda x: getattr(x, order_by, None),
+            reverse=sort_order == "desc",
+        )
+
+    @ensure_store_exists
+    def get_all(
+        self,
+        limit: Optional[int] = None,
+        offset: int = 0,
+        order_by: Optional[str] = None,
+        sort_order: str = "asc",
+        filters: Optional[dict] = None,
+    ) -> list[T]:
         results = []
 
+        filters = self._coerce_field_types(filters or {})
         for record in self.list_all():
             matches = True
             for key, value in filters.items():
@@ -233,6 +295,14 @@ class YAMLFileSystemDatabase(Generic[T]):
                     break
             if matches:
                 results.append(record)
+
+        if order_by:
+            results = self._sort_items(results, order_by, sort_order)
+        if offset:
+            results = results[offset:]
+        if limit:
+            results = results[:limit]
+
         return results
 
     @ensure_store_exists
