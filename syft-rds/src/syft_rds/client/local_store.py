@@ -1,4 +1,4 @@
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Type
 
 from syft_core import Client as SyftBoxClient
 
@@ -23,14 +23,14 @@ class LocalStore:
         self.runtime = RuntimeLocalStore(self.config, self.syftbox_client)
         self.dataset = DatasetLocalStore(self.config, self.syftbox_client)
 
-    def for_type(self, type_: BaseSchema) -> CRUDLocalStore:
-        if type_ == Job:
-            return self.jobs
-        elif type_ == UserCode:
-            return self.user_code
-        elif type_ == Runtime:
-            return self.runtime
-        elif type_ == Dataset:
-            return self.dataset
-        else:
-            raise ValueError(f"No local store found for type {type_}.")
+        self._type_map = {
+            Job: self.jobs,
+            UserCode: self.user_code,
+            Runtime: self.runtime,
+            Dataset: self.dataset,
+        }
+
+    def for_type(self, type_: Type[BaseSchema]) -> CRUDLocalStore:
+        if type_ not in self._type_map:
+            raise ValueError(f"No local store found for type {type_}")
+        return self._type_map[type_]

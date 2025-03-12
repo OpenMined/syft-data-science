@@ -87,11 +87,16 @@ class RDSClient(RDSClientBase):
         self, config: RDSClientConfig, rpc_client: RPCClient, local_store: LocalStore
     ) -> None:
         super().__init__(config, rpc_client, local_store)
-        self.jobs = JobRDSClient(self.config, self.rpc, self.local_store)
+        self.jobs = JobRDSClient(self.config, self.rpc, self.local_store, parent=self)
+        self.dataset = DatasetRDSClient(
+            self.config, self.rpc, self.local_store, parent=self
+        )
+        self.user_code = UserCodeRDSClient(
+            self.config, self.rpc, self.local_store, parent=self
+        )
+
         # TODO implement and enable runtime client
         # self.runtime = RuntimeRDSClient(self.config, self.rpc, self.local_store)
-        self.dataset = DatasetRDSClient(self.config, self.rpc, self.local_store)
-        self.user_code = UserCodeRDSClient(self.config, self.rpc, self.local_store)
         self.uid = self.config.client_id
         GlobalClientRegistry.register_client(self.uid, self)
 
@@ -108,8 +113,8 @@ class RDSClient(RDSClientBase):
         user_code = self.user_code.get(job.user_code_id)
         runner_config = self.config.runner_config
         return JobConfig(
-            function_folder=user_code.path.parent,
-            args=[user_code.path.name],
+            function_folder=user_code.local_dir,
+            args=[user_code.file_name],
             data_path=self.dataset.get(name=job.dataset_name).get_private_path(),
             runtime=runner_config.runtime,
             job_folder=runner_config.job_output_folder / job.uid.hex,

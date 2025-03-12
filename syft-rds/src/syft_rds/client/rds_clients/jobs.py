@@ -1,5 +1,5 @@
 from pathlib import Path
-from typing import Callable
+from uuid import UUID
 
 from loguru import logger
 
@@ -11,7 +11,7 @@ from syft_rds.models.models import (
     JobCreate,
     JobStatus,
     JobUpdate,
-    UserCodeCreate,
+    UserCode,
 )
 
 
@@ -20,60 +20,55 @@ class JobRDSClient(RDSClientModule[Job]):
 
     def submit(
         self,
+        user_code_path: PathLike,
+        dataset_name: str,
         name: str | None = None,
         description: str | None = None,
-        user_code_path: PathLike | None = None,
-        dataset_name: str | None = None,
-        function: Callable | None = None,
-        function_args: list = None,
-        function_kwargs: dict = None,
         tags: list[str] | None = None,
     ) -> Job:
-        user_code_create = self._create_usercode(
-            user_code_path=user_code_path,
-            function=function,
-            function_args=function_args,
-            function_kwargs=function_kwargs,
-        )
-
-        user_code = self.rpc.user_code.create(user_code_create)
-
-        job_create = JobCreate(
+        """`submit` is a convenience method to create both a UserCode and a Job in one call."""
+        user_code = self.rds.user_code.create(file_path=user_code_path)
+        job = self.create(
+            name=name,
             description=description,
-            user_code_id=user_code.uid,
-            tags=tags if tags is not None else [],
+            user_code=user_code,
             dataset_name=dataset_name,
+            tags=tags,
         )
-        if name is not None:
-            job_create.name = name
-        job = self.rpc.jobs.create(job_create)
 
         return job
 
-    def _create_usercode(
-        self,
-        user_code_path: str | None = None,
-        function: Callable | None = None,
-        function_args: list = None,
-        function_kwargs: dict = None,
-    ) -> UserCodeCreate:
-        if user_code_path is not None:
-            user_code = UserCodeCreate(path=user_code_path)
+    def _resolve_usercode_id(self, user_code: UserCode | UUID) -> UUID:
+        if isinstance(user_code, UUID):
             return user_code
-
-        elif (
-            function is not None
-            and function_args is not None
-            and function_kwargs is not None
-        ):
-            raise NotImplementedError(
-                "Creating UserCode from function is not implemented yet"
-            )
-
+        elif isinstance(user_code, UserCode):
+            return user_code.uid
         else:
             raise RDSValidationError(
-                "You must provide either a user_code_path or a function, function_args, and function_kwargs"
+                f"Invalid user_code type {type(user_code)}. Must be UserCode, UUID, or str"
             )
+
+    def create(
+        self,
+        user_code: UserCode | UUID,
+        dataset_name: str,
+        name: str | None = None,
+        description: str | None = None,
+        tags: list[str] | None = None,
+    ) -> Job:
+        # TODO ref dataset by UID instead of name
+        user_code_id = self._resolve_usercode_id(user_code)
+
+        job_create = JobCreate(
+            name=name,
+            description=description,
+            tags=tags if tags is not None else [],
+            user_code_id=user_code_id,
+            dataset_name=dataset_name,
+        )
+        job = self.rpc.jobs.create(job_create)
+
+        return job
 
     def share_results(self, job: Job) -> tuple[Path, Job]:
         job_output_folder = self.config.runner_config.job_output_folder / job.uid.hex
