@@ -11,9 +11,7 @@ from syft_rds.models.base import BaseSchema
 PERMS = """
 - path: '**'
   permissions:
-  - admin
   - read
-  - write
   user: '*'
 """
 
