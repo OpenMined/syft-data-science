@@ -21,6 +21,7 @@ class ItemBase(PydanticFormatterMixin, BaseModel, ABC):
 
     __schema_name__: str
     uid: UUID = Field(default_factory=uuid4)
+    created_by: str | None = None
     created_at: datetime = Field(default_factory=_utcnow)
     updated_at: datetime = Field(default_factory=_utcnow)
     client_id: UUID | None = None

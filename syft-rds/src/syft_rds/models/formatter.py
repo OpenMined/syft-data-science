@@ -1,6 +1,6 @@
+import sys
 from abc import ABC, abstractmethod
 from typing import Any, ClassVar
-import sys
 
 from pydantic import BaseModel
 
@@ -13,6 +13,12 @@ class PydanticFormatter(ABC):
 
     @abstractmethod
     def format_repr(self, model: BaseModel) -> str: ...
+
+    def format_html(self, model: BaseModel) -> str:
+        return None  # type: ignore
+
+    def format_markdown(self, model: BaseModel) -> str:
+        return None  # type: ignore
 
 
 class DefaultPydanticFormatter(PydanticFormatter):

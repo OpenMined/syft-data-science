@@ -26,7 +26,7 @@ def create_user_code(
     user = request.sender  # TODO auth
 
     create_request.name = create_request.name or "My Code"
-    user_code = create_request.to_item()
+    user_code = create_request.to_item(extra={"created_by": user})
     user_code_dir = user_file_service.dir_for_item(user=user, item=user_code)
 
     if create_request.files_zipped is not None:
