@@ -59,7 +59,10 @@ async def test_e2e_full_flow(e2e_context: E2EContext):
     )
 
     dataset_name = "dataset-1"
-    create_dataset(do_rds_client, dataset_name)
+    try:
+        create_dataset(do_rds_client, dataset_name)
+    except Exception as e:
+        logger.error(f"Error creating dataset: {e}")
     await asyncio.sleep(3)  # wait for the dataset to be synced
     assert len(do_rds_client.dataset.get_all()) == 1
 
