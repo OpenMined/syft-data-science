@@ -14,13 +14,6 @@ from syft_rds.store.store import RDSStore
 
 APP_NAME = "RDS"
 
-USER_FILES = "user_files"
-USER_FILES_PERMISSION = """
-- permission: read
-  path: {useremail}/**
-  user: *
-"""
-
 
 def _init_services(app: SyftEvents) -> None:
     # Stores

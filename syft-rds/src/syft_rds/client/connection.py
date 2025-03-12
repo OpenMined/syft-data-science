@@ -9,6 +9,12 @@ from syft_event.deps import func_args_from_request
 from syft_rpc import SyftRequest, SyftResponse, rpc
 from syft_rpc.protocol import SyftMethod, SyftStatus
 from syft_rpc.rpc import BodyType
+from .syft_permission import (
+    get_computed_permission,
+    ComputedPermission,
+)
+from syftbox.lib.permissions import PermissionType
+from syftbox.lib.exceptions import SyftBoxException
 
 
 class BlockingRPCConnection(ABC):
@@ -63,12 +69,37 @@ class FileSyncRPCConnection(BlockingRPCConnection):
         return response
 
 
+def check_permission(
+    client: SyftBoxClient,
+    path: str,
+    permission: PermissionType,
+) -> bool:
+    """
+    Check if the client has the permission to access the url.
+    If the client does not have the permission, we will raise an error *in future*,
+    but for now we will just log a warning.
+    """
+
+    relative_path = path.relative_to(client.workspace.datasites)
+    sender_permission: ComputedPermission = get_computed_permission(
+        client=client, path=relative_path
+    )
+    has_permission = sender_permission.has_permission(permission)
+    if not has_permission:
+        raise SyftBoxException(
+            f"User {client.email} does not have {permission} permission for {path}"
+        )
+
+    return has_permission
+
+
 class MockRPCConnection(BlockingRPCConnection):
     app: SyftEvents
     sender_client: SyftBoxClient
 
     def __init__(self, sender_client: SyftBoxClient, app: SyftEvents):
         self.app = app
+        self.app.init()
         super().__init__(sender_client)
 
     @property
@@ -125,10 +156,20 @@ class MockRPCConnection(BlockingRPCConnection):
         # in rpc.send the body will be serialized again which will be a no-op when building the request. This is a no-op on already serialized data.
         body = self._serialize(body)
         syft_request = self._build_request(url, body, headers, expiry)
-        receiver_local_path = SyftBoxURL(url).to_local_path(
-            self.receiver_client.workspace.datasites
+        syft_url = SyftBoxURL(url)
+
+        req_path = (
+            syft_url.to_local_path(self.sender_client.workspace.datasites)
+            / f"{syft_request.id}.request"
         )
 
+        check_permission(self.sender_client, req_path, PermissionType.WRITE)
+
+        check_permission(self.receiver_client, req_path, PermissionType.READ)
+
+        receiver_local_path = syft_url.to_local_path(
+            self.receiver_client.workspace.datasites
+        )
         handler = self.app._SyftEvents__rpc.get(receiver_local_path)
         if handler is None:
             raise ValueError(
