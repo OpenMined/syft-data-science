@@ -20,8 +20,9 @@ DEFAULT_OUTPUT_DIR = "/output"
 
 
 class CodeRuntime(BaseModel):
-    cmd: str
+    cmd: list[str]
     image_name: str | None = None
+    cwd: Path | None = None
 
 
 class JobConfig(BaseModel):
@@ -30,7 +31,7 @@ class JobConfig(BaseModel):
     function_folder: Path
     args: list[str]
     data_path: Path
-    runner_args: list[str] = Field(default_factory=lambda: ["python"])
+    runtime: CodeRuntime
     job_folder: Optional[Path] = Field(
         default_factory=lambda: Path("jobs") / datetime.now().strftime("%Y%m%d_%H%M%S")
     )
@@ -124,7 +125,7 @@ class RichConsoleUI(JobOutputHandler):
                 "\n".join(
                     [
                         "[bold green]Starting job[/]",
-                        f"[bold white]Execution:[/] [cyan]{' '.join(config.runner_args)} {' '.join(config.args)}[/]",
+                        f"[bold white]Execution:[/] [cyan]{' '.join(config.runtime.cmd)} {' '.join(config.args)}[/]",
                         f"[bold white]Dataset Dir.:[/]  [cyan]{limit_path_depth(config.data_path)}[/]",
                         f"[bold white]Output Dir.:[/]   [cyan]{limit_path_depth(config.output_dir)}[/]",
                         f"[bold white]Timeout:[/]  [cyan]{config.timeout}s[/]",
@@ -134,8 +135,11 @@ class RichConsoleUI(JobOutputHandler):
                 border_style="cyan",
             )
         )
-        self.live.start()
-        self.live.console.print("[bold cyan]Running job...[/]")
+        try:
+            self.live.start()
+            self.live.console.print("[bold cyan]Running job...[/]")
+        except Exception as e:
+            self.console.print(f"[red]Error starting live: {e}[/]")
 
     def on_job_progress(self, stdout: str, stderr: str) -> None:
         # Update UI display
@@ -158,6 +162,9 @@ class RichConsoleUI(JobOutputHandler):
             self.console.print(
                 f"\n[bold red]Job failed with return code {return_code}[/]"
             )
+
+    def __del__(self):
+        self.live.stop()
 
 
 class JupyterWidgetHandler(JobOutputHandler):
@@ -270,7 +277,7 @@ class DockerRunner:
             # For direct Python execution, build a command that runs Python directly
             # Assuming the first arg is the Python script to run
             return [
-                *config.runner_args,
+                *config.runtime.cmd,
                 str(Path(config.function_folder) / config.args[0]),
                 *config.args[1:],
             ]
@@ -284,10 +291,15 @@ class DockerRunner:
             f"{config.output_dir.absolute()}:{DEFAULT_OUTPUT_DIR}:rw",
         ]
 
-        return [
-            "docker",
-            "run",
-            "--rm",  # Remove container after completion
+        if config.runtime.cwd:
+            docker_mounts.extend(
+                [
+                    "-v",
+                    f"{config.runtime.cwd.absolute()}:{config.runtime.cwd.absolute()}:ro",
+                ]
+            )
+
+        limits = [
             # Security constraints
             "--cap-drop",
             "ALL",  # Drop all capabilities
@@ -309,6 +321,13 @@ class DockerRunner:
             "nofile=50:50",
             "--ulimit",
             "fsize=10000000:10000000",  # ~10MB file size limit
+        ]
+        interpreter = " ".join(config.runtime.cmd)
+        return [
+            "docker",
+            "run",
+            "--rm",  # Remove container after completion
+            *limits,
             # Environment variables
             "-e",
             f"TIMEOUT={config.timeout}",
@@ -316,9 +335,10 @@ class DockerRunner:
             f"DATA_DIR={config.data_mount_dir}",
             "-e",
             f"OUTPUT_DIR={DEFAULT_OUTPUT_DIR}",
+            "-e",
+            f"INTERPRETER={interpreter}",
             *docker_mounts,
             "syft_python_runtime",
-            *config.runner_args,
             *config.args,
         ]
 
