@@ -20,10 +20,10 @@ T = TypeVar("T", bound=ItemBase)
 
 def ensure_store_exists(func):
     @wraps(func)
-    def wrapper(self, *args, **kwargs):
-        if not self.store_path.exists():
-            self.store_path.mkdir(parents=True, exist_ok=True)
-            perms_file = self.store_path.parent / "syftperm.yaml"
+    def wrapper(self: "YAMLStore", *args, **kwargs):
+        if not self.dir_for_item_type.exists():
+            self.dir_for_item_type.mkdir(parents=True, exist_ok=True)
+            perms_file = self.dir_for_item_type.parent / "syftperm.yaml"
             perms_file.write_text(PERMS)  # TODO create more restrictive permissions
         return func(self, *args, **kwargs)
 
@@ -136,12 +136,12 @@ class YAMLStore(Generic[T]):
         return resolved_filters
 
     @property
-    def store_path(self) -> Path:
+    def dir_for_item_type(self) -> Path:
         return self.store_dir / self.item_type.__schema_name__
 
     def _get_record_path(self, uid: str | UUID) -> Path:
         """Get the full path for a record's YAML file from its UID."""
-        return self.store_path / f"{uid}.yaml"
+        return self.dir_for_item_type / f"{uid}.yaml"
 
     def _save_record(self, record: T) -> None:
         """Save a single record to its own YAML file"""
@@ -153,20 +153,22 @@ class YAMLStore(Generic[T]):
         )
         file_path.write_text(yaml_dump)
 
-    def _load_record(self, uid: str | UUID) -> Optional[T]:
-        """Load a single record from its own YAML file"""
+    @ensure_store_exists
+    def get_by_uid(self, uid: str | UUID) -> Optional[T]:
+        """Get a single record by UID"""
         file_path = self._get_record_path(uid)
         if not file_path.exists():
             return None
         record_dict = yaml.safe_load(file_path.read_text())
         return self.item_type.model_validate(record_dict)
 
+    @ensure_store_exists
     def list_all(self) -> list[T]:
         """List all records in the store"""
         records = []
-        for file_path in self.store_path.glob("*.yaml"):
+        for file_path in self.dir_for_item_type.glob("*.yaml"):
             _id = file_path.stem
-            loaded_record = self._load_record(_id)
+            loaded_record = self.get_by_uid(_id)
             if loaded_record is not None:
                 records.append(loaded_record)
         return records
@@ -206,7 +208,7 @@ class YAMLStore(Generic[T]):
         if not isinstance(record, self.item_type):
             raise TypeError(f"`record` must be of type {self.item_type.__name__}")
 
-        existing_record = self._load_record(uid)
+        existing_record = self.get_by_uid(uid)
         if not existing_record:
             return None
 
@@ -233,19 +235,6 @@ class YAMLStore(Generic[T]):
             return False
         file_path.unlink()
         return True
-
-    @ensure_store_exists
-    def get_by_uid(self, uid: str | UUID) -> Optional[T]:
-        """
-        Read a record by UID
-
-        Args:
-            uid: Record UID to fetch
-
-        Returns:
-            Record if found, None otherwise
-        """
-        return self._load_record(uid)
 
     @ensure_store_exists
     def get_one(self, **filters) -> Optional[T]:
@@ -345,5 +334,5 @@ class YAMLStore(Generic[T]):
     @ensure_store_exists
     def clear(self) -> None:
         """Clear all records in the store"""
-        for file_path in self.store_path.glob("*.yaml"):
+        for file_path in self.dir_for_item_type.glob("*.yaml"):
             file_path.unlink()
