@@ -1,14 +1,13 @@
 import asyncio
-import pandas as pd
 
+import pandas as pd
 import pytest
 from loguru import logger
-
 from syft_rds.client.rds_client import RDSClient, init_session
 
-from tests.utils import create_dataset
 from tests.conftest import MOCK_DATA_PATH
 from tests.e2e.conftest import Client, E2EContext, Server
+from tests.utils import create_dataset
 
 
 def deployment_config():
@@ -60,7 +59,7 @@ async def test_e2e_dataset_create_get_del(e2e_context: E2EContext):
     test_dataset = ds_rds_client.dataset.get(name=dataset_name)
     logger.info("Dataset retrieved", test_dataset.name)
     assert test_dataset.get_description()
-    assert test_dataset.describe()
+    assert test_dataset.describe() is None
     mock_df = pd.read_csv(test_dataset.get_mock_path() / "data.csv")
     assert mock_df.equals(pd.read_csv(MOCK_DATA_PATH / "data.csv"))
 

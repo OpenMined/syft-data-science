@@ -24,7 +24,7 @@ def create_job(create_request: JobCreate, app: SyftEvents, request: Request) -> 
     user_file_service: UserFileService = app.state["user_file_service"]
 
     create_request.name = create_request.name or generate_name()
-    new_item = create_request.to_item()
+    new_item = create_request.to_item(extra={"created_by": user})
     # Create the output directory, user_file_service makes it readable for the user who created the job
     job_output_dir = user_file_service.dir_for_item(
         user=user,
