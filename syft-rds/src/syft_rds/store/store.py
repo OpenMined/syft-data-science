@@ -72,7 +72,7 @@ class YAMLStore(Generic[T]):
                 email: str
 
             # Initialize the database
-            store = YAMLStore(User, "/path/to/db")
+            store = YAMLStore(User, "/path/to/store")
 
             # Create a new user
             user = User(name="John Doe", email="john@example.com")

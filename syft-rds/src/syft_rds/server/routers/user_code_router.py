@@ -43,7 +43,10 @@ def get_user_code(request: GetOneRequest, app: SyftEvents) -> UserCode:
     filters = request.filters
     if request.uid is not None:
         filters["uid"] = request.uid
-    return user_code_store.get_one(filters=filters)
+    item = user_code_store.get_one(**filters)
+    if item is None:
+        raise ValueError(f"No UserCode found with filters {filters}")
+    return item
 
 
 @user_code_router.on_request("/get_all")

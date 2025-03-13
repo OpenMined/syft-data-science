@@ -57,6 +57,7 @@ def init_session(
     syftbox_client: Optional[SyftBoxClient] = None,
     mock_server: Optional[SyftEvents] = None,
     syftbox_client_config_path: Optional[PathLike] = None,
+    **config_kwargs,
 ) -> "RDSClient":
     """
     Initialize a session with the RDSClient.
@@ -69,11 +70,12 @@ def init_session(
             a mock in-process RPC connection.
         syftbox_client_config_path (PathLike, optional): Path to client config file.
             Only used if syftbox_client is not provided.
+        **config_kwargs: Additional configuration options for the RDSClient.
 
     Returns:
         RDSClient: The configured RDS client instance.
     """
-    config = RDSClientConfig(host=host)
+    config = RDSClientConfig(host=host, **config_kwargs)
     syftbox_client = _resolve_syftbox_client(syftbox_client, syftbox_client_config_path)
 
     use_mock = mock_server is not None

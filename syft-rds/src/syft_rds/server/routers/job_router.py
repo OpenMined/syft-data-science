@@ -40,7 +40,10 @@ def get_job(request: GetOneRequest, app: SyftEvents) -> Job:
     filters = request.filters
     if request.uid is not None:
         filters["uid"] = request.uid
-    return job_store.get_one(filters)
+    item = job_store.get_one(**filters)
+    if item is None:
+        raise ValueError(f"No job found with filters {filters}")
+    return item
 
 
 @job_router.on_request("/get_all")

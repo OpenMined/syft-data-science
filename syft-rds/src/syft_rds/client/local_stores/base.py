@@ -31,14 +31,18 @@ class CRUDLocalStore(Generic[T, CreateT, UpdateT]):
 
         self.config = config
         self.syftbox_client = syftbox_client
-        self.store_dir = self.syftbox_client.api_data(
-            self.config.app_name,
-            datasite=self.config.host,
-        )
         self.store = YAMLStore[T](
             item_type=self.ITEM_TYPE,
             store_dir=self.store_dir,
         )
+
+    @property
+    def store_dir(self) -> str:
+        app_dir = self.syftbox_client.api_data(
+            self.config.app_name,
+            datasite=self.config.host,
+        )
+        return app_dir / "store"
 
     def register_client_id(self, item: T) -> T:
         if isinstance(item, ItemBase):
@@ -56,7 +60,7 @@ class CRUDLocalStore(Generic[T, CreateT, UpdateT]):
         if request.uid is not None:
             filters["uid"] = request.uid
 
-        res_or_none = self.store.get_one(filters=filters)
+        res_or_none = self.store.get_one(**filters)
         if res_or_none is None:
             filters_formatted: str = ", ".join(
                 [f"{k}={v}" for k, v in request.filters.items()]

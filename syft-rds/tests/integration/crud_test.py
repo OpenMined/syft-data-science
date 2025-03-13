@@ -220,7 +220,7 @@ def test_search_with_filters(do_rds_client):
 
     # Test successful coercion cases
     test_uuid = uuid4()
-    coerced_filters = do_rds_client.local_store.jobs._coerce_field_types(
+    coerced_filters = do_rds_client.local_store.jobs.store._coerce_field_types(
         {
             "status": "pending_code_review",
             "created_at": "2025-03-07T15:10:40.146495+00:00",
@@ -236,7 +236,7 @@ def test_search_with_filters(do_rds_client):
     assert coerced_filters["uid"] == test_uuid
 
     # Test failed coercion cases - should return original values
-    invalid_filters = do_rds_client.local_store.jobs._coerce_field_types(
+    invalid_filters = do_rds_client.local_store.jobs.store._coerce_field_types(
         {
             "status": 1234,  # Not a valid enum string
             "created_at": "invalid-date",  # Not a valid date string

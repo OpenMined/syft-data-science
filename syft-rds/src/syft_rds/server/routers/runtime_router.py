@@ -26,7 +26,10 @@ def get_runtime(request: GetOneRequest, app: SyftEvents) -> Runtime:
     filters = request.filters
     if request.uid is not None:
         filters["uid"] = request.uid
-    return runtime_store.get_one(filters=filters)
+    item = runtime_store.get_one(**filters)
+    if item is None:
+        raise ValueError(f"No runtime found with filters {filters}")
+    return item
 
 
 @runtime_router.on_request("/get_all")
