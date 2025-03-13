@@ -5,7 +5,6 @@ from uuid import UUID
 
 import yaml
 from pydantic import TypeAdapter
-from syft_core import Client
 
 from syft_rds.models.base import ItemBase
 
@@ -31,21 +30,21 @@ def ensure_store_exists(func):
     return wrapper
 
 
-class YAMLFileSystemDatabase(Generic[T]):
-    def __init__(self, schema: Type[T], db_path: str | Path):
+class YAMLStore(Generic[T]):
+    def __init__(self, item_type: Type[T], store_dir: str | Path):
         """A lightweight file-based database that stores records as individual YAML files.
 
-        YAMLFileSystemDatabase provides a simple database implementation where each record
+        YAMLStore provides a simple database implementation where each record
         is stored as a separate YAML file in the filesystem. It supports basic CRUD operations,
-        querying, and searching capabilities while using Pydantic models for schema validation.
+        querying, and searching capabilities while using Pydantic models for  validation.
 
         The database creates a hierarchical directory structure:
 
-        /db_path/
-        ├── model1_schema_name/           # Directory for first model type
+        /store_dir/
+        ├── model1_name/           # Directory for first model type
         │   ├── uuid1.yaml             # Individual record files
         │   └── uuid2.yaml
-        ├── model2_schema_name/           # Directory for second model type
+        ├── model2_name/           # Directory for second model type
         │   ├── uuid3.yaml
         │   └── uuid4.yaml
         └── syftperm.yaml              # Permissions file
@@ -67,26 +66,26 @@ class YAMLFileSystemDatabase(Generic[T]):
             ```python
             from pydantic import BaseModel
 
-            class UserSchema(BaseModel):
+            class User(BaseModel):
                 __schema_name__ = "users"
                 name: str
                 email: str
 
             # Initialize the database
-            db = YAMLFileSystemDatabase(UserSchema, "/path/to/db")
+            store = YAMLStore(User, "/path/to/db")
 
             # Create a new user
-            user = UserSchema(name="John Doe", email="john@example.com")
-            user_id = db.create(user)
+            user = User(name="John Doe", email="john@example.com")
+            user_id = store.create(user)
 
             # Query users
-            johns = db.query(name="John Doe")
+            johns = store.get_all(filters={"name": "John Doe"})
             ```
 
         Args:
             schema: The Pydantic model class that defines the schema for stored records.
                 Must inherit from ItemBase.
-            db_path: Directory path where the database files will be stored.
+            store_dir: Directory path where the database files will be stored.
                     Can be string or Path object.
 
         Notes:
@@ -97,8 +96,8 @@ class YAMLFileSystemDatabase(Generic[T]):
             - Suitable for smaller datasets where simple CRUD operations are needed
             - Provides human-readable storage format
         """
-        self.schema = schema
-        self.db_path = Path(db_path)
+        self.item_type = item_type
+        self.store_dir = Path(store_dir)
         self._field_validators = self._make_field_validators()
 
     def _make_field_validators(self) -> dict:
@@ -108,7 +107,7 @@ class YAMLFileSystemDatabase(Generic[T]):
         """
         return {
             field_name: TypeAdapter(field_info.annotation)
-            for field_name, field_info in self.ITEM_TYPE.model_fields.items()
+            for field_name, field_info in self.item_type.model_fields.items()
         }
 
     def _coerce_field_types(self, filters: dict) -> dict:
@@ -116,7 +115,7 @@ class YAMLFileSystemDatabase(Generic[T]):
         If possible, convert filter values to the correct type for the schema.
         e.g. convert str to UUID, or str to Enum, etc.
         """
-        # TODO move filter type coercion to RDSStore to avoid duplication serverside
+        # TODO move filter type coercion to YAMLStore to avoid duplication serverside
         resolved_filters = {}
         for filter_name, filter_value in filters.items():
             validator = self._field_validators.get(filter_name, None)
@@ -138,7 +137,7 @@ class YAMLFileSystemDatabase(Generic[T]):
 
     @property
     def store_path(self) -> Path:
-        return self.db_path / self.schema.__schema_name__
+        return self.store_dir / self.item_type.__schema_name__
 
     def _get_record_path(self, uid: str | UUID) -> Path:
         """Get the full path for a record's YAML file from its UID."""
@@ -160,7 +159,7 @@ class YAMLFileSystemDatabase(Generic[T]):
         if not file_path.exists():
             return None
         record_dict = yaml.safe_load(file_path.read_text())
-        return self.schema.model_validate(record_dict)
+        return self.item_type.model_validate(record_dict)
 
     def list_all(self) -> list[T]:
         """List all records in the store"""
@@ -184,8 +183,8 @@ class YAMLFileSystemDatabase(Generic[T]):
         Returns:
             UID of the created record
         """
-        if not isinstance(record, self.schema):
-            raise TypeError(f"`record` must be of type {self.schema.__name__}")
+        if not isinstance(record, self.item_type):
+            raise TypeError(f"`record` must be of type {self.item_type.__name__}")
         file_path = self._get_record_path(record.uid)
         if file_path.exists() and not overwrite:
             raise ValueError(f"Record with UID {record.uid} already exists")
@@ -204,8 +203,8 @@ class YAMLFileSystemDatabase(Generic[T]):
         Returns:
             Updated record if found, None otherwise
         """
-        if not isinstance(record, self.schema):
-            raise TypeError(f"`record` must be of type {self.schema.__name__}")
+        if not isinstance(record, self.item_type):
+            raise TypeError(f"`record` must be of type {self.item_type.__name__}")
 
         existing_record = self._load_record(uid)
         if not existing_record:
@@ -251,7 +250,7 @@ class YAMLFileSystemDatabase(Generic[T]):
     @ensure_store_exists
     def get_one(self, **filters) -> Optional[T]:
         """
-        Get one record with exact match filters
+        Get one record with exact match filters.
 
         Args:
             **filters: Field-value pairs to filter by
@@ -284,6 +283,21 @@ class YAMLFileSystemDatabase(Generic[T]):
         sort_order: str = "asc",
         filters: Optional[dict] = None,
     ) -> list[T]:
+        """
+        Get all records with optional filtering, sorting, and pagination.
+        Filters are case-sensitive and must match exactly.
+
+        Args:
+            limit (Optional[int], optional): limit. Defaults to None.
+            offset (int, optional): offset. Defaults to 0.
+            order_by (Optional[str], optional): field to order by. Defaults to None.
+            sort_order (str, optional): 'asc' or 'desc'. Defaults to "asc".
+            filters (Optional[dict], optional): dictionary of filters, Pydantic is used for type coercion,
+                so comparing strings to UUIDs or dates will work. Defaults to None.
+
+        Returns:
+            list[T]: List of matching records
+        """
         results = []
 
         filters = self._coerce_field_types(filters or {})
@@ -306,7 +320,7 @@ class YAMLFileSystemDatabase(Generic[T]):
         return results
 
     @ensure_store_exists
-    def search(self, query: str, fields: list[str]) -> list[T]:
+    def text_search(self, query: str, fields: list[str]) -> list[T]:
         """
         Search records with case-sensitive partial matching
 
@@ -333,46 +347,3 @@ class YAMLFileSystemDatabase(Generic[T]):
         """Clear all records in the store"""
         for file_path in self.store_path.glob("*.yaml"):
             file_path.unlink()
-
-
-class RDSStore(YAMLFileSystemDatabase):
-    APP_NAME = "rds"
-
-    def __init__(self, schema: Type[T], client: Client, datasite: Optional[str] = None):
-        """A specialized YAML-based database store for RDS (Remote Data Store) that integrates with SyftBox.
-
-        `RDSStore` extends `YAMLFileSystemDatabase` to provide a storage solution specifically designed
-        for use with SyftBox's RDS infrastructure. It automatically configures the database path
-        using Syft's client API data directory and maintains the same CRUD, query, and search
-        capabilities of its parent class.
-
-        Directory structure with the current four schemas (code, dataset, job and runtime):
-
-        <SYFTBOX-WORKSPACE>/datasites/<datasite>/api_data/
-        ├── rds/                     # RDS application root directory
-        │   └── store/               # Database root
-        │       ├── code/
-        │       │   ├── uuid1.yaml
-        │       │   └── uuid2.yaml
-        │       ├── dataset/
-        │       │   ├── uuid3.yaml
-        │       │   └── uuid4.yaml
-        │       ├── job/
-        │       │   ├── uuid5.yaml
-        │       │   └── uuid6.yaml
-        │       ├── runtime/
-        │       │   ├── uuid7.yaml
-        │       │   └── uuid8.yaml
-        │       └── syftperm.yaml    # Permissions file
-
-        Args:
-            schema: The Schema model class for which to initialize the store.
-            client: Syft client instance to use.
-            datasite: The datasite email to point to. Defaults to the client's email.
-        """
-        self.schema = schema
-        self.client = client
-        self.datasite = datasite or self.client.config.email
-        self.db_path = (
-            self.client.api_data(self.APP_NAME, datasite=self.datasite) / "store"
-        )

@@ -10,16 +10,17 @@ from syft_rds.server.routers.job_router import job_router
 from syft_rds.server.routers.runtime_router import runtime_router
 from syft_rds.server.routers.user_code_router import user_code_router
 from syft_rds.server.user_file_service import UserFileService
-from syft_rds.store.store import RDSStore
+from syft_rds.store.store import YAMLStore
 
 APP_NAME = "RDS"
 
 
 def _init_services(app: SyftEvents) -> None:
     # Stores
-    app.state["job_store"] = RDSStore(schema=Job, client=app.client)
-    app.state["user_code_store"] = RDSStore(schema=UserCode, client=app.client)
-    app.state["runtime_store"] = RDSStore(schema=Runtime, client=app.client)
+    store_dir = app.app_dir / "store"
+    app.state["job_store"] = YAMLStore(item_type=Job, store_dir=store_dir)
+    app.state["user_code_store"] = YAMLStore(item_type=UserCode, store_dir=store_dir)
+    app.state["runtime_store"] = YAMLStore(item_type=Runtime, store_dir=store_dir)
 
     # User file storage
     # a userfile is any read-only asset shared with a user (job outputs, usercode, etc)

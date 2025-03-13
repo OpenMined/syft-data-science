@@ -8,7 +8,7 @@ from syft_rds.models.models import (
     GetAllRequest,
     GetOneRequest,
 )
-from syft_rds.store import RDSStore
+from syft_rds.store import YAMLStore
 
 if TYPE_CHECKING:
     from syft_rds.client.rds_client import RDSClientConfig
@@ -31,15 +31,18 @@ class CRUDLocalStore(Generic[T, CreateT, UpdateT]):
 
         self.config = config
         self.syftbox_client = syftbox_client
-        self.store = RDSStore(
-            schema=self.ITEM_TYPE,
-            client=self.syftbox_client,
+        self.store_dir = self.syftbox_client.api_data(
+            self.config.app_name,
             datasite=self.config.host,
+        )
+        self.store = YAMLStore[T](
+            item_type=self.ITEM_TYPE,
+            store_dir=self.store_dir,
         )
 
     def register_client_id(self, item: T) -> T:
         if isinstance(item, ItemBase):
-            item._register_client_id_recursive(self.config.client_id)
+            item._register_client_id_recursive(self.config.uid)
         return item
 
     def create(self, item: CreateT) -> T:

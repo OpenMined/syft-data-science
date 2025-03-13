@@ -14,19 +14,11 @@ class PydanticFormatter(ABC):
     @abstractmethod
     def format_repr(self, model: BaseModel) -> str: ...
 
+    def format_markdown(self, model: BaseModel) -> str | None:
+        return None
 
-class DefaultPydanticFormatter(PydanticFormatter):
-    """Use the default __str__ and __repr__ methods of Pydantic BaseModel"""
-
-    def format_str(self, model: BaseModel) -> str:
-        if not isinstance(model, BaseModel):
-            raise ValueError(f"Expected Pydantic model, got {type(model)}")
-        return BaseModel.__str__.__get__(model, model.__class__)()
-
-    def format_repr(self, model: BaseModel) -> str:
-        if not isinstance(model, BaseModel):
-            raise ValueError(f"Expected Pydantic model, got {type(model)}")
-        return BaseModel.__repr__.__get__(model, model.__class__)()
+    def format_html(self, model: BaseModel) -> str | None:
+        return None
 
 
 class ANSIPydanticFormatter(PydanticFormatter):
@@ -70,40 +62,16 @@ class ANSIPydanticFormatter(PydanticFormatter):
 
 
 class PydanticFormatterMixin:
-    """Mixin to override __str__ and __repr__ methods of Pydantic models, making it possible to
-    customize formatting for different models and switch based on context.
-
-    In the future, this mixin can provide formatting options for jupyter notebooks, rich, etc.
-
-    Usage:
-    ```
-    # Mixin goes first to override BaseModel methods
-    class MyModel(PydanticFormatterMixin, BaseModel):
-        name: str
-
-    model = MyModel(...)
-    # Print with default ANSI formatter
-    print(model)
-
-    # switch to pydantic default formatter
-    from .formatter import DefaultPydanticFormatter
-    model.set_display_formatter(DefaultPydanticFormatter())
-    print(model)
-    ```
-    """
-
     __display_formatter__: ClassVar[PydanticFormatter] = ANSIPydanticFormatter()
-
-    @classmethod
-    def set_display_formatter(cls, formatter: PydanticFormatter) -> None:
-        cls.__display_formatter__ = formatter
-
-    @classmethod
-    def get_display_formatter(cls) -> PydanticFormatter:
-        return cls.__display_formatter__
 
     def __str__(self) -> str:
         return self.__display_formatter__.format_str(self)
 
     def __repr__(self) -> str:
         return self.__display_formatter__.format_repr(self)
+
+    def _repr_html_(self) -> str:
+        return self.__display_formatter__.format_html(self)
+
+    def _repr_markdown_(self) -> str:
+        return self.__display_formatter__.format_markdown(self)

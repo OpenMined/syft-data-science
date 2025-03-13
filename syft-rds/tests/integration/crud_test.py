@@ -166,7 +166,7 @@ def test_apply_update(ds_rds_client: RDSClient):
 
     # apply job update
     job_update = JobUpdate(uid=job.uid, status=JobStatus.rejected)
-    job.apply(job_update)
+    job.apply_update(job_update)
     assert job.status == JobStatus.rejected
 
     # apply job model
@@ -174,13 +174,13 @@ def test_apply_update(ds_rds_client: RDSClient):
     new_job.status = JobStatus.shared
 
     assert job.status != new_job.status
-    job.apply(new_job)
+    job.apply_update(new_job)
     assert job.status == JobStatus.shared
 
     # Cannot apply update with different UID
     other_job_update = JobUpdate(uid=uuid4(), status=JobStatus.rejected)
     with pytest.raises(ValueError) as e:
-        job.apply(other_job_update)
+        job.apply_update(other_job_update)
     print(e.exconly())
 
     # Cannot apply job with different uid
@@ -190,18 +190,18 @@ def test_apply_update(ds_rds_client: RDSClient):
     )
 
     with pytest.raises(ValueError) as e:
-        job.apply(other_job)
+        job.apply_update(other_job)
     print(e.exconly())
 
     # Cannot apply non-job update to job
     with pytest.raises(ValueError) as e:
-        job.apply(RuntimeUpdate(uid=job.uid))
+        job.apply_update(RuntimeUpdate(uid=job.uid))
     print(e.exconly())
 
     # Update in_place=False
     job.status = JobStatus.rejected
     job_update = JobUpdate(uid=job.uid, status=JobStatus.rejected)
-    new_job = job.apply(job_update, in_place=False)
+    new_job = job.apply_update(job_update, in_place=False)
 
     assert job.status == JobStatus.rejected
     assert new_job.status == JobStatus.rejected

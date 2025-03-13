@@ -68,7 +68,7 @@ class CRUDRPCClient(RPCClientModule, Generic[T, CreateT, UpdateT]):
 
     def register_client_id(self, item: T) -> T:
         if isinstance(item, ItemBase):
-            item._register_client_id_recursive(self.config.client_id)
+            item._register_client_id_recursive(self.config.uid)
         return item
 
     def create(self, item: CreateT) -> T:
@@ -137,7 +137,9 @@ class RPCClient(RPCClientModule):
             Dataset: self.dataset,
         }
 
-    def for_type(self, type_: Type[ItemBase]) -> CRUDRPCClient:
+    def for_type(
+        self, type_: Type[T]
+    ) -> CRUDRPCClient[T, ItemBaseCreate, ItemBaseUpdate]:
         if type_ not in self._type_map:
             raise ValueError(f"No client registered for type {type_}")
         return self._type_map[type_]

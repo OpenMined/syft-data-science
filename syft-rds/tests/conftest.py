@@ -7,7 +7,7 @@ from syft_event import SyftEvents
 from syft_rds.client.rds_client import RDSClient, init_session
 from syft_rds.orchestra import setup_rds_stack
 from syft_rds.server.app import create_app
-from syft_rds.store import YAMLFileSystemDatabase
+from syft_rds.store import YAMLStore
 
 from tests.mocks import MockUserSchema
 
@@ -90,13 +90,13 @@ def yaml_store(temp_db_path):
     """Fixture for initializing the YAML store."""
 
     def _create_yaml_store(schema):
-        return YAMLFileSystemDatabase(schema=schema, db_path=temp_db_path)
+        return YAMLStore(item_type=schema, db_path=temp_db_path)
 
     return _create_yaml_store
 
 
 @pytest.fixture
-def mock_user_store(yaml_store) -> YAMLFileSystemDatabase:
+def mock_user_store(yaml_store) -> YAMLStore:
     return yaml_store(MockUserSchema)
 
 

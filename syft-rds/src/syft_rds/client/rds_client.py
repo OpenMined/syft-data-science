@@ -1,5 +1,6 @@
 from pathlib import Path
 from typing import Optional
+from uuid import UUID
 
 from loguru import logger
 from syft_core import Client as SyftBoxClient
@@ -97,8 +98,11 @@ class RDSClient(RDSClientBase):
 
         # TODO implement and enable runtime client
         # self.runtime = RuntimeRDSClient(self.config, self.rpc, self.local_store)
-        self.uid = self.config.client_id
-        GlobalClientRegistry.register_client(self.uid, self)
+        GlobalClientRegistry.register_client(self)
+
+    @property
+    def uid(self) -> UUID:
+        return self.config.uid
 
     @property
     def datasets(self) -> list[Dataset]:
@@ -136,7 +140,7 @@ class RDSClient(RDSClientBase):
         return_code = self._run(config=config)
         job_update = job.get_update_for_return_code(return_code)
         new_job = self.rpc.jobs.update(job_update)
-        return job.apply(new_job)
+        return job.apply_update(new_job)
 
     def run_mock(self, job: Job, config: Optional[JobConfig] = None) -> Job:
         config = config or self.get_default_config_for_job(job)
