@@ -21,9 +21,9 @@ T = TypeVar("T", bound=ItemBase)
 def ensure_store_exists(func):
     @wraps(func)
     def wrapper(self: "YAMLStore", *args, **kwargs):
-        if not self.dir_for_item_type.exists():
-            self.dir_for_item_type.mkdir(parents=True, exist_ok=True)
-            perms_file = self.dir_for_item_type.parent / "syftperm.yaml"
+        if not self.item_type_dir.exists():
+            self.item_type_dir.mkdir(parents=True, exist_ok=True)
+            perms_file = self.item_type_dir.parent / "syftperm.yaml"
             perms_file.write_text(PERMS)  # TODO create more restrictive permissions
         return func(self, *args, **kwargs)
 
@@ -136,12 +136,12 @@ class YAMLStore(Generic[T]):
         return resolved_filters
 
     @property
-    def dir_for_item_type(self) -> Path:
+    def item_type_dir(self) -> Path:
         return self.store_dir / self.item_type.__schema_name__
 
     def _get_record_path(self, uid: str | UUID) -> Path:
         """Get the full path for a record's YAML file from its UID."""
-        return self.dir_for_item_type / f"{uid}.yaml"
+        return self.item_type_dir / f"{uid}.yaml"
 
     def _save_record(self, record: T) -> None:
         """Save a single record to its own YAML file"""
@@ -166,7 +166,7 @@ class YAMLStore(Generic[T]):
     def list_all(self) -> list[T]:
         """List all records in the store"""
         records = []
-        for file_path in self.dir_for_item_type.glob("*.yaml"):
+        for file_path in self.item_type_dir.glob("*.yaml"):
             _id = file_path.stem
             loaded_record = self.get_by_uid(_id)
             if loaded_record is not None:
@@ -334,5 +334,5 @@ class YAMLStore(Generic[T]):
     @ensure_store_exists
     def clear(self) -> None:
         """Clear all records in the store"""
-        for file_path in self.dir_for_item_type.glob("*.yaml"):
+        for file_path in self.item_type_dir.glob("*.yaml"):
             file_path.unlink()
