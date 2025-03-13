@@ -14,7 +14,7 @@ from syft_rds.models.models import (
     GetAllRequest,
     GetOneRequest,
 )
-from syft_rds.store import RDSStore
+from syft_rds.store import YAMLStore
 
 if TYPE_CHECKING:
     from syft_rds.client.rds_client import RDSClientConfig
@@ -304,7 +304,7 @@ class DatasetFilesManager:
 class DatasetSchemaManager:
     """Manages schema operations for datasets."""
 
-    def __init__(self, path_manager: DatasetPathManager, store: RDSStore) -> None:
+    def __init__(self, path_manager: DatasetPathManager, store: YAMLStore) -> None:
         """
         Initialize the schema manager.
 
@@ -369,7 +369,9 @@ class DatasetSchemaManager:
         Returns:
             True if deleted, False if not found
         """
-        queried_result: list[Dataset] = self._schema_store.query(name=name)
+        queried_result: list[Dataset] = self._schema_store.get_all(
+            filters={"name": name}
+        )
         if not queried_result:
             return False
         first_res: Dataset = queried_result[0]
@@ -458,7 +460,7 @@ class DatasetLocalStore(CRUDLocalStore[Dataset, DatasetCreate, DatasetUpdate]):
         try:
             self._copy_dataset_files(dataset_create)
             dataset = self._schema_manager.create(dataset_create)
-            return dataset._register_client_id_recursive(self.config.client_id)
+            return dataset._register_client_id_recursive(self.config.uid)
         except Exception as e:
             self._files_manager.cleanup_dataset_files(dataset_create.name)
             self._schema_manager.delete(dataset_create.name)

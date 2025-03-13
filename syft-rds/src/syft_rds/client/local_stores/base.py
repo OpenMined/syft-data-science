@@ -1,7 +1,5 @@
 from typing import TYPE_CHECKING, ClassVar, Generic, List, Type, TypeVar
-from uuid import UUID
 
-from pydantic import TypeAdapter
 from syft_core import Client as SyftBoxClient
 
 from syft_rds.jupyter_utils.types import TableList
@@ -10,7 +8,7 @@ from syft_rds.models.models import (
     GetAllRequest,
     GetOneRequest,
 )
-from syft_rds.store import RDSStore
+from syft_rds.store import YAMLStore
 
 if TYPE_CHECKING:
     from syft_rds.client.rds_client import RDSClientConfig
@@ -33,52 +31,22 @@ class CRUDLocalStore(Generic[T, CreateT, UpdateT]):
 
         self.config = config
         self.syftbox_client = syftbox_client
-        self.store = RDSStore(
-            schema=self.ITEM_TYPE,
-            client=self.syftbox_client,
-            datasite=self.config.host,
+        self.store = YAMLStore[T](
+            item_type=self.ITEM_TYPE,
+            store_dir=self.store_dir,
         )
 
-        self._field_validators = self._make_field_validators()
-
-    def _make_field_validators(self) -> dict:
-        """
-        Create a dictionary of field_name: TypeAdapter for each field in the schema.
-        These can be used to validate and convert field values to the correct type, required when querying the store.
-        """
-        return {
-            field_name: TypeAdapter(field_info.annotation)
-            for field_name, field_info in self.ITEM_TYPE.model_fields.items()
-        }
-
-    def _coerce_field_types(self, filters: dict) -> dict:
-        """
-        If possible, convert filter values to the correct type for the schema.
-        e.g. convert str to UUID, or str to Enum, etc.
-        """
-        # TODO move filter type coercion to RDSStore to avoid duplication serverside
-        resolved_filters = {}
-        for filter_name, filter_value in filters.items():
-            validator = self._field_validators.get(filter_name, None)
-            if validator is None:
-                # Cannot infer type, leave it in the original form
-                resolved_filters[filter_name] = filter_value
-                continue
-            try:
-                type_adapter = self._field_validators[filter_name]
-                validated_value = type_adapter.validate_python(filter_value)
-                resolved_filters[filter_name] = validated_value
-            except Exception:
-                # Cannot convert to the correct type, leave it in the original form
-                # logger.exception(
-                #     f"Could not convert filter value {filter_value} to {field_info.annotation} for field {filter_name}"
-                # )
-                resolved_filters[filter_name] = filter_value
-        return resolved_filters
+    @property
+    def store_dir(self) -> str:
+        app_dir = self.syftbox_client.api_data(
+            self.config.app_name,
+            datasite=self.config.host,
+        )
+        return app_dir / "store"
 
     def register_client_id(self, item: T) -> T:
         if isinstance(item, ItemBase):
-            item._register_client_id_recursive(self.config.client_id)
+            item._register_client_id_recursive(self.config.uid)
         return item
 
     def create(self, item: CreateT) -> T:
@@ -87,49 +55,28 @@ class CRUDLocalStore(Generic[T, CreateT, UpdateT]):
     def update(self, item: UpdateT) -> T:
         raise NotImplementedError
 
-    def get_by_uid(self, uid: str | UUID) -> T:
-        res = self.store.read(uid)
-        if res is None:
-            raise ValueError(f"No {self.ITEM_TYPE.__name__} found with uid {uid}")
-        return self.register_client_id(res)
-
     def get_one(self, request: GetOneRequest) -> T:
-        if request.uid is not None and len(request.filters) == 0:
-            # No additional filters, just query by UID
-            return self.get_by_uid(request.uid)
-
-        # With additional filters, get_one is equivalent to get_all with limit=1
-        get_all_req = GetAllRequest(filters=request.filters, limit=1)
+        filters = request.filters
         if request.uid is not None:
-            get_all_req.filters["uid"] = request.uid
-        res = self.get_all(get_all_req)
+            filters["uid"] = request.uid
 
-        if len(res) == 0:
+        res_or_none = self.store.get_one(**filters)
+        if res_or_none is None:
             filters_formatted: str = ", ".join(
                 [f"{k}={v}" for k, v in request.filters.items()]
             )
             raise ValueError(
                 f"No {self.ITEM_TYPE.__name__} found with filters {filters_formatted}"
             )
-        return res[0]
-
-    def _sort_results(self, items: List[T], order_by: str, sort_order: str) -> List[T]:
-        return sorted(
-            items,
-            key=lambda x: getattr(x, order_by, None),
-            reverse=sort_order == "desc",
-        )
+        return self.register_client_id(res_or_none)
 
     def get_all(self, request: GetAllRequest) -> List[T]:
-        # TODO move this logic to RDSStore and give RDSClient direct access to store instead of this in-between layer. Because: logic is needed both clientside and server side
-        # TODO Merge store get/query/search methods to get_one and get_all? pysyft does the same: https://github.com/OpenMined/PySyft/blob/dev/packages/syft/src/syft/store/db/stash.py#L522
-        filters = self._coerce_field_types(request.filters)
-        items = self.store.query(**filters)
-        items = self._sort_results(items, request.order_by, request.sort_order)
-        if request.offset:
-            items = items[request.offset :]
-        if request.limit:
-            items = items[: request.limit]
-
+        items = self.store.get_all(
+            limit=request.limit,
+            offset=request.offset,
+            order_by=request.order_by,
+            sort_order=request.sort_order,
+            filters=request.filters,
+        )
         items = [self.register_client_id(item) for item in items]
         return TableList(items)

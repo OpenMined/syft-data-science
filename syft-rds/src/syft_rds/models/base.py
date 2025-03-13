@@ -1,12 +1,25 @@
 from abc import ABC
 from datetime import datetime, timezone
-from typing import TYPE_CHECKING, Any, Generic, Optional, Self, Type, TypeVar, Union
+from typing import (
+    TYPE_CHECKING,
+    Any,
+    ClassVar,
+    Generic,
+    Optional,
+    Self,
+    Type,
+    TypeVar,
+    Union,
+)
 from uuid import UUID, uuid4
 
 from pydantic import BaseModel, Field
 from syft_core import Client as SyftBoxClient
 
-from syft_rds.models.formatter import PydanticFormatterMixin
+from syft_rds.models.formatter import (
+    ANSIPydanticFormatter,
+    PydanticFormatter,
+)
 
 if TYPE_CHECKING:
     from syft_rds.client.rds_client import RDSClient
@@ -16,10 +29,10 @@ def _utcnow():
     return datetime.now(tz=timezone.utc)
 
 
-class ItemBase(PydanticFormatterMixin, BaseModel, ABC):
-    """Base Item class that all models inherit from"""
-
+class ItemBase(BaseModel, ABC):
     __schema_name__: str
+    __display_formatter__: ClassVar[PydanticFormatter] = ANSIPydanticFormatter()
+
     uid: UUID = Field(default_factory=uuid4)
     created_by: str | None = None
     created_at: datetime = Field(default_factory=_utcnow)
@@ -57,7 +70,7 @@ class ItemBase(PydanticFormatterMixin, BaseModel, ABC):
     def type_name(cls) -> str:
         return cls.__name__.lower()
 
-    def apply(
+    def apply_update(
         self, other: Union[Self, "ItemBaseUpdate[Self]"], in_place: bool = True
     ) -> Self:
         """Updates this instance with the provided update instance."""
@@ -84,11 +97,23 @@ class ItemBase(PydanticFormatterMixin, BaseModel, ABC):
         else:
             return self.model_copy(update=update_dict)
 
+    def __str__(self) -> str:
+        return self.__display_formatter__.format_str(self)
+
+    def __repr__(self) -> str:
+        return self.__display_formatter__.format_repr(self)
+
+    def _repr_html_(self) -> str:
+        return self.__display_formatter__.format_html(self)
+
+    def _repr_markdown_(self) -> str:
+        return self.__display_formatter__.format_markdown(self)
+
 
 T = TypeVar("T", bound=ItemBase)
 
 
-class ItemBaseCreate(PydanticFormatterMixin, BaseModel, Generic[T]):
+class ItemBaseCreate(BaseModel, Generic[T]):
     @classmethod
     def get_target_model(cls) -> Type[T]:
         return cls.__bases__[0].__pydantic_generic_metadata__["args"][0]  # type: ignore
@@ -99,12 +124,9 @@ class ItemBaseCreate(PydanticFormatterMixin, BaseModel, Generic[T]):
         return model_cls(**self.model_dump(), **extra)
 
 
-class ItemBaseUpdate(PydanticFormatterMixin, BaseModel, Generic[T]):
+class ItemBaseUpdate(BaseModel, Generic[T]):
     uid: UUID
 
     @classmethod
     def get_target_model(cls) -> Type[T]:
         return cls.__bases__[0].__pydantic_generic_metadata__["args"][0]  # type: ignore
-
-    def apply_to(self, item: T) -> T:
-        return item.apply(self)

@@ -65,7 +65,7 @@ def test_job_execution(
         job.share_artifacts()
 
     # Runner side
-    user_code = do_rds_client.user_code.get(job.user_code_id)
+    user_code = do_rds_client.user_code.get(uid=job.user_code_id)
     assert user_code.local_dir.is_dir() and user_code.local_file.is_file()
     # config = JobConfig(
     #     # we use the parent directory of the user code path as the function folder
@@ -97,8 +97,8 @@ def test_job_execution(
 
     # Only print this for the Python test case
     if runtime is None:
-        print(ds_rds_client.local_store.jobs.store.db_path)
-    print(ds_rds_client.local_store.jobs.store.db_path)
+        print(ds_rds_client.local_store.jobs.store.store_dir)
+    print(ds_rds_client.local_store.jobs.store.store_dir)
 
     output_path = job.get_output_path()
     assert output_path.exists()

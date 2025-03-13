@@ -407,13 +407,13 @@ class DatasetUpdate(ItemBaseUpdate[Dataset]):
 
 class GetOneRequest(BaseModel):
     uid: UUID | None = None
-    filters: dict[str, Any] = {}
+    filters: dict[str, Any] = Field(default_factory=dict)
 
 
 class GetAllRequest(BaseModel):
     limit: Optional[int] = None
     offset: int = 0
-    filters: dict[str, Any] = {}
+    filters: dict[str, Any] = Field(default_factory=dict)
     order_by: Optional[str] = "created_at"
     sort_order: Literal["desc", "asc"] = "desc"
 

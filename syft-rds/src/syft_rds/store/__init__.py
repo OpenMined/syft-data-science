@@ -1,4 +1,3 @@
-from .store import YAMLFileSystemDatabase
-from .store import RDSStore
+from .store import YAMLStore
 
-__all__ = ["YAMLFileSystemDatabase", "RDSStore"]
+__all__ = ["YAMLStore", "YAMLStore"]
