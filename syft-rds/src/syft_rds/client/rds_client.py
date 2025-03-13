@@ -103,12 +103,13 @@ class RDSClient(RDSClientModule):
 
     def get_default_config_for_job(self, job: Job) -> JobConfig:
         user_code = self.user_code.get(job.user_code_id)
+        dataset = self.dataset.get(name=job.dataset_name)
         runner_config = self.config.runner_config
         return JobConfig(
             function_folder=user_code.path.parent,
             args=[user_code.path.name],
-            data_path=self.dataset.get(name=job.dataset_name).get_private_path(),
-            runtime=runner_config.runtime,
+            data_path=dataset.get_private_path(),
+            runtime=dataset.runtime,
             job_folder=runner_config.job_output_folder / job.uid.hex,
             timeout=runner_config.timeout,
             use_docker=runner_config.use_docker,

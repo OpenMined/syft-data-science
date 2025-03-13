@@ -11,6 +11,7 @@ from syft_core import SyftBoxURL
 
 from syft_rds.models.base import BaseSchema, BaseSchemaCreate, BaseSchemaUpdate
 from syft_rds.utils.name_generator import generate_name
+from syft_runtime.main import CodeRuntime
 
 T = TypeVar("T", bound=BaseSchema)
 
@@ -207,6 +208,7 @@ class Dataset(BaseSchema):
     summary: str | None = Field(description="Summary string of the dataset.")
     readme: SyftBoxURL | None = Field(description="REAMD.md Syft URL of the dataset.")
     tags: list[str] = Field(description="Tags for the dataset.")
+    runtime: CodeRuntime = Field(default_factory=CodeRuntime.default)
 
     def get_mock_path(self) -> Path:
         mock_path: Path = self.mock.to_local_path(
@@ -297,6 +299,7 @@ class DatasetCreate(BaseSchemaCreate[Dataset]):
         description="Path to the detailed REAMD.md of the dataset."
     )
     tags: list[str] | None = Field(description="Tags for the dataset.")
+    runtime: CodeRuntime | None = Field(description="Runtime for the dataset.")
 
 
 class DatasetUpdate(BaseSchemaUpdate[Dataset]):

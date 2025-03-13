@@ -24,6 +24,12 @@ class CodeRuntime(BaseModel):
     image_name: str | None = None
     cwd: Path | None = None
 
+    @classmethod
+    def default(cls):
+        return cls(
+            cmd=["python"],
+        )
+
 
 class JobConfig(BaseModel):
     """Configuration for a job run"""
@@ -397,6 +403,7 @@ class DockerRunner:
             stderr=subprocess.PIPE,
             text=True,
             env=env,
+            cwd=config.runtime.cwd,
         )
         # Stream output
         while True:
