@@ -1,16 +1,16 @@
 import random
 import string
-import pkg_resources
 from typing import List
+
+from syft_rds.utils.resources import load_resource
 
 _adjectives: List[str] | None = None
 _nouns: List[str] | None = None
 
 
 def _load_words(filename: str) -> List[str]:
-    path = pkg_resources.resource_filename("syft_rds", f"assets/{filename}")
-    with open(path) as f:
-        return [line.strip() for line in f if line.strip()]
+    content = load_resource(filename)
+    return [line.strip() for line in content.splitlines() if line.strip()]
 
 
 def generate_name() -> str:

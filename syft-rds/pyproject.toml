@@ -8,11 +8,11 @@ dependencies = [
     "loguru>=0.7.3",
     "pydantic[email]>=2.10.4",
     "rich>=13.9.4",
+    "syft-core",
     "syft-event",
     "syft-rpc",
     "typing-extensions>=4.12.2",
     "pyyaml>=6.0.2",
-    "setuptools>=75.8.0",
     "typer>=0.15.1",
     "jupyter>=1.1.1",
     "nh3>=0.2.21",
@@ -21,20 +21,19 @@ dependencies = [
 
 [tool.uv]
 dev-dependencies = [
-    "pip>=25.0.1",
     "pre-commit>=4.1.0",
     "pytest>=8.3.4",
+    "pytest-asyncio>=0.25.3",
+    "jupyter>=1.1.1",
     "ipykernel>=6.29.5",
-    "ipywidgets>=8.1.5",
     "pandas>=1.4.0",
     "httpx>=0.28.1",
-    "pytest-asyncio>=0.25.3",
-    "syftbox>=0.3.5",
 ]
 
 [tool.uv.sources]
 syft-event = { git = "https://github.com/OpenMined/syft-extras.git", subdirectory = "packages/syft-event", rev = "main" }
 syft-rpc = { git = "https://github.com/OpenMined/syft-extras.git", subdirectory = "packages/syft-rpc", rev = "main" }
+syft-core = { git = "https://github.com/OpenMined/syft-extras.git", subdirectory = "packages/syft-core", rev = "main" }
 
 [build-system]
 requires = ["hatchling"]
