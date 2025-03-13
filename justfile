@@ -37,7 +37,6 @@ run-jupyter jupyter_args="":
     uv run --frozen --with "jupyterlab" \
         jupyter lab {{ jupyter_args }}
 
-# ---------------------------------------------------------------------------------------------------------------------
 # Build a runtime container based on the Dockerfile name
 # Usage: just build-runtime sh (builds syft_sh_runtime from runtimes/sh.Dockerfile)
 [group('utils')]
@@ -60,6 +59,14 @@ build-all-runtimes:
     done
     echo "All runtime containers built successfully!"
 
+# remove all local files & directories
+[group('utils')]
+reset:
+    #!/bin/sh
+    cd syft-rds
+    rm -rf ./.clients ./.server ./dist ./.e2e ./.logs
+
+
 # ---------------------------------------------------------------------------------------------------------------------
 [group('test')]
 setup-test-env:
@@ -81,8 +88,8 @@ test-integration: setup-test-env
 [group('test')]
 test-e2e: setup-test-env
     #!/bin/sh
-    rm -rf .e2e/
     cd syft-rds
+    rm -rf .e2e/
     echo "{{ _cyan }}Running end-to-end tests {{ _nc }}"
     echo "Using SyftBox from {{ _green }}'$(which syftbox)'{{ _nc }}"
     uv run --with "pytest-xdist" pytest -{{ _test_verbosity }} --color=yes -n {{ _test_workers }} tests/e2e/
@@ -105,3 +112,111 @@ test: setup-test-env
     just test-notebooks &
     wait
     echo "{{ _green }}All tests completed!{{ _nc }}"
+
+
+# ---------------------------------------------------------------------------------------------------------------------
+
+# Run a local syftbox client on any available port between 8080-9000
+[group('syftbox')]
+run-syftbox-server port="5001" gunicorn_args="":
+    #!/bin/bash
+    cd syft-rds
+    set -eou pipefail
+
+    export SYFTBOX_DATA_FOLDER=${SYFTBOX_DATA_FOLDER:-.server/data}
+    uv run syftbox server migrate
+    uv run gunicorn syftbox.server.server:app -k uvicorn.workers.UvicornWorker --bind 127.0.0.1:{{ port }} --reload {{ gunicorn_args }}
+
+[group('syftbox')]
+run-syftbox name port="auto" server="http://localhost:5001":
+    #!/bin/bash
+    cd syft-rds
+    set -eou pipefail
+
+    # generate a local email from name, but if it looks like an email, then use it as is
+    EMAIL="{{ name }}@openmined.org"
+    if [[ "{{ name }}" == *@*.* ]]; then EMAIL="{{ name }}"; fi
+
+    # if port is auto, then generate a random port between 8000-8090, else use the provided port
+    PORT="{{ port }}"
+    if [[ "$PORT" == "auto" ]]; then PORT="0"; fi
+
+    # Working directory for client is .clients/<email>
+    DATA_DIR=.clients/$EMAIL
+    mkdir -p $DATA_DIR
+
+    echo -e "Email      : {{ _green }}$EMAIL{{ _nc }}"
+    echo -e "Client     : {{ _cyan }}http://localhost:$PORT{{ _nc }}"
+    echo -e "Server     : {{ _cyan }}{{ server }}{{ _nc }}"
+    echo -e "Data Dir   : $DATA_DIR"
+
+    uv run syftbox client --config=$DATA_DIR/config.json --data-dir=$DATA_DIR --email=$EMAIL --port=$PORT --server={{ server }} --no-open-dir
+
+[group('syftbox')]
+run-syftbox-do server="http://localhost:5001":
+    #!/bin/bash
+    just run-syftbox "data_owner@openmined.org" "auto" "{{ server }}"
+
+[group('syftbox')]
+run-syftbox-ds server="http://localhost:5001":
+    #!/bin/bash
+    just run-syftbox "data_scientist@openmined.org" "auto" "{{ server }}"
+
+# ---------------------------------------------------------------------------------------------------------------------
+
+[group('rds')]
+run-rds-server syftbox_config="":
+    #!/bin/bash
+    if [ -z "{{ syftbox_config }}" ]; then
+        cd syft-rds
+        uv run syft-rds server
+    else
+        CONFIG_PATH=$(realpath "{{ syftbox_config }}")
+        cd syft-rds
+        uv run syft-rds server --syftbox-config "$CONFIG_PATH"
+    fi
+
+run-rds-do:
+    #!/bin/bash
+    just run-rds-server "syft-rds/.clients/data_owner@openmined.org/config.json"
+
+[group('rds')]
+install:
+    #!/bin/bash
+    cd syft-rds
+    uv venv --allow-existing
+    uv sync
+
+[group('rds')]
+run-rds-stack:
+    #!/bin/bash
+    just reset
+    just install
+    mkdir -p ./syft-rds/.logs
+
+    echo "Launching syftbox-server..."
+    just run-syftbox-server > ./syft-rds/.logs/syftbox-server.log 2>&1 &
+    SERVER_PID=$!
+    sleep 2
+
+    echo "Launching syftbox-do..."
+    just run-syftbox-do > ./syft-rds/.logs/syftbox-do.log 2>&1 &
+    DO_PID=$!
+    sleep 2
+
+    echo "Launching syftbox-ds..."
+    just run-syftbox-ds > ./syft-rds/.logs/syftbox-ds.log 2>&1 &
+    DS_PID=$!
+    sleep 2
+
+    # Function to kill background processes
+    function cleanup {
+        kill $SERVER_PID $DO_PID $DS_PID
+        exit 0
+    }
+
+    # Set up trap to catch Ctrl+C
+    trap cleanup INT
+
+    echo "Launching rds-do in foreground..."
+    just run-rds-do | tee ./syft-rds/.logs/rds-do.log

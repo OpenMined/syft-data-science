@@ -182,4 +182,7 @@ notebooks/quickstart/data/
 .vscode/
 
 .e2e/
+.logs/
+.clients/
+.server/
 job_outputs/

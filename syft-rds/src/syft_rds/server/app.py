@@ -1,5 +1,7 @@
 from types import MethodType
 
+import yaml
+from loguru import logger
 from syft_core import Client
 from syft_event import SyftEvents
 
@@ -13,18 +15,41 @@ from syft_rds.server.user_file_service import UserFileService
 from syft_rds.store.store import YAMLStore
 
 APP_NAME = "RDS"
+APP_INFO_FILE = "app.yaml"
 
 
 def _init_services(app: SyftEvents) -> None:
     # Stores
     store_dir = app.app_dir / "store"
-    app.state["job_store"] = YAMLStore(item_type=Job, store_dir=store_dir)
-    app.state["user_code_store"] = YAMLStore(item_type=UserCode, store_dir=store_dir)
-    app.state["runtime_store"] = YAMLStore(item_type=Runtime, store_dir=store_dir)
+    app.state["job_store"] = YAMLStore[Job](item_type=Job, store_dir=store_dir)
+    app.state["user_code_store"] = YAMLStore[UserCode](
+        item_type=UserCode, store_dir=store_dir
+    )
+    app.state["runtime_store"] = YAMLStore[Runtime](
+        item_type=Runtime, store_dir=store_dir
+    )
 
-    # User file storage
-    # a userfile is any read-only asset shared with a user (job outputs, usercode, etc)
     app.state["user_file_service"] = UserFileService(app_dir=app.app_dir)
+
+
+def _write_app_info(app: SyftEvents) -> None:
+    app_info = {
+        "app_name": app.app_name,
+        "app_version": __version__,
+    }
+    app_info_path = app.app_dir / APP_INFO_FILE
+    if app_info_path.exists():
+        # Load and check if the fields are the same
+        with app_info_path.open("r") as f:
+            existing_info = yaml.safe_load(f)
+            for key, new_value in app_info.items():
+                existing_value = existing_info.get(key)
+                if existing_value != new_value:
+                    logger.warning(
+                        f"App info file contains a different {key}: {existing_value}. Migrations are not supported."
+                    )
+    with app_info_path.open("w") as f:
+        yaml.safe_dump(app_info, f)
 
 
 def create_app(client: Client | None = None) -> SyftEvents:
@@ -46,6 +71,6 @@ def create_app(client: Client | None = None) -> SyftEvents:
     rds_app.include_router(runtime_router, prefix="/runtime")
 
     _init_services(rds_app)
-    rds_app.state["output_dir"] = rds_app.app_dir / "output"
+    _write_app_info(rds_app)
 
     return rds_app
