@@ -30,12 +30,12 @@ alias rj := run-jupyter
 @default:
     just --list
 
-[group('utils')]
-run-jupyter jupyter_args="":
-    # uv sync
 
-    uv run --frozen --with "jupyterlab" \
-        jupyter lab {{ jupyter_args }}
+[group('utils')]
+run-jupyter:
+    #!/bin/bash
+    source syft-rds/.venv/bin/activate
+    jupyter lab
 
 # Build a runtime container based on the Dockerfile name
 # Usage: just build-runtime sh (builds syft_sh_runtime from runtimes/sh.Dockerfile)
@@ -152,16 +152,6 @@ run-syftbox name port="auto" server="http://localhost:5001":
 
     uv run syftbox client --config=$DATA_DIR/config.json --data-dir=$DATA_DIR --email=$EMAIL --port=$PORT --server={{ server }} --no-open-dir
 
-[group('syftbox')]
-run-syftbox-do server="http://localhost:5001":
-    #!/bin/bash
-    just run-syftbox "data_owner@openmined.org" "auto" "{{ server }}"
-
-[group('syftbox')]
-run-syftbox-ds server="http://localhost:5001":
-    #!/bin/bash
-    just run-syftbox "data_scientist@openmined.org" "auto" "{{ server }}"
-
 # ---------------------------------------------------------------------------------------------------------------------
 
 [group('rds')]
@@ -176,10 +166,6 @@ run-rds-server syftbox_config="":
         uv run syft-rds server --syftbox-config "$CONFIG_PATH"
     fi
 
-run-rds-do:
-    #!/bin/bash
-    just run-rds-server "syft-rds/.clients/data_owner@openmined.org/config.json"
-
 [group('rds')]
 install:
     #!/bin/bash
@@ -187,36 +173,82 @@ install:
     uv venv --allow-existing
     uv sync
 
+
+# Run both a syftbox client and an RDS server
 [group('rds')]
-run-rds-stack:
+run-syftbox-rds name server="http://localhost:5001":
     #!/bin/bash
+    set -eou pipefail
+    mkdir -p ./syft-rds/.logs
+
+    echo "Starting SyftBox client for {{ name }}..."
+    just run-syftbox "{{ name }}" "auto" {{ server }} > ./syft-rds/.logs/syftbox-{{ name }}.log 2>&1 &
+    CLIENT_PID=$!
+
+    # Give client time to start and create config
+    sleep 2
+
+    # Set trap to directly kill the client process when this script exits
+    trap "kill $CLIENT_PID; exit 0" INT
+
+    # Get config path for this client
+    CONFIG_PATH="$(pwd)/syft-rds/.clients/{{ name }}/config.json"
+
+    echo "Starting RDS server with config from $CONFIG_PATH..."
+    just run-rds-server "$CONFIG_PATH"
+
+# Run the full RDS stack with datasites
+[group('rds')]
+run-rds-stack client_names="data_owner@openmined.org data_scientist@openmined.org":
+    #!/bin/bash
+    set -eou pipefail
+
+    # Setup environment
     just reset
     just install
     mkdir -p ./syft-rds/.logs
 
-    echo "Launching syftbox-server..."
+    echo "Setting up stack with clients: {{ client_names }}"
+
+    # Start SyftBox server
+    echo "Launching SyftBox server..."
     just run-syftbox-server > ./syft-rds/.logs/syftbox-server.log 2>&1 &
     SERVER_PID=$!
     sleep 2
 
-    echo "Launching syftbox-do..."
-    just run-syftbox-do > ./syft-rds/.logs/syftbox-do.log 2>&1 &
-    DO_PID=$!
+    # Track all PIDs for cleanup
+    declare -a ALL_PIDS=($SERVER_PID)
+
+    # Split the space-separated list into an array
+    clients=( {{client_names}} )
+
+    # Launch syftbox clients and RDS servers
+    for client in "${clients[@]}"; do
+        echo "Starting $client..."
+
+        # Run in background and capture its PID, logging output to files
+        (just run-syftbox-rds "$client" "http://localhost:5001") > ./syft-rds/.logs/rds-$client.log 2>&1 &
+        STACK_PID=$!
+        ALL_PIDS+=($STACK_PID)
+    done
+
     sleep 2
 
-    echo "Launching syftbox-ds..."
-    just run-syftbox-ds > ./syft-rds/.logs/syftbox-ds.log 2>&1 &
-    DS_PID=$!
-    sleep 2
-
-    # Function to kill background processes
+    # Function to kill all processes
     function cleanup {
-        kill $SERVER_PID $DO_PID $DS_PID
+        echo "Shutting down all processes..."
+        for pid in "${ALL_PIDS[@]}"; do
+            kill $pid 2>/dev/null || true
+        done
         exit 0
     }
 
-    # Set up trap to catch Ctrl+C
+    # Set trap to catch Ctrl+C
     trap cleanup INT
 
-    echo "Launching rds-do in foreground..."
-    just run-rds-do | tee ./syft-rds/.logs/rds-do.log
+    echo "All services started successfully!"
+    echo "Logs available in: $(pwd)/syft-rds/.logs/"
+    echo "Press Ctrl+C to shut down"
+
+    # Wait forever (until Ctrl+C)
+    tail -f /dev/null

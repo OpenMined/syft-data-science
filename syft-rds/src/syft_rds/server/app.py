@@ -16,6 +16,12 @@ from syft_rds.store.store import YAMLStore
 
 APP_NAME = "RDS"
 APP_INFO_FILE = "app.yaml"
+APP_SYFTPERM = f"""
+- path: '{APP_INFO_FILE}'
+  permissions:
+  - read
+  user: '*'
+"""
 
 
 def _init_services(app: SyftEvents) -> None:
@@ -33,6 +39,9 @@ def _init_services(app: SyftEvents) -> None:
 
 
 def _write_app_info(app: SyftEvents) -> None:
+    perm_path = app.app_dir / "syftperm.yaml"
+    perm_path.write_text(APP_SYFTPERM)
+
     app_info = {
         "app_name": app.app_name,
         "app_version": __version__,

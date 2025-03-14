@@ -70,6 +70,10 @@ class ItemBase(BaseModel, ABC):
     def type_name(cls) -> str:
         return cls.__name__.lower()
 
+    def refresh(self, in_place: bool = True) -> Self:
+        new_item = self._client.for_type(type(self)).get(self.uid)
+        return self.apply_update(new_item, in_place=in_place)
+
     def apply_update(
         self, other: Union[Self, "ItemBaseUpdate[Self]"], in_place: bool = True
     ) -> Self:
@@ -88,6 +92,10 @@ class ItemBase(BaseModel, ABC):
                 )
             update_dict = other.model_dump(exclude_unset=True)
             update_dict["updated_at"] = _utcnow()
+        else:
+            raise TypeError(
+                f"Cannot apply update of type {type(other)} to {type(self)}"
+            )
 
         if in_place:
             for field_name, value in update_dict.items():
