@@ -1,5 +1,5 @@
 from pathlib import Path
-from typing import Optional
+from typing import Optional, Type, TypeVar
 from uuid import UUID
 
 from loguru import logger
@@ -13,13 +13,17 @@ from syft_rds.client.local_store import LocalStore
 from syft_rds.client.rds_clients.base import (
     RDSClientBase,
     RDSClientConfig,
+    RDSClientModule,
 )
 from syft_rds.client.rds_clients.dataset import DatasetRDSClient
 from syft_rds.client.rds_clients.jobs import JobRDSClient
 from syft_rds.client.rds_clients.user_code import UserCodeRDSClient
 from syft_rds.client.rpc import RPCClient
 from syft_rds.client.utils import PathLike
-from syft_rds.models.models import Dataset, Job, JobStatus
+from syft_rds.models.base import ItemBase
+from syft_rds.models.models import Dataset, Job, JobStatus, UserCode
+
+T = TypeVar("T", bound=ItemBase)
 
 
 def _resolve_syftbox_client(
@@ -101,6 +105,18 @@ class RDSClient(RDSClientBase):
         # TODO implement and enable runtime client
         # self.runtime = RuntimeRDSClient(self.config, self.rpc, self.local_store)
         GlobalClientRegistry.register_client(self)
+
+        self._type_map = {
+            Job: self.jobs,
+            Dataset: self.dataset,
+            # Runtime: self.runtime,
+            UserCode: self.user_code,
+        }
+
+    def for_type(self, type_: Type[T]) -> RDSClientModule[T]:
+        if type_ not in self._type_map:
+            raise ValueError(f"No client registered for type {type_}")
+        return self._type_map[type_]
 
     @property
     def uid(self) -> UUID:

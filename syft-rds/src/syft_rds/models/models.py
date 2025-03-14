@@ -30,6 +30,9 @@ MAX_USERCODE_ZIP_SIZE = 1  # MB
 
 class UserCode(ItemBase):
     __schema_name__ = "usercode"
+    __table_extra_fields__ = [
+        "name",
+    ]
 
     name: str
     dir_url: SyftBoxURL | None = None
@@ -132,6 +135,7 @@ class Job(ItemBase):
 
     __schema_name__ = "job"
     __table_extra_fields__ = [
+        "created_by",
         "name",
         "dataset_name",
         "status",
@@ -296,6 +300,10 @@ class RuntimeUpdate(ItemBaseUpdate[Runtime]):
 
 class Dataset(ItemBase):
     __schema_name__ = "dataset"
+    __table_extra_fields__ = [
+        "name",
+        "summary",
+    ]
 
     name: str = Field(description="Name of the dataset.")
     private: SyftBoxURL = Field(description="Private Syft URL of the dataset.")
