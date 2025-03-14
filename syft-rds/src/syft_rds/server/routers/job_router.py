@@ -1,7 +1,6 @@
-from uuid import uuid4
-
 from syft_core import SyftBoxURL
 from syft_event import SyftEvents
+from syft_event.types import Request
 from syft_rds.models.models import (
     GetAllRequest,
     GetOneRequest,
@@ -11,19 +10,27 @@ from syft_rds.models.models import (
     JobUpdate,
 )
 from syft_rds.server.router import RPCRouter
+from syft_rds.server.user_file_service import UserFileService
 from syft_rds.store import RDSStore
+from syft_rds.utils.name_generator import generate_name
 
 job_router = RPCRouter()
 
 
 @job_router.on_request("/create")
-def create_job(create_request: JobCreate, app: SyftEvents) -> Job:
-    uid = uuid4()
-    output_dir = app.state["output_dir"] / str(uid)
-    output_url = SyftBoxURL.from_path(output_dir, app.client.workspace)
-    new_item = create_request.to_item(extra={"uid": uid, "output_url": output_url})
-
+def create_job(create_request: JobCreate, app: SyftEvents, request: Request) -> Job:
+    user = request.sender  # TODO auth
     job_store: RDSStore = app.state["job_store"]
+    user_file_service: UserFileService = app.state["user_file_service"]
+
+    create_request.name = create_request.name or generate_name()
+    new_item = create_request.to_item()
+    # Create the output directory, user_file_service makes it readable for the user who created the job
+    job_output_dir = user_file_service.dir_for_item(
+        user=user,
+        item=new_item,
+    )
+    new_item.output_url = SyftBoxURL.from_path(job_output_dir, app.client.workspace)
     return job_store.create(new_item)
 
 

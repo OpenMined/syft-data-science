@@ -1,16 +1,33 @@
-from uuid import UUID
+from pathlib import Path
 
 from syft_rds.client.rds_clients.base import RDSClientModule
+from syft_rds.client.utils import PathLike
 from syft_rds.models.models import (
-    GetAllRequest,
-    GetOneRequest,
     UserCode,
+    UserCodeCreate,
 )
+from syft_rds.utils.zip_utils import zip_to_bytes
 
 
-class UserCodeRDSClient(RDSClientModule):
-    def get_all(self) -> list[UserCode]:
-        return self.rpc.user_code.get_all(GetAllRequest())
+class UserCodeRDSClient(RDSClientModule[UserCode]):
+    SCHEMA = UserCode
 
-    def get(self, uid: UUID) -> UserCode:
-        return self.rpc.user_code.get_one(GetOneRequest(uid=uid))
+    def create(
+        self,
+        file_path: PathLike,
+        name: str | None = None,
+    ) -> UserCode:
+        file_path = Path(file_path)
+        if not file_path.is_file():
+            raise ValueError(f"File not found: {file_path}")
+
+        files_zipped = zip_to_bytes(files_or_dirs=[file_path])
+        user_code_create = UserCodeCreate(
+            name=name,
+            files_zipped=files_zipped,
+            file_name=file_path.name,
+        )
+
+        user_code = self.rpc.user_code.create(user_code_create)
+
+        return user_code

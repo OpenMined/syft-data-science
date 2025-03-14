@@ -9,15 +9,21 @@ from syft_rds.server.router import RPCRouter
 from syft_rds.server.routers.job_router import job_router
 from syft_rds.server.routers.runtime_router import runtime_router
 from syft_rds.server.routers.user_code_router import user_code_router
+from syft_rds.server.user_file_service import UserFileService
 from syft_rds.store.store import RDSStore
 
 APP_NAME = "RDS"
 
 
-def _init_stores(app: SyftEvents) -> None:
+def _init_services(app: SyftEvents) -> None:
+    # Stores
     app.state["job_store"] = RDSStore(schema=Job, client=app.client)
     app.state["user_code_store"] = RDSStore(schema=UserCode, client=app.client)
     app.state["runtime_store"] = RDSStore(schema=Runtime, client=app.client)
+
+    # User file storage
+    # a userfile is any read-only asset shared with a user (job outputs, usercode, etc)
+    app.state["user_file_service"] = UserFileService(app_dir=app.app_dir)
 
 
 def create_app(client: Client | None = None) -> SyftEvents:
@@ -38,7 +44,7 @@ def create_app(client: Client | None = None) -> SyftEvents:
     rds_app.include_router(user_code_router, prefix="/user_code")
     rds_app.include_router(runtime_router, prefix="/runtime")
 
-    _init_stores(rds_app)
+    _init_services(rds_app)
     rds_app.state["output_dir"] = rds_app.app_dir / "output"
 
     return rds_app
