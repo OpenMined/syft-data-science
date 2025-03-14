@@ -22,7 +22,7 @@ DEFAULT_OUTPUT_DIR = "/output"
 class CodeRuntime(BaseModel):
     cmd: list[str]
     image_name: str | None = None
-    cwd: Path | None = None
+    mount_dir: Path | None = None
 
     @classmethod
     def default(cls):
@@ -44,6 +44,7 @@ class JobConfig(BaseModel):
     timeout: int = 60
     data_mount_dir: str = "/data"
     use_docker: bool = True
+    extra_env: dict[str, str] = {}
 
     @property
     def job_path(self) -> Path:
@@ -59,6 +60,18 @@ class JobConfig(BaseModel):
     def output_dir(self) -> Path:
         """Derived path for output directory"""
         return self.job_path / "output"
+
+    def get_env(self) -> dict[str, str]:
+        return self.extra_env | self._base_env
+
+    @property
+    def _base_env(self) -> dict[str, str]:
+        return {
+            "OUTPUT_DIR": str(self.output_dir.absolute()),
+            "DATA_DIR": str(self.data_path.absolute()),
+            "TIMEOUT": str(self.timeout),
+            "INPUT_FILE": str(self.function_folder / self.args[0]),
+        }
 
 
 class JobOutputHandler(Protocol):
@@ -297,11 +310,11 @@ class DockerRunner:
             f"{config.output_dir.absolute()}:{DEFAULT_OUTPUT_DIR}:rw",
         ]
 
-        if config.runtime.cwd:
+        if config.runtime.mount_dir:
             docker_mounts.extend(
                 [
                     "-v",
-                    f"{config.runtime.cwd.absolute()}:{config.runtime.cwd.absolute()}:ro",
+                    f"{config.runtime.mount_dir.absolute()}:{config.runtime.mount_dir.absolute()}:ro",
                 ]
             )
 
@@ -389,13 +402,7 @@ class DockerRunner:
         env = None
         if not config.use_docker:
             env = os.environ.copy()
-            env.update(
-                {
-                    "OUTPUT_DIR": str(config.output_dir.absolute()),
-                    "DATA_DIR": str(config.data_path.absolute()),
-                    "TIMEOUT": str(config.timeout),
-                }
-            )
+            env.update(config.get_env())
 
         process = subprocess.Popen(
             cmd,
@@ -403,7 +410,7 @@ class DockerRunner:
             stderr=subprocess.PIPE,
             text=True,
             env=env,
-            cwd=config.runtime.cwd,
+            # cwd=config.runtime.cwd,
         )
         # Stream output
         while True:

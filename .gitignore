@@ -183,3 +183,5 @@ notebooks/quickstart/data/
 
 .e2e/
 job_outputs/
+.clients/
+.server/
