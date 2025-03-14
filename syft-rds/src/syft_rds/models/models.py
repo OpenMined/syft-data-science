@@ -1,7 +1,6 @@
 import base64
 import enum
 import os
-from collections.abc import Iterable
 from pathlib import Path
 from typing import Any, Generic, Literal, Optional, TypeVar
 from uuid import UUID
@@ -188,23 +187,6 @@ class Job(BaseSchema):
         return self.output_url.to_local_path(
             datasites_path=client._syftbox_client.datasites
         )
-
-    def share_artifacts(
-        self,
-        include: Iterable[JobArtifactKind] = (
-            JobArtifactKind.computation_result,
-            JobArtifactKind.error_log,
-            JobArtifactKind.execution_log,
-        ),
-    ):
-        if self.status not in (
-            JobStatus.job_run_finished,
-            JobStatus.job_run_failed,
-        ):
-            raise ValueError(
-                f"Job must be executed first. Current status: {self.status.value}"
-            )
-        self.status = JobStatus.shared
 
     @model_validator(mode="after")
     def validate_status(self):
