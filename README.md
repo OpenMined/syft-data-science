@@ -1,6 +1,4 @@
-# reddit-rds
-
-Reddit RDS
+# RDS
 
 ## Requirements
 
@@ -30,7 +28,8 @@ To run the RDS app on top of syftbox, we need to:
 3. run an RDS app on the data owner's datasite
 4. (optional) run an RDS app on the data scientist's datasite
 5. run the `notebooks/quickstart/do_flow.ipynb` and `notebooks/quickstart/ds_flow.ipynb` notebooks
-   Steps 1 through 4 can be done with a single just command:
+
+Steps 1 through 4 can be done with a single just command:
 
 ```
 just run-rds-stack
