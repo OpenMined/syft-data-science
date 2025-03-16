@@ -1,12 +1,3 @@
----
-name: rds
-author: "OpenMined"
-version: 1.0.0
-source: https://github.com/openmined/rds
-home: https://syftbox.openmined.org/
-icon: https://raw.githubusercontent.com/OpenMined/ftop/refs/heads/main/icon.png
----
-
 # RDS
 
 ## Requirements
