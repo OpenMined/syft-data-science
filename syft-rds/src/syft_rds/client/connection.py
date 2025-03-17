@@ -9,12 +9,9 @@ from syft_event.deps import func_args_from_request
 from syft_rpc import SyftRequest, SyftResponse, rpc
 from syft_rpc.protocol import SyftMethod, SyftStatus
 from syft_rpc.rpc import BodyType
-from .syft_permission import (
-    get_computed_permission,
-    ComputedPermission,
-)
 from syftbox.lib.permissions import PermissionType
 from syftbox.lib.exceptions import SyftBoxException
+from syftbox.lib.permissions import get_computed_permission
 
 
 class BlockingRPCConnection(ABC):
@@ -81,8 +78,10 @@ def check_permission(
     """
 
     relative_path = path.relative_to(client.workspace.datasites)
-    sender_permission: ComputedPermission = get_computed_permission(
-        client=client, path=relative_path
+    sender_permission = get_computed_permission(
+        snapshot_folder=client.workspace.datasites,
+        path=relative_path,
+        user_email=client.email,
     )
     has_permission = sender_permission.has_permission(permission)
     if not has_permission:
