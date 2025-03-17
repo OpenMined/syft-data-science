@@ -6,6 +6,7 @@ from syft_core import Client as SyftBoxClient
 from syft_core import SyftBoxURL
 from syft_event import SyftEvents
 from syft_event.deps import func_args_from_request
+from syft_rds.client.syft_permission import get_computed_permission, ComputedPermission
 from syft_rpc import SyftRequest, SyftResponse, rpc
 from syft_rpc.protocol import SyftMethod, SyftStatus
 from syft_rpc.rpc import BodyType
