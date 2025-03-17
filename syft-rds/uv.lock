@@ -1931,15 +1931,6 @@ wheels = [
 ]
 
 [[package]]
-name = "pip"
-version = "25.0.1"
-source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/70/53/b309b4a497b09655cb7e07088966881a57d082f48ac3cb54ea729fd2c6cf/pip-25.0.1.tar.gz", hash = "sha256:88f96547ea48b940a3a385494e181e29fb8637898f88d88737c5049780f196ea", size = 1950850 }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/c9/bc/b7db44f5f39f9d0494071bddae6880eb645970366d0a200022a1a93d57f5/pip-25.0.1-py3-none-any.whl", hash = "sha256:c46efd13b6aa8279f33f2864459c8ce587ea6a1a59ee20de055868d8f7688f7f", size = 1841526 },
-]
-
-[[package]]
 name = "platformdirs"
 version = "4.3.6"
 source = { registry = "https://pypi.org/simple" }
@@ -2825,7 +2816,7 @@ dependencies = [
     { name = "pydantic", extra = ["email"] },
     { name = "pyyaml" },
     { name = "rich" },
-    { name = "setuptools" },
+    { name = "syft-core" },
     { name = "syft-event" },
     { name = "syft-rpc" },
     { name = "syftbox" },
@@ -2837,13 +2828,11 @@ dependencies = [
 dev = [
     { name = "httpx" },
     { name = "ipykernel" },
-    { name = "ipywidgets" },
+    { name = "jupyter" },
     { name = "pandas" },
-    { name = "pip" },
     { name = "pre-commit" },
     { name = "pytest" },
     { name = "pytest-asyncio" },
-    { name = "syftbox" },
 ]
 
 [package.metadata]
@@ -2854,7 +2843,7 @@ requires-dist = [
     { name = "pydantic", extras = ["email"], specifier = ">=2.10.4" },
     { name = "pyyaml", specifier = ">=6.0.2" },
     { name = "rich", specifier = ">=13.9.4" },
-    { name = "setuptools", specifier = ">=75.8.0" },
+    { name = "syft-core", git = "https://github.com/OpenMined/syft-extras.git?subdirectory=packages%2Fsyft-core&rev=main" },
     { name = "syft-event", git = "https://github.com/OpenMined/syft-extras.git?subdirectory=packages%2Fsyft-event&rev=main" },
     { name = "syft-rpc", git = "https://github.com/OpenMined/syft-extras.git?subdirectory=packages%2Fsyft-rpc&rev=main" },
     { name = "syftbox", specifier = ">=0.3.5" },
@@ -2866,13 +2855,11 @@ requires-dist = [
 dev = [
     { name = "httpx", specifier = ">=0.28.1" },
     { name = "ipykernel", specifier = ">=6.29.5" },
-    { name = "ipywidgets", specifier = ">=8.1.5" },
+    { name = "jupyter", specifier = ">=1.1.1" },
     { name = "pandas", specifier = ">=1.4.0" },
-    { name = "pip", specifier = ">=25.0.1" },
     { name = "pre-commit", specifier = ">=4.1.0" },
     { name = "pytest", specifier = ">=8.3.4" },
     { name = "pytest-asyncio", specifier = ">=0.25.3" },
-    { name = "syftbox", specifier = ">=0.3.5" },
 ]
 
 [[package]]

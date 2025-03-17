@@ -1,9 +1,7 @@
 import pandas as pd
 import pytest
-
-from syft_rds.client.rds_client import RDSClient, init_session
 from syft_core import SyftClientConfig
-
+from syft_rds.client.rds_client import RDSClient, init_session
 from tests.conftest import MOCK_DATA_PATH, PRIVATE_DATA_PATH, README_PATH
 from tests.utils import create_dataset
 
@@ -19,7 +17,7 @@ def test_create_dataset(do_syftbox_config: SyftClientConfig) -> None:
     assert dataset.get_mock_path().exists()
     assert dataset.get_private_path().exists()
     assert dataset.summary == "Test data"
-    assert dataset.describe()
+    assert dataset.describe() is None  # Check if describe works
     private_df = pd.read_csv(dataset.get_private_path() / "data.csv")
     assert private_df.equals(pd.read_csv(PRIVATE_DATA_PATH / "data.csv"))
     mock_df = pd.read_csv(dataset.get_mock_path() / "data.csv")

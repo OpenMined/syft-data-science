@@ -1,5 +1,5 @@
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, ClassVar, Generic, Optional, Type
+from typing import TYPE_CHECKING, Any, ClassVar, Generic, Literal, Optional, Type
 from uuid import UUID, uuid4
 
 from pydantic import BaseModel, Field
@@ -22,9 +22,10 @@ class ClientRunnerConfig(BaseModel):
 
 
 class RDSClientConfig(BaseModel):
+    # UUID is used to register the client to reference it from other objects
+    uid: UUID = Field(default_factory=uuid4)
     host: str
     app_name: str = "RDS"
-    client_id: UUID = Field(default_factory=uuid4)
 
     rpc_expiry: str = "5m"
     runner_config: ClientRunnerConfig = Field(default_factory=ClientRunnerConfig)
@@ -56,7 +57,7 @@ class RDSClientBase:
 
 
 class RDSClientModule(RDSClientBase, Generic[T]):
-    SCHEMA: ClassVar[Type[T]]
+    ITEM_TYPE: ClassVar[Type[T]]
 
     def __init__(
         self,
@@ -65,15 +66,15 @@ class RDSClientModule(RDSClientBase, Generic[T]):
         local_store: LocalStore,
         parent: "Optional[RDSClient]" = None,
     ) -> None:
-        """
-        NOTE `parent` is used to access other client modules from the current module.
-        for example: in the Job client, we can access the Dataset client using `self.rds.dataset`
-        """
         super().__init__(config, rpc_client, local_store)
         self.parent = parent
 
     @property
     def rds(self) -> "RDSClient":
+        """
+        Returns the parent RDSClient, raises an error if not set.
+        Used for accessing other client modules from this module, e.g. JobRDSClient().rds.datasets.get_all() -> DatasetRDSClient
+        """
         if self.parent is None:
             raise ValueError("Parent client not set")
         return self.parent
@@ -84,24 +85,34 @@ class RDSClientModule(RDSClientBase, Generic[T]):
         sort_order: str = "desc",
         limit: Optional[int] = None,
         offset: int = 0,
+        mode: Literal["local", "rpc"] = "local",
         **filters: Any,
     ) -> list[Job]:
-        store = self.local_store.for_type(self.SCHEMA)
-        return store.get_all(
-            GetAllRequest(
-                order_by=order_by,
-                sort_order=sort_order,
-                limit=limit,
-                offset=offset,
-                filters=filters,
-            )
+        req = GetAllRequest(
+            order_by=order_by,
+            sort_order=sort_order,
+            limit=limit,
+            offset=offset,
+            filters=filters,
         )
 
-    def get(self, uid: Optional[UUID] = None, **filters: Any) -> T:
-        store = self.local_store.for_type(self.SCHEMA)
-        return store.get_one(
-            GetOneRequest(
-                uid=uid,
-                filters=filters,
-            )
-        )
+        if mode == "local":
+            return self.local_store.for_type(self.ITEM_TYPE).get_all(req)
+        elif mode == "rpc":
+            return self.rpc.for_type(self.ITEM_TYPE).get_all(req)
+        else:
+            raise ValueError(f"Invalid mode {mode}")
+
+    def get(
+        self,
+        uid: Optional[UUID] = None,
+        mode: Literal["local", "rpc"] = "local",
+        **filters: Any,
+    ) -> T:
+        req = GetOneRequest(uid=uid, filters=filters)
+        if mode == "local":
+            return self.local_store.for_type(self.ITEM_TYPE).get_one(req)
+        elif mode == "rpc":
+            return self.rpc.for_type(self.ITEM_TYPE).get_one(req)
+        else:
+            raise ValueError(f"Invalid mode {mode}")

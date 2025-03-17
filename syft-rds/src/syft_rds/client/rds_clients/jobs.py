@@ -16,7 +16,7 @@ from syft_rds.models.models import (
 
 
 class JobRDSClient(RDSClientModule[Job]):
-    SCHEMA = Job
+    ITEM_TYPE = Job
 
     def submit(
         self,
@@ -70,7 +70,9 @@ class JobRDSClient(RDSClientModule[Job]):
 
         return job
 
-    def share_results(self, job: Job) -> Path:
+    def share_results(self, job: Job) -> tuple[Path, Job]:
+        if not self.is_admin:
+            raise RDSValidationError("Only admins can share results")
         job_output_folder = self.config.runner_config.job_output_folder / job.uid.hex
         output_path = self.local_store.jobs.share_result_files(job, job_output_folder)
         updated_job = self.rpc.jobs.update(
@@ -81,10 +83,12 @@ class JobRDSClient(RDSClientModule[Job]):
             )
         )
         logger.info(f"Shared results for job {job.uid} at {output_path}")
-        return output_path, job.apply(updated_job)
+        return output_path, job.apply_update(updated_job)
 
     def reject(self, job: Job, reason: str = "Unspecified") -> Job:
+        if not self.is_admin:
+            raise RDSValidationError("Only admins can reject jobs")
         job_update = job.get_update_for_reject(reason)
         updated_job = self.rpc.jobs.update(job_update)
-        job.apply(updated_job)
+        job.apply_update(updated_job)
         return job

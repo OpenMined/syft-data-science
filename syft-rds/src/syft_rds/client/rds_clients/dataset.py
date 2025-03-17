@@ -12,7 +12,7 @@ from syft_runtime.main import CodeRuntime
 
 
 class DatasetRDSClient(RDSClientModule[Dataset]):
-    SCHEMA = Dataset
+    ITEM_TYPE = Dataset
 
     @ensure_is_admin
     def create(

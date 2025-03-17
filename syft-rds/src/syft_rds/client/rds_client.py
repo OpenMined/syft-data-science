@@ -1,5 +1,6 @@
 from pathlib import Path
-from typing import Optional
+from typing import Optional, Type, TypeVar
+from uuid import UUID
 
 from loguru import logger
 from syft_core import Client as SyftBoxClient
@@ -12,13 +13,17 @@ from syft_rds.client.local_store import LocalStore
 from syft_rds.client.rds_clients.base import (
     RDSClientBase,
     RDSClientConfig,
+    RDSClientModule,
 )
 from syft_rds.client.rds_clients.dataset import DatasetRDSClient
 from syft_rds.client.rds_clients.jobs import JobRDSClient
 from syft_rds.client.rds_clients.user_code import UserCodeRDSClient
 from syft_rds.client.rpc import RPCClient
 from syft_rds.client.utils import PathLike
-from syft_rds.models.models import Dataset, Job, JobStatus
+from syft_rds.models.base import ItemBase
+from syft_rds.models.models import Dataset, Job, JobStatus, UserCode
+
+T = TypeVar("T", bound=ItemBase)
 
 
 def _resolve_syftbox_client(
@@ -56,6 +61,7 @@ def init_session(
     syftbox_client: Optional[SyftBoxClient] = None,
     mock_server: Optional[SyftEvents] = None,
     syftbox_client_config_path: Optional[PathLike] = None,
+    **config_kwargs,
 ) -> "RDSClient":
     """
     Initialize a session with the RDSClient.
@@ -68,11 +74,12 @@ def init_session(
             a mock in-process RPC connection.
         syftbox_client_config_path (PathLike, optional): Path to client config file.
             Only used if syftbox_client is not provided.
+        **config_kwargs: Additional configuration options for the RDSClient.
 
     Returns:
         RDSClient: The configured RDS client instance.
     """
-    config = RDSClientConfig(host=host)
+    config = RDSClientConfig(host=host, **config_kwargs)
     syftbox_client = _resolve_syftbox_client(syftbox_client, syftbox_client_config_path)
 
     use_mock = mock_server is not None
@@ -97,8 +104,23 @@ class RDSClient(RDSClientBase):
 
         # TODO implement and enable runtime client
         # self.runtime = RuntimeRDSClient(self.config, self.rpc, self.local_store)
-        self.uid = self.config.client_id
-        GlobalClientRegistry.register_client(self.uid, self)
+        GlobalClientRegistry.register_client(self)
+
+        self._type_map = {
+            Job: self.jobs,
+            Dataset: self.dataset,
+            # Runtime: self.runtime,
+            UserCode: self.user_code,
+        }
+
+    def for_type(self, type_: Type[T]) -> RDSClientModule[T]:
+        if type_ not in self._type_map:
+            raise ValueError(f"No client registered for type {type_}")
+        return self._type_map[type_]
+
+    @property
+    def uid(self) -> UUID:
+        return self.config.uid
 
     @property
     def datasets(self) -> list[Dataset]:
@@ -138,7 +160,7 @@ class RDSClient(RDSClientBase):
         return_code = self._run(config=config)
         job_update = job.get_update_for_return_code(return_code)
         new_job = self.rpc.jobs.update(job_update)
-        return job.apply(new_job)
+        return job.apply_update(new_job)
 
     def run_mock(self, job: Job, config: Optional[JobConfig] = None) -> Job:
         config = config or self.get_default_config_for_job(job)

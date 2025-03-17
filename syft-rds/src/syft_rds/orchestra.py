@@ -38,6 +38,7 @@ class RDSStack:
         self,
         do_client: SyftBoxClient,
         ds_client: SyftBoxClient,
+        **config_kwargs,
     ):
         self.do_client = do_client
         self.ds_client = ds_client
@@ -46,11 +47,15 @@ class RDSStack:
         self.server.start()
 
         self.do_rds_client = init_session(
-            host=do_client.email, syftbox_client=do_client
+            host=do_client.email,
+            syftbox_client=do_client,
+            **config_kwargs,
         )
 
         self.ds_rds_client = init_session(
-            host=do_client.email, syftbox_client=ds_client
+            host=do_client.email,
+            syftbox_client=ds_client,
+            **config_kwargs,
         )
 
     def stop(self) -> None:
@@ -79,6 +84,7 @@ def setup_rds_stack(
     ds_email: str = "data_scientist@test.openmined.org",
     reset: bool = False,
     log_level: str = "DEBUG",
+    **config_kwargs,
 ) -> RDSStack:
     setup_logger(level=log_level)
     root_dir = _prepare_root_dir(root_dir, reset)
@@ -114,4 +120,5 @@ def setup_rds_stack(
     return RDSStack(
         do_client=do_client,
         ds_client=ds_client,
+        **config_kwargs,
     )

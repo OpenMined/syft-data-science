@@ -7,7 +7,7 @@ from syft_event import SyftEvents
 from syft_rds.client.rds_client import RDSClient, init_session
 from syft_rds.orchestra import setup_rds_stack
 from syft_rds.server.app import create_app
-from syft_rds.store import YAMLFileSystemDatabase
+from syft_rds.store import YAMLStore
 
 from tests.mocks import MockUserSchema
 
@@ -82,23 +82,23 @@ def do_rds_client(
 
 
 @pytest.fixture()
-def temp_db_path(tmp_path):
+def tmp_store_dir(tmp_path):
     """Fixture for creating a temporary database directory."""
-    return tmp_path / "db"
+    return tmp_path / "store"
 
 
 @pytest.fixture
-def yaml_store(temp_db_path):
+def yaml_store(tmp_store_dir):
     """Fixture for initializing the YAML store."""
 
     def _create_yaml_store(schema):
-        return YAMLFileSystemDatabase(schema=schema, db_path=temp_db_path)
+        return YAMLStore(item_type=schema, store_dir=tmp_store_dir)
 
     return _create_yaml_store
 
 
 @pytest.fixture
-def mock_user_store(yaml_store) -> YAMLFileSystemDatabase:
+def mock_user_store(yaml_store) -> YAMLStore:
     return yaml_store(MockUserSchema)
 
 
@@ -156,6 +156,7 @@ def rds_no_sync_stack(tmp_path):
         root_dir=tmp_path,
         reset=True,
         log_level="DEBUG",
+        rpc_expiry="2s",
     )
 
     yield stack

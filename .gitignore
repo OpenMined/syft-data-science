@@ -183,5 +183,6 @@ notebooks/quickstart/data/
 
 .e2e/
 job_outputs/
+.logs/
 .clients/
 .server/

@@ -1,12 +1,25 @@
 from abc import ABC
 from datetime import datetime, timezone
-from typing import TYPE_CHECKING, Any, Generic, Optional, Self, Type, TypeVar, Union
+from typing import (
+    TYPE_CHECKING,
+    Any,
+    ClassVar,
+    Generic,
+    Optional,
+    Self,
+    Type,
+    TypeVar,
+    Union,
+)
 from uuid import UUID, uuid4
 
 from pydantic import BaseModel, Field
 from syft_core import Client as SyftBoxClient
 
-from syft_rds.models.formatter import PydanticFormatterMixin
+from syft_rds.models.formatter import (
+    ANSIPydanticFormatter,
+    PydanticFormatter,
+)
 
 if TYPE_CHECKING:
     from syft_rds.client.rds_client import RDSClient
@@ -16,11 +29,12 @@ def _utcnow():
     return datetime.now(tz=timezone.utc)
 
 
-class BaseSchema(PydanticFormatterMixin, BaseModel, ABC):
-    """Base Schema class that all Schema models must inherit from"""
-
+class ItemBase(BaseModel, ABC):
     __schema_name__: str
+    __display_formatter__: ClassVar[PydanticFormatter] = ANSIPydanticFormatter()
+
     uid: UUID = Field(default_factory=uuid4)
+    created_by: str | None = None
     created_at: datetime = Field(default_factory=_utcnow)
     updated_at: datetime = Field(default_factory=_utcnow)
     client_id: UUID | None = None
@@ -36,7 +50,7 @@ class BaseSchema(PydanticFormatterMixin, BaseModel, ABC):
         self.client_id = client_id
         for field in self.model_fields.keys():
             field_value = getattr(self, field)
-            if isinstance(field_value, BaseSchema):
+            if isinstance(field_value, ItemBase):
                 field_value._register_client_id_recursive(client_id)
         return self
 
@@ -56,8 +70,12 @@ class BaseSchema(PydanticFormatterMixin, BaseModel, ABC):
     def type_name(cls) -> str:
         return cls.__name__.lower()
 
-    def apply(
-        self, other: Union[Self, "BaseSchemaUpdate[Self]"], in_place: bool = True
+    def refresh(self, in_place: bool = True) -> Self:
+        new_item = self._client.for_type(type(self)).get(self.uid)
+        return self.apply_update(new_item, in_place=in_place)
+
+    def apply_update(
+        self, other: Union[Self, "ItemBaseUpdate[Self]"], in_place: bool = True
     ) -> Self:
         """Updates this instance with the provided update instance."""
         if other.uid != self.uid:
@@ -66,7 +84,7 @@ class BaseSchema(PydanticFormatterMixin, BaseModel, ABC):
             )
         if isinstance(other, type(self)):
             update_dict = other.model_dump()
-        elif isinstance(other, BaseSchemaUpdate):
+        elif isinstance(other, ItemBaseUpdate):
             update_target_type = other.get_target_model()
             if other.get_target_model() is not type(self):
                 raise ValueError(
@@ -74,6 +92,10 @@ class BaseSchema(PydanticFormatterMixin, BaseModel, ABC):
                 )
             update_dict = other.model_dump(exclude_unset=True)
             update_dict["updated_at"] = _utcnow()
+        else:
+            raise TypeError(
+                f"Cannot apply update of type {type(other)} to {type(self)}"
+            )
 
         if in_place:
             for field_name, value in update_dict.items():
@@ -83,11 +105,23 @@ class BaseSchema(PydanticFormatterMixin, BaseModel, ABC):
         else:
             return self.model_copy(update=update_dict)
 
+    def __str__(self) -> str:
+        return self.__display_formatter__.format_str(self)
 
-T = TypeVar("T", bound=BaseSchema)
+    def __repr__(self) -> str:
+        return self.__display_formatter__.format_repr(self)
+
+    def _repr_html_(self) -> str:
+        return self.__display_formatter__.format_html(self)
+
+    def _repr_markdown_(self) -> str:
+        return self.__display_formatter__.format_markdown(self)
 
 
-class BaseSchemaCreate(PydanticFormatterMixin, BaseModel, Generic[T]):
+T = TypeVar("T", bound=ItemBase)
+
+
+class ItemBaseCreate(BaseModel, Generic[T]):
     @classmethod
     def get_target_model(cls) -> Type[T]:
         return cls.__bases__[0].__pydantic_generic_metadata__["args"][0]  # type: ignore
@@ -98,12 +132,9 @@ class BaseSchemaCreate(PydanticFormatterMixin, BaseModel, Generic[T]):
         return model_cls(**self.model_dump(), **extra)
 
 
-class BaseSchemaUpdate(PydanticFormatterMixin, BaseModel, Generic[T]):
+class ItemBaseUpdate(BaseModel, Generic[T]):
     uid: UUID
 
     @classmethod
     def get_target_model(cls) -> Type[T]:
         return cls.__bases__[0].__pydantic_generic_metadata__["args"][0]  # type: ignore
-
-    def apply_to(self, item: T) -> T:
-        return item.apply(self)

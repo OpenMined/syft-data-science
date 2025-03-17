@@ -11,7 +11,7 @@ from syft_rpc.protocol import SyftMethod, SyftStatus
 from syft_rpc.rpc import BodyType
 from syftbox.lib.permissions import PermissionType
 from syftbox.lib.exceptions import SyftBoxException
-from syftbox.lib.permissions import get_computed_permission
+from syftbox.server.models.sync_models import RelativePath
 
 
 class BlockingRPCConnection(ABC):
@@ -76,12 +76,13 @@ def check_permission(
     If the client does not have the permission, we will raise an error *in future*,
     but for now we will just log a warning.
     """
-
-    relative_path = path.relative_to(client.workspace.datasites)
-    sender_permission = get_computed_permission(
-        snapshot_folder=client.workspace.datasites,
-        path=relative_path,
-        user_email=client.email,
+    try:
+        relative_path = RelativePath(path)
+    except ValueError:
+        path = path.relative_to(client.workspace.datasites)
+        relative_path = RelativePath(path)
+    sender_permission: ComputedPermission = get_computed_permission(
+        client=client, path=relative_path
     )
     has_permission = sender_permission.has_permission(permission)
     if not has_permission:
@@ -161,6 +162,8 @@ class MockRPCConnection(BlockingRPCConnection):
             syft_url.to_local_path(self.sender_client.workspace.datasites)
             / f"{syft_request.id}.request"
         )
+
+        req_path = req_path.relative_to(self.sender_client.workspace.datasites)
 
         check_permission(self.sender_client, req_path, PermissionType.WRITE)
 

@@ -5,6 +5,7 @@ from pathlib import Path
 from typing import Any, Generic, Literal, Optional, TypeVar
 from uuid import UUID
 
+from IPython.display import HTML, display
 from loguru import logger
 from pydantic import (
     BaseModel,
@@ -15,19 +16,23 @@ from pydantic import (
 )
 from syft_core import SyftBoxURL
 
-from syft_rds.models.base import BaseSchema, BaseSchemaCreate, BaseSchemaUpdate
+from syft_rds.models.base import ItemBase, ItemBaseCreate, ItemBaseUpdate
+from syft_rds.models.html_format import create_html_repr
 from syft_rds.utils.name_generator import generate_name
 from syft_runtime.main import CodeRuntime
 
-T = TypeVar("T", bound=BaseSchema)
+T = TypeVar("T", bound=ItemBase)
 
 SYFT_RDS_DATA_DIR = "SYFT_RDS_DATA_DIR"
 SYFT_RDS_OUTPUT_DIR = "SYFT_RDS_OUTPUT_DIR"
 MAX_USERCODE_ZIP_SIZE = 1  # MB
 
 
-class UserCode(BaseSchema):
+class UserCode(ItemBase):
     __schema_name__ = "usercode"
+    __table_extra_fields__ = [
+        "name",
+    ]
 
     name: str
     dir_url: SyftBoxURL | None = None
@@ -46,8 +51,24 @@ class UserCode(BaseSchema):
     def local_file(self) -> Path:
         return self.local_dir / self.file_name
 
+    def describe(self) -> None:
+        html_description = create_html_repr(
+            obj=self,
+            fields=[
+                "uid",
+                "created_by",
+                "created_at",
+                "updated_at",
+                "name",
+                "local_dir",
+                "local_file",
+            ],
+            display_paths=["local_file", "local_dir"],
+        )
+        display(HTML(html_description))
 
-class UserCodeCreate(BaseSchemaCreate[UserCode]):
+
+class UserCodeCreate(ItemBaseCreate[UserCode]):
     name: Optional[str] = None
     files_zipped: bytes | None = None
     # TODO add support for multiple files
@@ -79,7 +100,7 @@ class UserCodeCreate(BaseSchemaCreate[UserCode]):
         return v
 
 
-class UserCodeUpdate(BaseSchemaUpdate[UserCode]):
+class UserCodeUpdate(ItemBaseUpdate[UserCode]):
     pass
 
 
@@ -108,9 +129,13 @@ class JobStatus(str, enum.Enum):
     shared = "shared"  # shared with the user
 
 
-class Job(BaseSchema):
+class Job(ItemBase):
+    class Config:
+        extra = "forbid"
+
     __schema_name__ = "job"
     __table_extra_fields__ = [
+        "created_by",
         "name",
         "dataset_name",
         "status",
@@ -134,8 +159,30 @@ class Job(BaseSchema):
         client = self._client
         return client.user_code.get(self.user_code_id)
 
-    class Config:
-        extra = "forbid"
+    def describe(self) -> None:
+        html_description = create_html_repr(
+            obj=self,
+            fields=[
+                "uid",
+                "created_by",
+                "created_at",
+                "updated_at",
+                "name",
+                "description",
+                "status",
+                "error",
+                "error_message",
+                "output_path",
+                "dataset_name",
+                "user_code_id",
+            ],
+            display_paths=["output_path"],
+        )
+        display(HTML(html_description))
+
+    def show_user_code(self) -> None:
+        user_code = self.user_code
+        user_code.describe()
 
     def get_update_for_reject(self, reason: str = "unknown reason") -> "JobUpdate":
         """
@@ -180,6 +227,10 @@ class Job(BaseSchema):
             error_message=self.error_message,
         )
 
+    @property
+    def output_path(self) -> Path:
+        return self.get_output_path()
+
     def get_output_path(self) -> Path:
         if self.output_url is None:
             raise ValueError("output_url is not set")
@@ -198,7 +249,7 @@ class Job(BaseSchema):
         return self
 
 
-class JobCreate(BaseSchemaCreate[Job]):
+class JobCreate(ItemBaseCreate[Job]):
     name: str | None = None
     description: str | None = None
     user_code_id: UUID
@@ -206,13 +257,13 @@ class JobCreate(BaseSchemaCreate[Job]):
     dataset_name: str
 
 
-class JobUpdate(BaseSchemaUpdate[Job]):
+class JobUpdate(ItemBaseUpdate[Job]):
     status: Optional[JobStatus] = None
     error: Optional[JobErrorKind] = None
     error_message: Optional[str] = None
 
 
-class Runtime(BaseSchema):
+class Runtime(ItemBase):
     __schema_name__ = "runtime"
 
     name: str
@@ -220,18 +271,22 @@ class Runtime(BaseSchema):
     tags: list[str] = Field(default_factory=list)
 
 
-class RuntimeCreate(BaseSchemaCreate[Runtime]):
+class RuntimeCreate(ItemBaseCreate[Runtime]):
     name: str
     description: str
     tags: list[str] = Field(default_factory=list)
 
 
-class RuntimeUpdate(BaseSchemaUpdate[Runtime]):
+class RuntimeUpdate(ItemBaseUpdate[Runtime]):
     pass
 
 
-class Dataset(BaseSchema):
+class Dataset(ItemBase):
     __schema_name__ = "dataset"
+    __table_extra_fields__ = [
+        "name",
+        "summary",
+    ]
 
     name: str = Field(description="Name of the dataset.")
     private: SyftBoxURL = Field(description="Private Syft URL of the dataset.")
@@ -240,6 +295,18 @@ class Dataset(BaseSchema):
     readme: SyftBoxURL | None = Field(description="REAMD.md Syft URL of the dataset.")
     tags: list[str] = Field(description="Tags for the dataset.")
     runtime: CodeRuntime = Field(default_factory=CodeRuntime.default)
+
+    @property
+    def mock_path(self) -> Path:
+        return self.get_mock_path()
+
+    @property
+    def private_path(self) -> Path:
+        return self.get_private_path()
+
+    @property
+    def readme_path(self) -> Path:
+        return self.get_readme_path()
 
     def get_mock_path(self) -> Path:
         mock_path: Path = self.mock.to_local_path(
@@ -258,7 +325,10 @@ class Dataset(BaseSchema):
             datasites_path=self._syftbox_client.datasites
         )
         if not private_path.exists():
-            raise FileNotFoundError(f"Private data not found at {private_path}")
+            raise FileNotFoundError(
+                f"Private data not found at {private_path}. "
+                f"Probably you don't have admin permission to the dataset."
+            )
         return private_path
 
     def get_readme_path(self) -> Path:
@@ -278,38 +348,29 @@ class Dataset(BaseSchema):
         with open(self.get_readme_path()) as f:
             return f.read()
 
-    def describe(self) -> bool:
-        # prefix components:
-        space = "    "
-        branch = "│   "
-        # pointers:
-        tee = "├── "
-        last = "└── "
-
-        def tree(dir_path: Path, prefix: str = ""):
-            """A recursive generator, given a directory Path object
-            will yield a visual tree structure line by line
-            with each line prefixed by the same characters
-
-            Ref: https://stackoverflow.com/questions/9727673/list-directory-tree-structure-in-python
-            """
-            contents = list(dir_path.iterdir())
-            # contents each get pointers that are ├── with a final └── :
-            pointers = [tee] * (len(contents) - 1) + [last]
-            for pointer, path in zip(pointers, contents):
-                yield prefix + pointer + path.name
-                if path.is_dir():  # extend the prefix and recurse:
-                    extension = branch if pointer == tee else space
-                    # i.e. space because last, └── , above so no more |
-                    yield from tree(path, prefix=prefix + extension)
-
+    def describe(self):
+        field_to_include = [
+            "uid",
+            "created_at",
+            "updated_at",
+            "name",
+            "readme_path",
+            "mock_path",
+        ]
         try:
-            for line in tree(self.get_mock_path()):
-                print(line)
-            return True
-        except Exception as e:
-            print(f"Could not display dataset structure with error: {str(e)}")
-            return False
+            # Only include private path if it exists
+            _ = self.private_path
+            field_to_include.append("private_path")
+        except FileNotFoundError:
+            pass
+
+        description = create_html_repr(
+            obj=self,
+            fields=field_to_include,
+            display_paths=["mock_path", "readme_path"],
+        )
+
+        display(HTML(description))
 
     def set_env(self, mock: bool = True):
         if mock:
@@ -321,7 +382,7 @@ class Dataset(BaseSchema):
         )
 
 
-class DatasetCreate(BaseSchemaCreate[Dataset]):
+class DatasetCreate(ItemBaseCreate[Dataset]):
     name: str = Field(description="Name of the dataset.")
     path: str = Field(description="Private path of the dataset.")
     mock_path: str = Field(description="Mock path of the dataset.")
@@ -333,19 +394,19 @@ class DatasetCreate(BaseSchemaCreate[Dataset]):
     runtime: CodeRuntime | None = Field(description="Runtime for the dataset.")
 
 
-class DatasetUpdate(BaseSchemaUpdate[Dataset]):
+class DatasetUpdate(ItemBaseUpdate[Dataset]):
     pass
 
 
 class GetOneRequest(BaseModel):
     uid: UUID | None = None
-    filters: dict[str, Any] = {}
+    filters: dict[str, Any] = Field(default_factory=dict)
 
 
 class GetAllRequest(BaseModel):
     limit: Optional[int] = None
     offset: int = 0
-    filters: dict[str, Any] = {}
+    filters: dict[str, Any] = Field(default_factory=dict)
     order_by: Optional[str] = "created_at"
     sort_order: Literal["desc", "asc"] = "desc"
 

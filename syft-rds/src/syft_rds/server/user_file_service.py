@@ -1,7 +1,7 @@
 from pathlib import Path
 from typing import Type
 
-from syft_rds.models.base import BaseSchema
+from syft_rds.models.base import ItemBase
 
 USER_FILES_DIR = "user_files"
 USER_FILES_PERMISSION = """
@@ -53,14 +53,14 @@ class UserFileService:
         user_dir.mkdir(exist_ok=True, parents=True)
         return user_dir
 
-    def dir_for_type(self, user: str, type_: Type[BaseSchema]) -> Path:
+    def dir_for_type(self, user: str, type_: Type[ItemBase]) -> Path:
         """Get the user's directory for a specific item type"""
         user_dir = self.dir_for_user(user)
         item_dir = user_dir / type_.__name__
         item_dir.mkdir(exist_ok=True)
         return item_dir
 
-    def dir_for_item(self, user: str, item: BaseSchema) -> Path:
+    def dir_for_item(self, user: str, item: ItemBase) -> Path:
         """Get the directory for a specific item instance"""
         type_dir = self.dir_for_type(user, type(item))
         item_dir = type_dir / str(item.uid)
