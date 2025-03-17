@@ -1,27 +1,15 @@
-# First stage: Build the base with entrypoint script
-FROM alpine:latest as base
+FROM python:3.12-slim
 
 # Copy the common entrypoint script
 COPY runtimes/entrypoint.sh /entrypoint.sh
 RUN chmod +x /entrypoint.sh
 
-# Second stage: Final Python image
-FROM python:3.12-slim
-
-# Copy entrypoint script from base
-COPY --from=base /entrypoint.sh /entrypoint.sh
-RUN chmod +x /entrypoint.sh
-
 # Create a restricted user with no home directory and no shell
-RUN adduser --no-create-home --shell /sbin/nologin --disabled-password --uid 1000 runtimeuser
+RUN adduser --no-create-home --shell /sbin/nologin --disabled-password --gecos "" runtimeuser
+
 
 # COPY dist/ /dist/
 # RUN pip install /dist/*.whl
-
-# Create and set restrictive permissions on code directory
-RUN mkdir /code && \
-    chown runtimeuser:runtimeuser /code && \
-    chmod 500 /code
 
 WORKDIR /code
 

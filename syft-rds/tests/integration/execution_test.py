@@ -1,26 +1,25 @@
 import os
-from pathlib import Path
 
 import pytest
 from syft_rds.client.rds_client import RDSClient
 from syft_rds.models.models import GetAllRequest, JobStatus
-from tests.conftest import DS_PATH
+from tests.conftest import DS_PATH, PRIVATE_CODE_PATH
 from tests.utils import create_dataset, create_dataset_with_custom_runtime
 
 
 @pytest.mark.parametrize(
-    "user_code_path, runtime",
+    "use_docker",
     [
-        (DS_PATH / "ds.py", "python"),  # Python test case
-        # (DS_PATH / "ds.sh", "bash"),  # Bash test case working on this
+        True,
+        False,
     ],
 )
 def test_job_execution(
     ds_rds_client: RDSClient,
     do_rds_client: RDSClient,
-    user_code_path: Path,
-    runtime: str,
+    use_docker: bool,
 ):
+    user_code_path = DS_PATH / "ds.py"
     create_dataset(do_rds_client, "dummy")
     # Client Side
     job = ds_rds_client.jobs.submit(
@@ -33,7 +32,9 @@ def test_job_execution(
     job = do_rds_client.rpc.jobs.get_all(GetAllRequest())[0]
 
     # Runner side
-    do_rds_client.run_private(job)
+    config = do_rds_client.get_default_config_for_job(job)
+    config.use_docker = use_docker
+    do_rds_client.run_private(job, config)
     assert job.status == JobStatus.job_run_finished
 
     do_rds_client.jobs.share_results(job)
@@ -47,9 +48,17 @@ def test_job_execution(
     assert len(all_files) == 3
 
 
+@pytest.mark.parametrize(
+    "use_docker",
+    [
+        True,
+        False,
+    ],
+)
 def test_job_execution_with_custom_runtime(
     ds_rds_client: RDSClient,
     do_rds_client: RDSClient,
+    use_docker: bool,
 ):
     create_dataset_with_custom_runtime(do_rds_client, "dummy")
     # Client Side
@@ -63,12 +72,15 @@ def test_job_execution_with_custom_runtime(
 
     # Runner side
     do_rds_client.run_private(job)
-
-    # do_rds_client.jobs.share_results(job)
     assert job.status == JobStatus.job_run_failed, "Need to set`SECRET_KEY`"
 
-    os.environ["SECRET_KEY"] = "__AA__"
-    do_rds_client.run_private(job)
+    os.environ["PYDEVD_DISABLE_FILE_VALIDATION"] = "1"
+    config = do_rds_client.get_default_config_for_job(job)
+    config.use_docker = use_docker
+    if use_docker:
+        config.runtime.mount_dir = PRIVATE_CODE_PATH
+        config.extra_env["SECRET_KEY"] = "__AA__"
+    do_rds_client.run_private(job, config)
     assert job.status == JobStatus.job_run_finished
     do_rds_client.jobs.share_results(job)
     output_path = job.get_output_path()

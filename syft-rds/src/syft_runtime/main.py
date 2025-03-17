@@ -13,9 +13,6 @@ from rich.live import Live
 from rich.panel import Panel
 from rich.spinner import Spinner
 
-# Since we're importing ipywidgets directly, we can assume Jupyter is available
-JUPYTER_AVAILABLE = True
-
 DEFAULT_OUTPUT_DIR = "/output"
 
 
@@ -64,13 +61,22 @@ class JobConfig(BaseModel):
     def get_env(self) -> dict[str, str]:
         return self.extra_env | self._base_env
 
+    def get_env_as_docker_args(self) -> list[str]:
+        return [f"-e {k}={v}" for k, v in self.get_env().items()]
+
+    def get_extra_env_as_docker_args(self) -> list[str]:
+        return [f"-e {k}={v}" for k, v in self.extra_env.items()]
+
     @property
     def _base_env(self) -> dict[str, str]:
+        interpreter = " ".join(self.runtime.cmd)
+        interpreter_str = f"'{interpreter}'" if " " in interpreter else interpreter
         return {
             "OUTPUT_DIR": str(self.output_dir.absolute()),
             "DATA_DIR": str(self.data_path.absolute()),
             "TIMEOUT": str(self.timeout),
             "INPUT_FILE": str(self.function_folder / self.args[0]),
+            "INTERPRETER": interpreter_str,
         }
 
 
@@ -342,11 +348,13 @@ class DockerRunner:
             "fsize=10000000:10000000",  # ~10MB file size limit
         ]
         interpreter = " ".join(config.runtime.cmd)
+        interpreter_str = f'"{interpreter}"' if " " in interpreter else interpreter
+
         return [
             "docker",
             "run",
             "--rm",  # Remove container after completion
-            *limits,
+            # *limits,
             # Environment variables
             "-e",
             f"TIMEOUT={config.timeout}",
@@ -355,7 +363,10 @@ class DockerRunner:
             "-e",
             f"OUTPUT_DIR={DEFAULT_OUTPUT_DIR}",
             "-e",
-            f"INTERPRETER={interpreter}",
+            f"INTERPRETER={interpreter_str}",
+            "-e",
+            f"INPUT_FILE='{config.function_folder / config.args[0]}'",
+            *config.get_extra_env_as_docker_args(),
             *docker_mounts,
             "syft_python_runtime",
             *config.args,
@@ -410,7 +421,6 @@ class DockerRunner:
             stderr=subprocess.PIPE,
             text=True,
             env=env,
-            # cwd=config.runtime.cwd,
         )
         # Stream output
         while True:
