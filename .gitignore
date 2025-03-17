@@ -186,3 +186,6 @@ notebooks/quickstart/data/
 .clients/
 .server/
 job_outputs/
+
+# MacOS
+.DS_Store
