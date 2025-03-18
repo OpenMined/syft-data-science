@@ -8,6 +8,7 @@ from syft_rds.models.models import (
     DatasetCreate,
     DatasetUpdate,
 )
+from syft_runtime.main import CodeRuntime
 
 
 class DatasetRDSClient(RDSClientModule[Dataset]):
@@ -22,6 +23,7 @@ class DatasetRDSClient(RDSClientModule[Dataset]):
         summary: Optional[str] = None,
         description_path: Optional[Union[str, Path]] = None,
         tags: list[str] = [],
+        runtime: Optional[CodeRuntime] = None,
     ) -> Dataset:
         dataset_create = DatasetCreate(
             name=name,
@@ -30,6 +32,7 @@ class DatasetRDSClient(RDSClientModule[Dataset]):
             summary=summary,
             description_path=str(description_path) if description_path else None,
             tags=tags,
+            runtime=runtime,
         )
         return self.local_store.dataset.create(dataset_create)
 

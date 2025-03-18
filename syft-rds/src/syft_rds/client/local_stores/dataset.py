@@ -271,6 +271,8 @@ class DatasetFilesManager:
         public_dataset_dir: Path = self._path_manager.get_local_public_dataset_dir(
             dataset_name
         )
+        if not Path(description_path).exists():
+            raise ValueError(f"Description file does not exist: {description_path}")
         dest_path = public_dataset_dir / Path(description_path).name
         shutil.copy2(description_path, dest_path)
         return dest_path
@@ -354,6 +356,8 @@ class DatasetSchemaManager:
             summary=dataset_create.summary,
             readme=readme_url,
         )
+        if dataset_create.runtime:
+            dataset.runtime = dataset_create.runtime
 
         # Persist the schema to store
         self._schema_store.create(dataset)

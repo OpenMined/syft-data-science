@@ -182,10 +182,11 @@ notebooks/quickstart/data/
 .vscode/
 
 .e2e/
+job_outputs/
 .logs/
 .clients/
 .server/
-job_outputs/
+tmp/
 
 # MacOS
 .DS_Store

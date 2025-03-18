@@ -1,108 +1,92 @@
-from pathlib import Path
+import os
 
 import pytest
 from syft_rds.client.rds_client import RDSClient
-from syft_rds.models.models import GetAllRequest
-from tests.conftest import DS_PATH
-
-
-def create_dataset(tmp_path: Path):
-    private_dir = tmp_path / "private"
-    mock_dir = tmp_path / "mock"
-    markdown_path = tmp_path / "description.md"
-
-    private_dir.mkdir(parents=True, exist_ok=True)
-    mock_dir.mkdir(parents=True, exist_ok=True)
-
-    with open(private_dir / "data.csv", "w") as f:
-        f.write("-1,-2,-3")
-
-    with open(mock_dir / "data.csv", "w") as f:
-        f.write("1,2,3")
-
-    with open(markdown_path, "w") as f:
-        f.write("some description")
-    return mock_dir, private_dir, markdown_path
+from syft_rds.models.models import GetAllRequest, JobStatus
+from tests.conftest import DS_PATH, PRIVATE_CODE_PATH
+from tests.utils import create_dataset, create_dataset_with_custom_runtime
 
 
 @pytest.mark.parametrize(
-    "user_code_path, runtime",
+    "use_docker",
     [
-        (DS_PATH / "ds.py", "python"),  # Python test case
-        # (DS_PATH / "ds.sh", "bash"),  # Bash test case working on this
+        # True, # TODO setup docker flow in CI
+        False,
     ],
 )
 def test_job_execution(
     ds_rds_client: RDSClient,
     do_rds_client: RDSClient,
-    user_code_path: Path,
-    runtime: str,
-    tmp_path: Path,
+    use_docker: bool,
 ):
-    mock_dir, private_dir, markdown_path = create_dataset(tmp_path)
-
-    do_rds_client.dataset.create(
-        name="dummy",
-        path=private_dir,
-        mock_path=mock_dir,
-        description_path=markdown_path,
-    )
+    user_code_path = DS_PATH / "ds.py"
+    create_dataset(do_rds_client, "dummy")
     # Client Side
     job = ds_rds_client.jobs.submit(
         user_code_path=user_code_path,
         dataset_name="dummy",
     )
+    assert job.status == JobStatus.pending_code_review
 
     # Server Side
-    jobs = do_rds_client.rpc.jobs.get_all(GetAllRequest())
-    assert len(jobs) == 1
-    assert jobs[0].uid == job.uid
-
-    job = jobs[0]
-
-    with pytest.raises(ValueError):
-        # can't share artifacts before the job is run
-        job.share_artifacts()
+    job = do_rds_client.rpc.jobs.get_all(GetAllRequest())[0]
 
     # Runner side
-    user_code = do_rds_client.user_code.get(uid=job.user_code_id)
-    assert user_code.local_dir.is_dir() and user_code.local_file.is_file()
-    # config = JobConfig(
-    #     # we use the parent directory of the user code path as the function folder
-    #     # and the name of the user code file as the args.
-    #     # the following commands are equivalent to each other:
-    #     # $ cd dir && python main.py
-    #     # $ cd job.user_code.path.parent && job.runtime job.user_code.path.name
-    #     function_folder=user_code.local_dir,
-    #     args=[user_code.file_name],
-    #     data_path=PRIVATE_DATA_PATH,
-    #     runtime=runtime,
-    #     job_folder=DO_OUTPUT_PATH / str(job.name),
-    #     timeout=1,
-    #     use_docker=False,
-    # )
-
-    do_rds_client.run_private(job)
+    config = do_rds_client.get_default_config_for_job(job)
+    config.use_docker = use_docker
+    do_rds_client.run_private(job, config)
+    assert job.status == JobStatus.job_run_finished
 
     do_rds_client.jobs.share_results(job)
-
-    # check the output and logs
-
-    job_output_folder = (
-        do_rds_client.config.runner_config.job_output_folder / job.uid.hex
-    )
-    assert (job_output_folder / "output" / "my_result.csv").exists()
-    assert (job_output_folder / "logs" / "stdout.log").exists()
-    assert (job_output_folder / "logs" / "stderr.log").exists()
-
-    # Only print this for the Python test case
-    if runtime is None:
-        print(ds_rds_client.local_store.jobs.store.store_dir)
-    print(ds_rds_client.local_store.jobs.store.store_dir)
+    assert job.status == JobStatus.shared
 
     output_path = job.get_output_path()
     assert output_path.exists()
 
-    all_files = list(output_path.glob("**/*"))
-    assert len(all_files) > 0
-    # make sure has some nested files
+    all_files_folders = list(output_path.glob("**/*"))
+    all_files = [f for f in all_files_folders if f.is_file()]
+    assert len(all_files) == 3
+
+
+@pytest.mark.parametrize(
+    "use_docker",
+    [
+        # True, # TODO setup docker flow in CI
+        False,
+    ],
+)
+def test_job_execution_with_custom_runtime(
+    ds_rds_client: RDSClient,
+    do_rds_client: RDSClient,
+    use_docker: bool,
+):
+    create_dataset_with_custom_runtime(do_rds_client, "dummy")
+    # Client Side
+    job = ds_rds_client.jobs.submit(
+        user_code_path=DS_PATH / "ds.txt",
+        dataset_name="dummy",
+    )
+
+    # Server Side
+    job = do_rds_client.rpc.jobs.get_all(GetAllRequest())[0]
+
+    # Runner side
+    do_rds_client.run_private(job)
+    assert job.status == JobStatus.job_run_failed, "Need to set`SECRET_KEY`"
+
+    os.environ["PYDEVD_DISABLE_FILE_VALIDATION"] = "1"
+    config = do_rds_client.get_default_config_for_job(job)
+    config.use_docker = use_docker
+    if use_docker:
+        config.runtime.mount_dir = PRIVATE_CODE_PATH
+    config.extra_env["SECRET_KEY"] = "__AA__"
+    do_rds_client.run_private(job, config)
+
+    assert job.status == JobStatus.job_run_finished
+    do_rds_client.jobs.share_results(job)
+    output_path = job.get_output_path()
+    assert output_path.exists()
+
+    all_files_folders = list(output_path.glob("**/*"))
+    all_files = [f for f in all_files_folders if f.is_file()]
+    assert len(all_files) == 3

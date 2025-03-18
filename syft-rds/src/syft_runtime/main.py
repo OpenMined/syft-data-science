@@ -1,4 +1,3 @@
-import enum
 import os
 import subprocess
 import time
@@ -6,24 +5,25 @@ from datetime import datetime
 from pathlib import Path
 from typing import Optional, Protocol, Tuple
 
-import ipywidgets as widgets
-from IPython.display import display
 from pydantic import BaseModel, Field
 from rich.console import Console
 from rich.live import Live
 from rich.panel import Panel
 from rich.spinner import Spinner
 
-# Since we're importing ipywidgets directly, we can assume Jupyter is available
-JUPYTER_AVAILABLE = True
-
 DEFAULT_OUTPUT_DIR = "/output"
 
 
-class CodeRuntime(str, enum.Enum):
-    python = "python"
-    bash = "bash"
-    sql = "sql"
+class CodeRuntime(BaseModel):
+    cmd: list[str]
+    image_name: str | None = None
+    mount_dir: Path | None = None
+
+    @classmethod
+    def default(cls):
+        return cls(
+            cmd=["python"],
+        )
 
 
 class JobConfig(BaseModel):
@@ -32,13 +32,14 @@ class JobConfig(BaseModel):
     function_folder: Path
     args: list[str]
     data_path: Path
-    runtime: CodeRuntime = CodeRuntime.python
+    runtime: CodeRuntime
     job_folder: Optional[Path] = Field(
         default_factory=lambda: Path("jobs") / datetime.now().strftime("%Y%m%d_%H%M%S")
     )
     timeout: int = 60
     data_mount_dir: str = "/data"
     use_docker: bool = True
+    extra_env: dict[str, str] = {}
 
     @property
     def job_path(self) -> Path:
@@ -54,6 +55,27 @@ class JobConfig(BaseModel):
     def output_dir(self) -> Path:
         """Derived path for output directory"""
         return self.job_path / "output"
+
+    def get_env(self) -> dict[str, str]:
+        return self.extra_env | self._base_env
+
+    def get_env_as_docker_args(self) -> list[str]:
+        return [f"-e {k}={v}" for k, v in self.get_env().items()]
+
+    def get_extra_env_as_docker_args(self) -> list[str]:
+        return [f"-e {k}={v}" for k, v in self.extra_env.items()]
+
+    @property
+    def _base_env(self) -> dict[str, str]:
+        interpreter = " ".join(self.runtime.cmd)
+        # interpreter_str = f"'{interpreter}'" if " " in interpreter else interpreter
+        return {
+            "OUTPUT_DIR": str(self.output_dir.absolute()),
+            "DATA_DIR": str(self.data_path.absolute()),
+            "TIMEOUT": str(self.timeout),
+            "INPUT_FILE": str(self.function_folder / self.args[0]),
+            "INTERPRETER": interpreter,
+        }
 
 
 class JobOutputHandler(Protocol):
@@ -126,7 +148,7 @@ class RichConsoleUI(JobOutputHandler):
                 "\n".join(
                     [
                         "[bold green]Starting job[/]",
-                        f"[bold white]Execution:[/] [cyan]{config.runtime.value} {' '.join(config.args)}[/]",
+                        f"[bold white]Execution:[/] [cyan]{' '.join(config.runtime.cmd)} {' '.join(config.args)}[/]",
                         f"[bold white]Dataset Dir.:[/]  [cyan]{limit_path_depth(config.data_path)}[/]",
                         f"[bold white]Output Dir.:[/]   [cyan]{limit_path_depth(config.output_dir)}[/]",
                         f"[bold white]Timeout:[/]  [cyan]{config.timeout}s[/]",
@@ -136,8 +158,11 @@ class RichConsoleUI(JobOutputHandler):
                 border_style="cyan",
             )
         )
-        self.live.start()
-        self.live.console.print("[bold cyan]Running job...[/]")
+        try:
+            self.live.start()
+            self.live.console.print("[bold cyan]Running job...[/]")
+        except Exception as e:
+            self.console.print(f"[red]Error starting live: {e}[/]")
 
     def on_job_progress(self, stdout: str, stderr: str) -> None:
         # Update UI display
@@ -161,89 +186,8 @@ class RichConsoleUI(JobOutputHandler):
                 f"\n[bold red]Job failed with return code {return_code}[/]"
             )
 
-
-class JupyterWidgetHandler(JobOutputHandler):
-    """Handles job output display using Jupyter widgets"""
-
-    def __init__(self):
-        # Create widgets
-        self.output_widget = widgets.Output(
-            layout={"border": "1px solid #ddd", "padding": "10px", "margin": "5px 0"}
-        )
-        self.status_widget = widgets.HTML(
-            value="<b style='color: #7F7F7F'>Initializing...</b>",
-            layout={"margin": "5px 0"},
-        )
-        self.progress_bar = widgets.FloatProgress(
-            value=0,
-            min=0,
-            max=100,
-            description="Progress:",
-            bar_style="info",
-            orientation="horizontal",
-            layout={"width": "50%", "margin": "10px 0"},
-        )
-
-        # Arrange widgets vertically
-        self.container = widgets.VBox(
-            [self.status_widget, self.progress_bar, self.output_widget]
-        )
-        display(self.container)
-
-    def on_job_start(self, config: JobConfig) -> None:
-        """Display job configuration in Jupyter"""
-        self.status_widget.value = "<b style='color: #36A2EB'>Running job...</b>"
-        self.progress_bar.bar_style = "info"
-        self.progress_bar.value = 0
-
-        with self.output_widget:
-            console = Console()
-            if config.data_path.is_file():
-                data_mount_display = str(
-                    Path(config.data_mount_dir) / config.data_path.name
-                )
-            else:
-                data_mount_display = config.data_mount_dir
-
-            console.print(
-                Panel.fit(
-                    "\n".join(
-                        [
-                            "[bold green]Starting job[/]",
-                            f"[bold white]Function:[/] [cyan]{config.function_folder}[/] → [dim]/code[/]",
-                            f"[bold white]Args:[/] [cyan]{' '.join(config.args)}[/] → [dim]/code[/]",
-                            f"[bold white]Dataset:[/]  [cyan]{config.data_path}[/] → [dim]{data_mount_display}[/]",
-                            f"[bold white]Output:[/]   [cyan]{config.output_dir}[/] → [dim]{DEFAULT_OUTPUT_DIR}[/]",
-                            f"[bold white]Timeout:[/]  [cyan]{config.timeout}s[/]",
-                        ]
-                    ),
-                    title="[bold]Job Configuration",
-                    border_style="cyan",
-                )
-            )
-
-    def on_job_progress(self, stdout: str, stderr: str) -> None:
-        """Update job progress in Jupyter widgets"""
-        if stdout or stderr:
-            with self.output_widget:
-                if stdout:
-                    print(stdout, end="")
-                if stderr:
-                    print(f"\033[91m{stderr}\033[0m", end="")
-            # Update progress bar for some visual feedback
-            self.progress_bar.value = min(self.progress_bar.value + 1, 95)
-
-    def on_job_completion(self, return_code: int) -> None:
-        """Display job completion status in Jupyter"""
-        self.progress_bar.value = 100
-        if return_code == 0:
-            self.status_widget.value = (
-                "<b style='color: #2ECC71'>✓ Job completed successfully!</b>"
-            )
-            self.progress_bar.bar_style = "success"
-        else:
-            self.status_widget.value = f"<b style='color: #E74C3C'>✗ Job failed with return code {return_code}</b>"
-            self.progress_bar.bar_style = "danger"
+    def __del__(self):
+        self.live.stop()
 
 
 class DockerRunner:
@@ -272,11 +216,11 @@ class DockerRunner:
             # For direct Python execution, build a command that runs Python directly
             # Assuming the first arg is the Python script to run
             return [
-                config.runtime.value,
+                *config.runtime.cmd,
                 str(Path(config.function_folder) / config.args[0]),
                 *config.args[1:],
             ]
-
+        config.output_dir.absolute().mkdir(parents=True, exist_ok=True)
         docker_mounts = [
             "-v",
             f"{Path(config.function_folder).absolute()}:/code:ro",
@@ -286,10 +230,15 @@ class DockerRunner:
             f"{config.output_dir.absolute()}:{DEFAULT_OUTPUT_DIR}:rw",
         ]
 
-        return [
-            "docker",
-            "run",
-            "--rm",  # Remove container after completion
+        if config.runtime.mount_dir:
+            docker_mounts.extend(
+                [
+                    "-v",
+                    f"{config.runtime.mount_dir.absolute()}:{config.runtime.mount_dir.absolute()}:ro",
+                ]
+            )
+
+        limits = [
             # Security constraints
             "--cap-drop",
             "ALL",  # Drop all capabilities
@@ -311,6 +260,14 @@ class DockerRunner:
             "nofile=50:50",
             "--ulimit",
             "fsize=10000000:10000000",  # ~10MB file size limit
+        ]
+        interpreter = " ".join(config.runtime.cmd)
+        interpreter_str = f'"{interpreter}"' if " " in interpreter else interpreter
+        return [
+            "docker",
+            "run",
+            "--rm",  # Remove container after completion
+            *limits,
             # Environment variables
             "-e",
             f"TIMEOUT={config.timeout}",
@@ -318,8 +275,13 @@ class DockerRunner:
             f"DATA_DIR={config.data_mount_dir}",
             "-e",
             f"OUTPUT_DIR={DEFAULT_OUTPUT_DIR}",
+            "-e",
+            f"INTERPRETER={interpreter_str}",
+            "-e",
+            f"INPUT_FILE='{config.function_folder / config.args[0]}'",
+            *config.get_extra_env_as_docker_args(),
             *docker_mounts,
-            f"syft_{config.runtime.value}_runtime",
+            "syft_python_runtime",
             *config.args,
         ]
 
@@ -328,7 +290,7 @@ class DockerRunner:
         if not config.use_docker:
             return True  # Skip Docker validation when not using Docker
 
-        image_name = f"syft_{config.runtime.value}_runtime"
+        image_name = "syft_python_runtime"
         # Check Docker daemon availability
         subprocess.run(["docker", "info"], check=True, capture_output=True)
 
@@ -341,10 +303,7 @@ class DockerRunner:
                 text=True,
             )
             if result.returncode != 0:
-                raise RuntimeError(
-                    f"Docker image '{image_name}' not found. Please build the image using the `just build-runtime {config.runtime.value}` command."
-                    f"\n\n{result.stderr}"
-                )
+                raise RuntimeError(f"\n\n{result.stderr}")
             return True
         except FileNotFoundError:
             raise RuntimeError("Docker not installed or not in PATH")
@@ -367,13 +326,8 @@ class DockerRunner:
         env = None
         if not config.use_docker:
             env = os.environ.copy()
-            env.update(
-                {
-                    "OUTPUT_DIR": str(config.output_dir.absolute()),
-                    "DATA_DIR": str(config.data_path.absolute()),
-                    "TIMEOUT": str(config.timeout),
-                }
-            )
+            env.update(config.get_env())
+            env.update(config.extra_env)
 
         process = subprocess.Popen(
             cmd,

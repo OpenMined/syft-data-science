@@ -1,7 +1,6 @@
 import base64
 import enum
 import os
-from collections.abc import Iterable
 from pathlib import Path
 from typing import Any, Generic, Literal, Optional, TypeVar
 from uuid import UUID
@@ -20,6 +19,7 @@ from syft_core import SyftBoxURL
 from syft_rds.models.base import ItemBase, ItemBaseCreate, ItemBaseUpdate
 from syft_rds.models.html_format import create_html_repr
 from syft_rds.utils.name_generator import generate_name
+from syft_runtime.main import CodeRuntime
 
 T = TypeVar("T", bound=ItemBase)
 
@@ -239,23 +239,6 @@ class Job(ItemBase):
             datasites_path=client._syftbox_client.datasites
         )
 
-    def share_artifacts(
-        self,
-        include: Iterable[JobArtifactKind] = (
-            JobArtifactKind.computation_result,
-            JobArtifactKind.error_log,
-            JobArtifactKind.execution_log,
-        ),
-    ):
-        if self.status not in (
-            JobStatus.job_run_finished,
-            JobStatus.job_run_failed,
-        ):
-            raise ValueError(
-                f"Job must be executed first. Current status: {self.status.value}"
-            )
-        self.status = JobStatus.shared
-
     @model_validator(mode="after")
     def validate_status(self):
         if (
@@ -311,6 +294,7 @@ class Dataset(ItemBase):
     summary: str | None = Field(description="Summary string of the dataset.")
     readme: SyftBoxURL | None = Field(description="REAMD.md Syft URL of the dataset.")
     tags: list[str] = Field(description="Tags for the dataset.")
+    runtime: CodeRuntime = Field(default_factory=CodeRuntime.default)
 
     @property
     def mock_path(self) -> Path:
@@ -407,6 +391,7 @@ class DatasetCreate(ItemBaseCreate[Dataset]):
         description="Path to the detailed REAMD.md of the dataset."
     )
     tags: list[str] | None = Field(description="Tags for the dataset.")
+    runtime: CodeRuntime | None = Field(description="Runtime for the dataset.")
 
 
 class DatasetUpdate(ItemBaseUpdate[Dataset]):
