@@ -18,7 +18,9 @@ class ClientRunnerConfig(BaseModel):
     runtime: CodeRuntime = CodeRuntime(cmd=["python"])
     timeout: int = 60
     use_docker: bool = False
-    job_output_folder: Path = Field(default_factory=lambda: Path("/tmp/syft-rds-jobs"))
+    job_output_folder: Path = Field(
+        default_factory=lambda: Path(".server/syft-rds-jobs")
+    )
 
 
 class RDSClientConfig(BaseModel):

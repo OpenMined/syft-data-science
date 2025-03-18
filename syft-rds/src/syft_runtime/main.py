@@ -5,8 +5,6 @@ from datetime import datetime
 from pathlib import Path
 from typing import Optional, Protocol, Tuple
 
-import ipywidgets as widgets
-from IPython.display import display
 from pydantic import BaseModel, Field
 from rich.console import Console
 from rich.live import Live
@@ -70,13 +68,13 @@ class JobConfig(BaseModel):
     @property
     def _base_env(self) -> dict[str, str]:
         interpreter = " ".join(self.runtime.cmd)
-        interpreter_str = f"'{interpreter}'" if " " in interpreter else interpreter
+        # interpreter_str = f"'{interpreter}'" if " " in interpreter else interpreter
         return {
             "OUTPUT_DIR": str(self.output_dir.absolute()),
             "DATA_DIR": str(self.data_path.absolute()),
             "TIMEOUT": str(self.timeout),
             "INPUT_FILE": str(self.function_folder / self.args[0]),
-            "INTERPRETER": interpreter_str,
+            "INTERPRETER": interpreter,
         }
 
 
@@ -192,90 +190,6 @@ class RichConsoleUI(JobOutputHandler):
         self.live.stop()
 
 
-class JupyterWidgetHandler(JobOutputHandler):
-    """Handles job output display using Jupyter widgets"""
-
-    def __init__(self):
-        # Create widgets
-        self.output_widget = widgets.Output(
-            layout={"border": "1px solid #ddd", "padding": "10px", "margin": "5px 0"}
-        )
-        self.status_widget = widgets.HTML(
-            value="<b style='color: #7F7F7F'>Initializing...</b>",
-            layout={"margin": "5px 0"},
-        )
-        self.progress_bar = widgets.FloatProgress(
-            value=0,
-            min=0,
-            max=100,
-            description="Progress:",
-            bar_style="info",
-            orientation="horizontal",
-            layout={"width": "50%", "margin": "10px 0"},
-        )
-
-        # Arrange widgets vertically
-        self.container = widgets.VBox(
-            [self.status_widget, self.progress_bar, self.output_widget]
-        )
-        display(self.container)
-
-    def on_job_start(self, config: JobConfig) -> None:
-        """Display job configuration in Jupyter"""
-        self.status_widget.value = "<b style='color: #36A2EB'>Running job...</b>"
-        self.progress_bar.bar_style = "info"
-        self.progress_bar.value = 0
-
-        with self.output_widget:
-            console = Console()
-            if config.data_path.is_file():
-                data_mount_display = str(
-                    Path(config.data_mount_dir) / config.data_path.name
-                )
-            else:
-                data_mount_display = config.data_mount_dir
-
-            console.print(
-                Panel.fit(
-                    "\n".join(
-                        [
-                            "[bold green]Starting job[/]",
-                            f"[bold white]Function:[/] [cyan]{config.function_folder}[/] → [dim]/code[/]",
-                            f"[bold white]Args:[/] [cyan]{' '.join(config.args)}[/] → [dim]/code[/]",
-                            f"[bold white]Dataset:[/]  [cyan]{config.data_path}[/] → [dim]{data_mount_display}[/]",
-                            f"[bold white]Output:[/]   [cyan]{config.output_dir}[/] → [dim]{DEFAULT_OUTPUT_DIR}[/]",
-                            f"[bold white]Timeout:[/]  [cyan]{config.timeout}s[/]",
-                        ]
-                    ),
-                    title="[bold]Job Configuration",
-                    border_style="cyan",
-                )
-            )
-
-    def on_job_progress(self, stdout: str, stderr: str) -> None:
-        """Update job progress in Jupyter widgets"""
-        if stdout or stderr:
-            with self.output_widget:
-                if stdout:
-                    print(stdout, end="")
-                if stderr:
-                    print(f"\033[91m{stderr}\033[0m", end="")
-            # Update progress bar for some visual feedback
-            self.progress_bar.value = min(self.progress_bar.value + 1, 95)
-
-    def on_job_completion(self, return_code: int) -> None:
-        """Display job completion status in Jupyter"""
-        self.progress_bar.value = 100
-        if return_code == 0:
-            self.status_widget.value = (
-                "<b style='color: #2ECC71'>✓ Job completed successfully!</b>"
-            )
-            self.progress_bar.bar_style = "success"
-        else:
-            self.status_widget.value = f"<b style='color: #E74C3C'>✗ Job failed with return code {return_code}</b>"
-            self.progress_bar.bar_style = "danger"
-
-
 class DockerRunner:
     """Handles running jobs in Docker containers with security constraints"""
 
@@ -306,7 +220,7 @@ class DockerRunner:
                 str(Path(config.function_folder) / config.args[0]),
                 *config.args[1:],
             ]
-
+        config.output_dir.absolute().mkdir(parents=True, exist_ok=True)
         docker_mounts = [
             "-v",
             f"{Path(config.function_folder).absolute()}:/code:ro",
@@ -349,12 +263,11 @@ class DockerRunner:
         ]
         interpreter = " ".join(config.runtime.cmd)
         interpreter_str = f'"{interpreter}"' if " " in interpreter else interpreter
-
         return [
             "docker",
             "run",
             "--rm",  # Remove container after completion
-            # *limits,
+            *limits,
             # Environment variables
             "-e",
             f"TIMEOUT={config.timeout}",
@@ -414,6 +327,7 @@ class DockerRunner:
         if not config.use_docker:
             env = os.environ.copy()
             env.update(config.get_env())
+            env.update(config.extra_env)
 
         process = subprocess.Popen(
             cmd,

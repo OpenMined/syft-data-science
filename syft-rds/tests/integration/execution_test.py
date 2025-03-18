@@ -79,8 +79,9 @@ def test_job_execution_with_custom_runtime(
     config.use_docker = use_docker
     if use_docker:
         config.runtime.mount_dir = PRIVATE_CODE_PATH
-        config.extra_env["SECRET_KEY"] = "__AA__"
+    config.extra_env["SECRET_KEY"] = "__AA__"
     do_rds_client.run_private(job, config)
+
     assert job.status == JobStatus.job_run_finished
     do_rds_client.jobs.share_results(job)
     output_path = job.get_output_path()
