@@ -10,7 +10,7 @@ from tests.utils import create_dataset, create_dataset_with_custom_runtime
 @pytest.mark.parametrize(
     "use_docker",
     [
-        True,
+        # True, # TODO setup docker flow in CI
         False,
     ],
 )
@@ -51,7 +51,7 @@ def test_job_execution(
 @pytest.mark.parametrize(
     "use_docker",
     [
-        True,
+        # True, # TODO setup docker flow in CI
         False,
     ],
 )
