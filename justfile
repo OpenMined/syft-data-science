@@ -150,6 +150,7 @@ run-syftbox name port="auto" server="http://localhost:5001":
     echo -e "Server     : {{ _cyan }}{{ server }}{{ _nc }}"
     echo -e "Data Dir   : $DATA_DIR"
 
+    export SYFTBOX_DISABLE_ICONS=1
     uv run syftbox client --config=$DATA_DIR/config.json --data-dir=$DATA_DIR --email=$EMAIL --port=$PORT --server={{ server }} --no-open-dir
 
 # ---------------------------------------------------------------------------------------------------------------------

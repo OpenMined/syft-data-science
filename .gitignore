@@ -187,3 +187,6 @@ job_outputs/
 .clients/
 .server/
 tmp/
+
+# MacOS
+.DS_Store
