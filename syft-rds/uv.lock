@@ -888,14 +888,14 @@ wheels = [
 
 [[package]]
 name = "jinja2"
-version = "3.1.5"
+version = "3.1.6"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "markupsafe" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/af/92/b3130cbbf5591acf9ade8708c365f3238046ac7cb8ccba6e81abccb0ccff/jinja2-3.1.5.tar.gz", hash = "sha256:8fefff8dc3034e27bb80d67c671eb8a9bc424c0ef4c0826edbff304cceff43bb", size = 244674 }
+sdist = { url = "https://files.pythonhosted.org/packages/df/bf/f7da0350254c0ed7c72f3e33cef02e048281fec7ecec5f032d4aac52226b/jinja2-3.1.6.tar.gz", hash = "sha256:0137fb05990d35f1275a587e9aee6d56da821fc83491a0fb838183be43f66d6d", size = 245115 }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/bd/0f/2ba5fbcd631e3e88689309dbe978c5769e883e4b84ebfe7da30b43275c5a/jinja2-3.1.5-py3-none-any.whl", hash = "sha256:aba0f4dc9ed8013c424088f68a5c226f7d6097ed89b246d7749c2ec4175c6adb", size = 134596 },
+    { url = "https://files.pythonhosted.org/packages/62/a1/3d680cbfd5f4b8f15abc1d571870c5fc3e594bb582bc3b64ea099db13e56/jinja2-3.1.6-py3-none-any.whl", hash = "sha256:85ece4451f492d0c13c5dd7c13a64681a86afae63a5f347908daf103ce6d2f67", size = 134899 },
 ]
 
 [[package]]
@@ -2846,7 +2846,7 @@ requires-dist = [
     { name = "syft-core", git = "https://github.com/OpenMined/syft-extras.git?subdirectory=packages%2Fsyft-core&rev=main" },
     { name = "syft-event", git = "https://github.com/OpenMined/syft-extras.git?subdirectory=packages%2Fsyft-event&rev=main" },
     { name = "syft-rpc", git = "https://github.com/OpenMined/syft-extras.git?subdirectory=packages%2Fsyft-rpc&rev=main" },
-    { name = "syftbox", specifier = ">=0.3.5" },
+    { name = "syftbox", git = "https://github.com/OpenMined/syft?rev=main" },
     { name = "typer", specifier = ">=0.12.5" },
     { name = "typing-extensions", specifier = ">=4.12.2" },
 ]
@@ -2875,7 +2875,7 @@ dependencies = [
 [[package]]
 name = "syftbox"
 version = "0.3.5"
-source = { registry = "https://pypi.org/simple" }
+source = { git = "https://github.com/OpenMined/syft?rev=main#cd802f1068a0b8e235efab8d9444646f242e6683" }
 dependencies = [
     { name = "aiofiles" },
     { name = "croniter" },
@@ -2907,10 +2907,6 @@ dependencies = [
     { name = "typing-extensions" },
     { name = "uvicorn" },
     { name = "wcmatch" },
-]
-sdist = { url = "https://files.pythonhosted.org/packages/56/e8/eaab8b2c6ee3196ffb7eb23adeb9c42623df0a7485179e128b4724838582/syftbox-0.3.5.tar.gz", hash = "sha256:0eee92a71d2555974d736ff6a130ffa29fa40c0866c8d28ba11188f9d71ebc32", size = 1699089 }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/d3/ee/e239366856f7886bcb527f8b72d09e5f6b3f2c265845ef260f5bff471d43/syftbox-0.3.5-py3-none-any.whl", hash = "sha256:6196b348a0100bee5bc74a8685105796a0bed6b4c139b985064ac0335d505cc6", size = 1730347 },
 ]
 
 [[package]]
@@ -3034,7 +3030,7 @@ wheels = [
 
 [[package]]
 name = "typer"
-version = "0.15.1"
+version = "0.15.2"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "click" },
@@ -3042,9 +3038,9 @@ dependencies = [
     { name = "shellingham" },
     { name = "typing-extensions" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/cb/ce/dca7b219718afd37a0068f4f2530a727c2b74a8b6e8e0c0080a4c0de4fcd/typer-0.15.1.tar.gz", hash = "sha256:a0588c0a7fa68a1978a069818657778f86abe6ff5ea6abf472f940a08bfe4f0a", size = 99789 }
+sdist = { url = "https://files.pythonhosted.org/packages/8b/6f/3991f0f1c7fcb2df31aef28e0594d8d54b05393a0e4e34c65e475c2a5d41/typer-0.15.2.tar.gz", hash = "sha256:ab2fab47533a813c49fe1f16b1a370fd5819099c00b119e0633df65f22144ba5", size = 100711 }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/d0/cc/0a838ba5ca64dc832aa43f727bd586309846b0ffb2ce52422543e6075e8a/typer-0.15.1-py3-none-any.whl", hash = "sha256:7994fb7b8155b64d3402518560648446072864beefd44aa2dc36972a5972e847", size = 44908 },
+    { url = "https://files.pythonhosted.org/packages/7f/fc/5b29fea8cee020515ca82cc68e3b8e1e34bb19a3535ad854cac9257b414c/typer-0.15.2-py3-none-any.whl", hash = "sha256:46a499c6107d645a9c13f7ee46c5d5096cae6f5fc57dd11eccbbb9ae3e44ddfc", size = 45061 },
 ]
 
 [[package]]
