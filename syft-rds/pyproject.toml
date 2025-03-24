@@ -11,12 +11,12 @@ dependencies = [
     "syft-core",
     "syft-event",
     "syft-rpc",
+    "syftbox",
     "typing-extensions>=4.12.2",
     "pyyaml>=6.0.2",
     "typer>=0.12.5",
     "jupyter>=1.1.1",
     "nh3>=0.2.21",
-    "syftbox>=0.3.5",
 ]
 
 [tool.uv]
@@ -34,6 +34,7 @@ dev-dependencies = [
 syft-event = { git = "https://github.com/OpenMined/syft-extras.git", subdirectory = "packages/syft-event", rev = "main" }
 syft-rpc = { git = "https://github.com/OpenMined/syft-extras.git", subdirectory = "packages/syft-rpc", rev = "main" }
 syft-core = { git = "https://github.com/OpenMined/syft-extras.git", subdirectory = "packages/syft-core", rev = "main" }
+syftbox = { git = "https://github.com/OpenMined/syft", rev = "main" }
 
 [build-system]
 requires = ["hatchling"]
