@@ -19,7 +19,7 @@ from syft_core import SyftBoxURL
 from syft_rds.models.base import ItemBase, ItemBaseCreate, ItemBaseUpdate
 from syft_rds.models.html_format import create_html_repr
 from syft_rds.utils.name_generator import generate_name
-from syft_runtime.main import CodeRuntime
+from syft_rds.syft_runtime.main import CodeRuntime
 
 T = TypeVar("T", bound=ItemBase)
 
