@@ -9,13 +9,15 @@ import re
 import sqlite3
 import traceback
 from typing import List, Optional, Tuple, TypeAlias, Union
-from syft_core import Client
-import wcmatch
-import yaml
-from wcmatch.glob import globmatch
-from pydantic import AfterValidator, BaseModel, model_validator
 from typing_extensions import Annotated
 from pathlib import Path
+
+from pydantic import AfterValidator, BaseModel, model_validator
+from syft_core import Client
+import wcmatch
+from wcmatch.glob import globmatch
+import yaml
+
 
 PERM_FILE = "syftperm.yaml"
 

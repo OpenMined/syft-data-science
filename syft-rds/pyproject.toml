@@ -28,7 +28,7 @@ dev-dependencies = [
     "ipykernel>=6.29.5",
     "pandas>=1.4.0",
     "httpx>=0.28.1",
-    "syftbox",
+    "syftbox",  # just for testing e2e
 ]
 
 [tool.uv.sources]
