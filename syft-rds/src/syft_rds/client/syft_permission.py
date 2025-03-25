@@ -1,5 +1,6 @@
 """
 TODO: move this to syft-core
+Ref: https://github.com/OpenMined/syft/blob/main/syftbox/lib/permissions.py
 """
 
 from enum import Enum
