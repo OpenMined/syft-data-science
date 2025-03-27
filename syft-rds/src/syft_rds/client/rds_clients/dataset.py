@@ -8,7 +8,7 @@ from syft_rds.models.models import (
     DatasetCreate,
     DatasetUpdate,
 )
-from syft_runtime.main import CodeRuntime
+from syft_rds.syft_runtime.main import CodeRuntime
 
 
 class DatasetRDSClient(RDSClientModule[Dataset]):

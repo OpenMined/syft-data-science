@@ -6,7 +6,7 @@ from pydantic import BaseModel, Field
 from syft_core import Client as SyftBoxClient
 
 from syft_rds.client.local_store import LocalStore
-from syft_runtime.main import CodeRuntime
+from syft_rds.syft_runtime.main import CodeRuntime
 from syft_rds.client.rpc import RPCClient, T
 from syft_rds.models.models import GetAllRequest, GetOneRequest, Job
 

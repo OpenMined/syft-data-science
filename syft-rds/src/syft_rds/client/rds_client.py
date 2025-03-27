@@ -5,7 +5,12 @@ from uuid import UUID
 from loguru import logger
 from syft_core import Client as SyftBoxClient
 from syft_event import SyftEvents
-from syft_runtime.main import DockerRunner, FileOutputHandler, JobConfig, RichConsoleUI
+from syft_rds.syft_runtime.main import (
+    DockerRunner,
+    FileOutputHandler,
+    JobConfig,
+    RichConsoleUI,
+)
 
 from syft_rds.client.client_registry import GlobalClientRegistry
 from syft_rds.client.connection import get_connection
