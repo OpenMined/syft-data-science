@@ -18,8 +18,6 @@ class UserCodeRDSClient(RDSClientModule[UserCode]):
         name: str | None = None,
     ) -> UserCode:
         file_path = Path(file_path)
-        if not file_path.is_file():
-            raise ValueError(f"File not found: {file_path}")
 
         files_zipped = zip_to_bytes(files_or_dirs=[file_path])
         user_code_create = UserCodeCreate(
