@@ -38,7 +38,7 @@ class CRUDLocalStore(Generic[T, CreateT, UpdateT]):
 
     @property
     def store_dir(self) -> str:
-        app_dir = self.syftbox_client.api_data(
+        app_dir = self.syftbox_client.app_data(
             self.config.app_name,
             datasite=self.config.host,
         )

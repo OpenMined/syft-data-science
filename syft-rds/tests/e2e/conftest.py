@@ -71,8 +71,13 @@ class Client:
 
     @property
     def api_dir(self):
-        """data_dir/apis"""
-        return self.data_dir / "apis"
+        """DEPRECATED: use app_dir"""
+        return self.app_dir
+
+    @property
+    def app_dir(self):
+        """data_dir/apps"""
+        return self.data_dir / "apps"
 
     @property
     def private_dir(self):
@@ -96,18 +101,31 @@ class Client:
 
     @property
     def api_request_name(self) -> str:
-        api_path = Path.cwd()
-        api_name = api_path.name
-        return api_name
+        """DEPRECATED: use app_request_name"""
+        return self.app_request_name
+
+    @property
+    def app_request_name(self) -> str:
+        app_path = Path.cwd()
+        app_name = app_path.name
+        return app_name
 
     def api_data(
         self,
         api_request_name: Optional[str] = None,
         datasite: Optional[str] = None,
     ) -> Path:
-        api_request_name = api_request_name or self.api_request_name
+        """DEPRECATED: use app_data"""
+        return self.app_data(api_request_name, datasite)
+
+    def app_data(
+        self,
+        app_request_name: Optional[str] = None,
+        datasite: Optional[str] = None,
+    ) -> Path:
+        app_request_name = app_request_name or self.app_request_name
         datasite = datasite or self.email
-        return self.datasite_dir / datasite / "api_data" / api_request_name
+        return self.datasite_dir / datasite / "app_data" / app_request_name
 
 
 class E2EContext:
@@ -223,11 +241,11 @@ class E2EContext:
         await self.wait_for_url(f"http://localhost:{client.port}/info", timeout=timeout)
         logger.success(f"Client '{client.name}' is ready")
 
-    async def wait_for_api(self, app_name: str, client: Client, timeout: int = 30):
-        logger.debug(f"Waiting for API '{app_name}' to be ready (timeout={timeout}s)")
-        run_path = client.api_dir / app_name / "run.sh"
+    async def wait_for_app(self, app_name: str, client: Client, timeout: int = 30):
+        logger.debug(f"Waiting for APP '{app_name}' to be ready (timeout={timeout}s)")
+        run_path = client.app_dir / app_name / "run.sh"
         await self.wait_for_path(run_path, timeout=timeout)
-        logger.success(f"API '{app_name}' is ready on client '{client.name}'")
+        logger.success(f"APP '{app_name}' is ready on client '{client.name}'")
 
     async def wait_for_path(
         self, path: Path, timeout: int = 30, interval: float = 0.5
