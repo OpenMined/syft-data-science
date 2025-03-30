@@ -22,12 +22,15 @@ class JobRDSClient(RDSClientModule[Job]):
         self,
         user_code_path: PathLike,
         dataset_name: str,
+        entrypoint: str | None = None,
         name: str | None = None,
         description: str | None = None,
         tags: list[str] | None = None,
     ) -> Job:
         """`submit` is a convenience method to create both a UserCode and a Job in one call."""
-        user_code = self.rds.user_code.create(file_path=user_code_path)
+        user_code = self.rds.user_code.create(
+            code_path=user_code_path, entrypoint=entrypoint
+        )
         job = self.create(
             name=name,
             description=description,

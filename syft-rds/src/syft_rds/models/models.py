@@ -28,6 +28,11 @@ SYFT_RDS_OUTPUT_DIR = "SYFT_RDS_OUTPUT_DIR"
 MAX_USERCODE_ZIP_SIZE = 1  # MB
 
 
+class UserCodeType(enum.Enum):
+    FILE = "file"
+    FOLDER = "folder"
+
+
 class UserCode(ItemBase):
     __schema_name__ = "usercode"
     __table_extra_fields__ = [
@@ -36,7 +41,8 @@ class UserCode(ItemBase):
 
     name: str
     dir_url: SyftBoxURL | None = None
-    file_name: str
+    code_type: UserCodeType
+    entrypoint: str
 
     @property
     def local_dir(self) -> Path:
@@ -47,9 +53,10 @@ class UserCode(ItemBase):
             datasites_path=client._syftbox_client.datasites
         )
 
-    @property
-    def local_file(self) -> Path:
-        return self.local_dir / self.file_name
+    # TODO: add better UX for handling both files and folders
+    # @property
+    # def local_file(self) -> Path:
+    #     return self.local_dir / self.file_name
 
     def describe(self) -> None:
         html_description = create_html_repr(
@@ -61,9 +68,8 @@ class UserCode(ItemBase):
                 "updated_at",
                 "name",
                 "local_dir",
-                "local_file",
             ],
-            display_paths=["local_file", "local_dir"],
+            display_paths=["local_dir"],
         )
         display(HTML(html_description))
 
@@ -71,8 +77,8 @@ class UserCode(ItemBase):
 class UserCodeCreate(ItemBaseCreate[UserCode]):
     name: Optional[str] = None
     files_zipped: bytes | None = None
-    # TODO add support for multiple files
-    file_name: str
+    code_type: UserCodeType
+    entrypoint: str
 
     @field_serializer("files_zipped")
     def serialize_to_str(self, v: bytes | None) -> str | None:
