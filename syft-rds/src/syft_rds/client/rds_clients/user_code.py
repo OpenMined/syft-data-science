@@ -35,13 +35,15 @@ class UserCodeRDSClient(RDSClientModule[UserCode]):
                 raise FileNotFoundError(
                     f"Entrypoint {entrypoint} does not exist in {code_path}."
                 )
+            files_zipped = zip_to_bytes(files_or_dirs=[code_path], base_dir=code_path)
         else:
             code_type = UserCodeType.FILE
 
             # For file-type code, the entrypoint is the file name
             entrypoint = code_path.name
 
-        files_zipped = zip_to_bytes(files_or_dirs=[code_path])
+            files_zipped = zip_to_bytes(files_or_dirs=code_path)
+
         user_code_create = UserCodeCreate(
             name=name,
             files_zipped=files_zipped,

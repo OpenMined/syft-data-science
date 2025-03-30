@@ -68,6 +68,8 @@ class UserCode(ItemBase):
                 "updated_at",
                 "name",
                 "local_dir",
+                "code_type",
+                "entrypoint",
             ],
             display_paths=["local_dir"],
         )
