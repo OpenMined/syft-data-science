@@ -45,7 +45,7 @@ class RPCClientModule:
         self.config = config
         self.connection = connection
 
-        self.prefix = f"syft://{self.config.host}/api_data/{self.config.app_name}/rpc"
+        self.prefix = f"syft://{self.config.host}/app_data/{self.config.app_name}/rpc"
 
     def _send(
         self, path: str, body: BodyType, expiry: Optional[Union[str, int]] = None

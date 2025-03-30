@@ -39,7 +39,7 @@ async def test_e2e_dataset_create_get_del(e2e_context: E2EContext):
         if client.name == "data_scientist":
             data_scientist = client
         assert client.datasite_dir.exists()
-        assert client.api_dir.exists()
+        assert client.app_dir.exists()
         assert client.public_dir.exists()
 
     do_rds_client: RDSClient = init_session(
