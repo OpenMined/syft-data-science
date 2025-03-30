@@ -14,7 +14,7 @@ def discover_rds_apps(syftbox_client: SyftBoxClient | None = None) -> list[str]:
     for dir in datasites_dir.iterdir():
         if not dir.is_dir():
             continue
-        datasite_app_dir = syftbox_client.api_data(APP_NAME, datasite=dir.name)
+        datasite_app_dir = syftbox_client.app_data(APP_NAME, datasite=dir.name)
         if (datasite_app_dir / APP_INFO_FILE).exists():
             datasites.append(dir.name)
     return datasites
