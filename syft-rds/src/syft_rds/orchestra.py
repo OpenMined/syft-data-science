@@ -8,7 +8,7 @@ from loguru import logger
 from syft_core import Client as SyftBoxClient
 from syft_core import SyftClientConfig
 
-from syft_rds.client.rds_client import init_session
+from syft_rds.client.rds_client import init_session as init_session_rds
 from syft_rds.client.utils import PathLike
 from syft_rds.server.app import create_app
 
@@ -46,13 +46,13 @@ class RDSStack:
         self.server = create_app(do_client)
         self.server.start()
 
-        self.do_rds_client = init_session(
+        self.do_rds_client = init_session_rds(
             host=do_client.email,
             syftbox_client=do_client,
             **config_kwargs,
         )
 
-        self.ds_rds_client = init_session(
+        self.ds_rds_client = init_session_rds(
             host=do_client.email,
             syftbox_client=ds_client,
             **config_kwargs,
@@ -138,9 +138,10 @@ class MockRDSStack:
         self.server = create_app(client)
         self.server.start()
 
-        self.rds_client = init_session(
-            host=client.email,
-            syftbox_client=client,
+    def init_session(self, host, **config_kwargs):
+        return init_session_rds(
+            host=host,
+            syftbox_client=self.client,
             **config_kwargs,
         )
 
