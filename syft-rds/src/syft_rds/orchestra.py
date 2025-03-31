@@ -97,23 +97,24 @@ def setup_rds_stack(
         "Any file permission checks will be skipped as both clients have access to the same files."
     )
 
+    # We also save the config files in the root dir
+    do_client_config = SyftClientConfig(
+        email=do_email,
+        client_url="http://localhost:5000",  # not used, just for local dev
+        path=root_dir / "do_config.json",
+        data_dir=shared_client_dir,
+    ).save()
     do_client = SyftBoxClient(
-        SyftClientConfig(
-            email=do_email,
-            client_url="http://localhost:5000",  # not used, just for local dev
-            path=root_dir / "do_config.json",
-            data_dir=shared_client_dir,
-        ),
+        do_client_config,
     )
 
-    ds_client = SyftBoxClient(
-        SyftClientConfig(
-            email=ds_email,
-            client_url="http://localhost:5001",  # not used, just for local dev
-            path=root_dir / "ds_config.json",
-            data_dir=shared_client_dir,
-        ),
-    )
+    ds_client_config = SyftClientConfig(
+        email=ds_email,
+        client_url="http://localhost:5001",  # not used, just for local dev
+        path=root_dir / "ds_config.json",
+        data_dir=shared_client_dir,
+    ).save()
+    ds_client = SyftBoxClient(ds_client_config)
 
     logger.info(f"Launching mock RDS stack in {root_dir}...")
 
