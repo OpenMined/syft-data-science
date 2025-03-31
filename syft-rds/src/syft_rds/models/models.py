@@ -53,11 +53,6 @@ class UserCode(ItemBase):
             datasites_path=client._syftbox_client.datasites
         )
 
-    # TODO: add better UX for handling both files and folders
-    # @property
-    # def local_file(self) -> Path:
-    #     return self.local_dir / self.file_name
-
     def describe(self) -> None:
         html_description = create_html_repr(
             obj=self,
