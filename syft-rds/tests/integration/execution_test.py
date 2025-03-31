@@ -55,6 +55,54 @@ def test_job_execution(
         False,
     ],
 )
+def test_job_folder_execution(
+    ds_rds_client: RDSClient,
+    do_rds_client: RDSClient,
+    use_docker: bool,
+):
+    user_code_dir = DS_PATH / "code"
+    entrypoint = "main.py"
+    create_dataset(do_rds_client, "dummy")
+    # Client Side
+    job = ds_rds_client.jobs.submit(
+        user_code_path=user_code_dir,
+        entrypoint=entrypoint,
+        dataset_name="dummy",
+    )
+    assert job.status == JobStatus.pending_code_review
+
+    # Server Side
+    job = do_rds_client.rpc.jobs.get_all(GetAllRequest())[0]
+
+    # Runner side
+    config = do_rds_client.get_default_config_for_job(job)
+    config.use_docker = use_docker
+    do_rds_client.run_private(job, config)
+    assert job.status == JobStatus.job_run_finished
+
+    do_rds_client.jobs.share_results(job)
+    assert job.status == JobStatus.shared
+
+    output_path = job.get_output_path()
+    assert output_path.exists()
+
+    all_files_folders = list(output_path.glob("**/*"))
+    all_files = [f for f in all_files_folders if f.is_file()]
+    assert len(all_files) == 3
+
+    output_txt = output_path / "output" / "output.txt"
+    assert output_txt.exists()
+    with open(output_txt, "r") as f:
+        assert f.read() == "ABC"
+
+
+@pytest.mark.parametrize(
+    "use_docker",
+    [
+        # True, # TODO setup docker flow in CI
+        False,
+    ],
+)
 def test_job_execution_with_custom_runtime(
     ds_rds_client: RDSClient,
     do_rds_client: RDSClient,
