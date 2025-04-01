@@ -8,7 +8,7 @@ from loguru import logger
 from syft_core import Client as SyftBoxClient
 from syft_core import SyftClientConfig
 
-from syft_rds.client.rds_client import init_session
+from syft_rds.client.rds_client import init_session as init_session_rds
 from syft_rds.client.utils import PathLike
 from syft_rds.server.app import create_app
 
@@ -46,13 +46,13 @@ class RDSStack:
         self.server = create_app(do_client)
         self.server.start()
 
-        self.do_rds_client = init_session(
+        self.do_rds_client = init_session_rds(
             host=do_client.email,
             syftbox_client=do_client,
             **config_kwargs,
         )
 
-        self.ds_rds_client = init_session(
+        self.ds_rds_client = init_session_rds(
             host=do_client.email,
             syftbox_client=ds_client,
             **config_kwargs,
@@ -62,9 +62,11 @@ class RDSStack:
         return self.server.stop()
 
 
-def _prepare_root_dir(root_dir: Optional[PathLike] = None, reset: bool = False) -> Path:
+def _prepare_root_dir(
+    root_dir: Optional[PathLike] = None, reset: bool = False, key: str = ""
+) -> Path:
     if root_dir is None:
-        return Path(tempfile.mkdtemp(prefix="rds_"))
+        return Path(tempfile.gettempdir(), key)
 
     root_path = Path(root_dir)
 
@@ -123,3 +125,84 @@ def setup_rds_stack(
         ds_client=ds_client,
         **config_kwargs,
     )
+
+
+# TODO: This class is temporarily to emulate across notebooks
+# this would be refactored to use the RDSStack class
+class MockRDSStack:
+    """Mock RDS stack for testing purposes"""
+
+    def __init__(self, client: SyftBoxClient, **config_kwargs):
+        self.client = client
+
+        self.server = create_app(client)
+        self.server.start()
+
+    def init_session(self, host, **config_kwargs):
+        return init_session_rds(
+            host=host,
+            syftbox_client=self.client,
+            **config_kwargs,
+        )
+
+    def stop(self) -> None:
+        return self.server.stop()
+
+
+def setup_rds_server(
+    email: str,
+    root_dir: Optional[PathLike] = None,
+    reset: bool = False,
+    key: str = "",
+    log_level: str = "DEBUG",
+    **config_kwargs,
+):
+    """
+    Setup a mock RDS server for testing.
+
+    Args:
+        email (str): Email address of the user.
+        root_dir (Optional[PathLike]): Directory to store the server files.
+        reset (bool): Whether to reset the directory.
+        key (str): Key for the directory.
+        log_level (str): Log level for logging.
+        **config_kwargs: Additional configuration arguments.
+
+    Returns:
+        RDSStack: The RDS stack with the server and clients.
+    """
+    setup_logger(level=log_level)
+    root_dir = _prepare_root_dir(root_dir, reset, key)
+
+    client = get_syftbox_client(email=email, root_dir=root_dir)
+
+    logger.info(f"Launching mock RDS server in {root_dir}...")
+
+    return MockRDSStack(
+        client=client,
+        **config_kwargs,
+    )
+
+
+def get_syftbox_client(
+    email: str,
+    root_dir: PathLike,
+) -> SyftBoxClient:
+    """
+    Get a SyftBox client for testing.
+
+    Args:
+        email (str): Email address of the user.
+        root_dir (PathLike): Directory to store the client files.
+
+    Returns:
+        SyftBoxClient: The SyftBox client.
+    """
+    # We also save the config files in the root dir
+    client_config = SyftClientConfig(
+        email=email,
+        client_url="http://localhost:5000",  # not used, just for local dev
+        path=root_dir / f"{email}.config.json",
+        data_dir=root_dir,
+    ).save()
+    return SyftBoxClient(client_config)
