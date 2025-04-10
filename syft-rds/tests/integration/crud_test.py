@@ -13,6 +13,7 @@ from syft_rds.models.models import (
     RuntimeCreate,
     RuntimeUpdate,
     UserCodeCreate,
+    UserCodeType,
 )
 from syft_rds.orchestra import RDSStack
 
@@ -105,7 +106,8 @@ def test_job_crud(ds_rds_client: RDSClient, do_rds_client: RDSClient):
 def test_user_code_crud(ds_rds_client: RDSClient):
     user_code_create = UserCodeCreate(
         name="Test UserCode",
-        file_name="test.py",
+        code_type=UserCodeType.FILE,
+        entrypoint="test.py",
     )
     user_code = ds_rds_client.rpc.user_code.create(user_code_create)
     assert user_code.name == "Test UserCode"
@@ -118,7 +120,8 @@ def test_user_code_crud(ds_rds_client: RDSClient):
     # Insert second, get all
     code2_create = UserCodeCreate(
         name="Test UserCode 2",
-        file_name="test2.py",
+        code_type=UserCodeType.FILE,
+        entrypoint="test2.py",
     )
     code2 = ds_rds_client.rpc.user_code.create(code2_create)
 

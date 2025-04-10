@@ -143,7 +143,7 @@ class RDSClient(RDSClientBase):
         runner_config = self.config.runner_config
         return JobConfig(
             function_folder=user_code.local_dir,
-            args=[user_code.file_name],
+            args=[user_code.entrypoint],
             data_path=dataset.get_private_path(),
             runtime=runtime,
             job_folder=runner_config.job_output_folder / job.uid.hex,

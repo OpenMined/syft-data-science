@@ -2812,7 +2812,7 @@ wheels = [
 [[package]]
 name = "syft-core"
 version = "0.2.2"
-source = { git = "https://github.com/OpenMined/syft-extras.git?subdirectory=packages%2Fsyft-core&rev=main#3dde8480b4c7834dfda1b57d1b440e49a17095d4" }
+source = { git = "https://github.com/OpenMined/syft-extras.git?subdirectory=packages%2Fsyft-core&rev=main#adaab508d1b36f3925c45607c44fc77c7a35b907" }
 dependencies = [
     { name = "pydantic", extra = ["email"] },
     { name = "pyyaml" },
@@ -2823,7 +2823,7 @@ dependencies = [
 [[package]]
 name = "syft-event"
 version = "0.1.0"
-source = { git = "https://github.com/OpenMined/syft-extras.git?subdirectory=packages%2Fsyft-event&rev=main#3dde8480b4c7834dfda1b57d1b440e49a17095d4" }
+source = { git = "https://github.com/OpenMined/syft-extras.git?subdirectory=packages%2Fsyft-event&rev=main#adaab508d1b36f3925c45607c44fc77c7a35b907" }
 dependencies = [
     { name = "loguru" },
     { name = "pathspec" },
@@ -2892,7 +2892,7 @@ dev = [
 [[package]]
 name = "syft-rpc"
 version = "0.1.0"
-source = { git = "https://github.com/OpenMined/syft-extras.git?subdirectory=packages%2Fsyft-rpc&rev=main#3dde8480b4c7834dfda1b57d1b440e49a17095d4" }
+source = { git = "https://github.com/OpenMined/syft-extras.git?subdirectory=packages%2Fsyft-rpc&rev=main#adaab508d1b36f3925c45607c44fc77c7a35b907" }
 dependencies = [
     { name = "pydantic" },
     { name = "syft-core" },
