@@ -32,7 +32,10 @@ def setup_logger(level: str = "DEBUG") -> None:
 
 
 class RDSStack:
-    """Simple wrapper for RDS stack with SyftBox clients and RDS server"""
+    """
+    Simple wrapper for RDS stack with SyftBox clients and RDS server
+    Includes 1 DO and 1 DS client
+    """
 
     def __init__(
         self,
@@ -78,6 +81,20 @@ def _prepare_root_dir(
 
     root_path.mkdir(parents=True, exist_ok=True)
     return root_path
+
+
+def remove_rds_stack_dir(key: str, root_dir: Optional[PathLike] = None) -> None:
+    root_path = Path(root_dir) if root_dir else Path(tempfile.gettempdir(), key)
+
+    if not root_path.exists():
+        logger.info(f"Skipping removal, as path {root_path} does not exist")
+        return None
+
+    try:
+        shutil.rmtree(root_path)
+        logger.info(f"Successfully removed directory {root_path} ✅")
+    except Exception as e:
+        logger.error(f"Failed to remove directory {root_path}: {e}")
 
 
 def setup_rds_stack(
@@ -127,14 +144,11 @@ def setup_rds_stack(
     )
 
 
-# TODO: This class is temporarily to emulate across notebooks
-# this would be refactored to use the RDSStack class
-class MockRDSStack:
-    """Mock RDS stack for testing purposes"""
+class SingleRDSStack:
+    """A single RDS stack with a SyftBox client and a RDS server"""
 
     def __init__(self, client: SyftBoxClient, **config_kwargs):
         self.client = client
-
         self.server = create_app(client)
         self.server.start()
 
@@ -147,6 +161,30 @@ class MockRDSStack:
 
     def stop(self) -> None:
         return self.server.stop()
+
+
+def _get_syftbox_client(
+    email: str,
+    root_dir: PathLike,
+) -> SyftBoxClient:
+    """
+    Get a SyftBox client for testing.
+
+    Args:
+        email (str): Email address of the user.
+        root_dir (PathLike): Directory to store the client files.
+
+    Returns:
+        SyftBoxClient: The SyftBox client.
+    """
+    # We also save the config files in the root dir
+    client_config = SyftClientConfig(
+        email=email,
+        client_url="http://localhost:5000",  # not used, just for local dev
+        path=root_dir / f"{email}.config.json",
+        data_dir=root_dir,
+    ).save()
+    return SyftBoxClient(client_config)
 
 
 def setup_rds_server(
@@ -174,35 +212,11 @@ def setup_rds_server(
     setup_logger(level=log_level)
     root_dir = _prepare_root_dir(root_dir, reset, key)
 
-    client = get_syftbox_client(email=email, root_dir=root_dir)
+    client = _get_syftbox_client(email=email, root_dir=root_dir)
 
     logger.info(f"Launching mock RDS server in {root_dir}...")
 
-    return MockRDSStack(
+    return SingleRDSStack(
         client=client,
         **config_kwargs,
     )
-
-
-def get_syftbox_client(
-    email: str,
-    root_dir: PathLike,
-) -> SyftBoxClient:
-    """
-    Get a SyftBox client for testing.
-
-    Args:
-        email (str): Email address of the user.
-        root_dir (PathLike): Directory to store the client files.
-
-    Returns:
-        SyftBoxClient: The SyftBox client.
-    """
-    # We also save the config files in the root dir
-    client_config = SyftClientConfig(
-        email=email,
-        client_url="http://localhost:5000",  # not used, just for local dev
-        path=root_dir / f"{email}.config.json",
-        data_dir=root_dir,
-    ).save()
-    return SyftBoxClient(client_config)
