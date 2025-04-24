@@ -71,7 +71,7 @@ def _prepare_root_dir(
     if root_dir is None:
         return Path(tempfile.gettempdir(), key)
 
-    root_path = Path(root_dir)
+    root_path = Path(root_dir) / key
 
     if reset and root_path.exists():
         try:
@@ -84,7 +84,9 @@ def _prepare_root_dir(
 
 
 def remove_rds_stack_dir(key: str, root_dir: Optional[PathLike] = None) -> None:
-    root_path = Path(root_dir) if root_dir else Path(tempfile.gettempdir(), key)
+    root_path = (
+        Path(root_dir).resolve() / key if root_dir else Path(tempfile.gettempdir(), key)
+    )
 
     if not root_path.exists():
         logger.info(f"Skipping removal, as path {root_path} does not exist")
@@ -214,7 +216,7 @@ def setup_rds_server(
 
     client = _get_syftbox_client(email=email, root_dir=root_dir)
 
-    logger.info(f"Launching mock RDS server in {root_dir}...")
+    logger.info(f"Launching mock RDS server in {root_dir.resolve()}")
 
     return SingleRDSStack(
         client=client,
