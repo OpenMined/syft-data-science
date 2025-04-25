@@ -5,13 +5,14 @@ from datetime import datetime
 from pathlib import Path
 from typing import Optional, Protocol, Tuple
 
+from loguru import logger
 from pydantic import BaseModel, Field
 from rich.console import Console
 from rich.live import Live
 from rich.panel import Panel
 from rich.spinner import Spinner
 
-DEFAULT_OUTPUT_DIR = "/output"
+DEFAULT_OUTPUT_DIR = "output"
 
 
 class CodeRuntime(BaseModel):
@@ -29,6 +30,7 @@ class CodeRuntime(BaseModel):
 class JobConfig(BaseModel):
     """Configuration for a job run"""
 
+    client_email: str
     function_folder: Path
     args: list[str]
     data_path: Path
@@ -37,9 +39,12 @@ class JobConfig(BaseModel):
         default_factory=lambda: Path("jobs") / datetime.now().strftime("%Y%m%d_%H%M%S")
     )
     timeout: int = 60
-    data_mount_dir: str = "/data"
+    data_mount_dir: str = "/app/data"
     use_docker: bool = True
     extra_env: dict[str, str] = {}
+    extra_mounts: list[
+        dict[str, str]
+    ] = []  # [{"source": Path, "target": Path, "mode": str}]
 
     @property
     def job_path(self) -> Path:
@@ -211,32 +216,46 @@ class DockerRunner:
 
     def build_docker_command(self, config: JobConfig) -> list[str]:
         """Build the Docker run command with security constraints"""
-
         if not config.use_docker:
             # For direct Python execution, build a command that runs Python directly
             # Assuming the first arg is the Python script to run
+            logger.info(
+                f"Running job without Docker with command: `{' '.join(config.runtime.cmd)} {' '.join(config.args)}`"
+            )
             return [
                 *config.runtime.cmd,
                 str(Path(config.function_folder) / config.args[0]),
                 *config.args[1:],
             ]
         config.output_dir.absolute().mkdir(parents=True, exist_ok=True)
+
+        workdir = "/app"
+
         docker_mounts = [
-            "-v",
-            f"{Path(config.function_folder).absolute()}:/code:ro",
-            "-v",
-            f"{Path(config.data_path).absolute()}:{config.data_mount_dir}:ro",
-            "-v",
-            f"{config.output_dir.absolute()}:{DEFAULT_OUTPUT_DIR}:rw",
+            "--volume",
+            f"{Path(config.function_folder).absolute()}:{workdir}/code:ro",
+            "--volume",
+            f"{Path(config.data_path).absolute()}:{workdir}/data:ro",
+            "--volume",
+            f"{config.output_dir.absolute()}:{workdir}/{DEFAULT_OUTPUT_DIR}:rw",
         ]
 
         if config.runtime.mount_dir:
             docker_mounts.extend(
                 [
-                    "-v",
-                    f"{config.runtime.mount_dir.absolute()}:{config.runtime.mount_dir.absolute()}:ro",
+                    "--volume",
+                    f"{config.runtime.mount_dir.absolute()}:{workdir}/{config.runtime.mount_dir.absolute()}:ro",
                 ]
             )
+
+        if config.extra_mounts:
+            for extra_mount in config.extra_mounts:
+                docker_mounts.extend(
+                    [
+                        "--volume",
+                        f"{extra_mount['source']}:{extra_mount['target']}:{extra_mount['mode']}",
+                    ]
+                )
 
         limits = [
             # Security constraints
@@ -244,7 +263,7 @@ class DockerRunner:
             "ALL",  # Drop all capabilities
             "--network",
             "none",  # Disable networking
-            "--read-only",  # Read-only root filesystem
+            # "--read-only",  # Read-only root filesystem
             "--tmpfs",
             "/tmp:size=16m,noexec,nosuid,nodev",  # Secure temp directory
             # Resource limits
@@ -263,12 +282,7 @@ class DockerRunner:
         ]
         interpreter = " ".join(config.runtime.cmd)
         interpreter_str = f'"{interpreter}"' if " " in interpreter else interpreter
-        return [
-            "docker",
-            "run",
-            "--rm",  # Remove container after completion
-            *limits,
-            # Environment variables
+        docker_env = [
             "-e",
             f"TIMEOUT={config.timeout}",
             "-e",
@@ -279,11 +293,25 @@ class DockerRunner:
             f"INTERPRETER={interpreter_str}",
             "-e",
             f"INPUT_FILE='{config.function_folder / config.args[0]}'",
+        ]
+
+        image_name = "syft_python_runtime"
+
+        docker_command = [
+            "docker",
+            "run",
+            "--rm",
+            *limits,
+            *docker_env,
             *config.get_extra_env_as_docker_args(),
             *docker_mounts,
-            "syft_python_runtime",
+            "--workdir",
+            workdir,
+            image_name,
             *config.args,
         ]
+        logger.debug(f"Running job with Docker command: \n{' '.join(docker_command)}")
+        return docker_command
 
     def validate_docker(self, config: JobConfig) -> bool:
         """Validate Docker image availability"""
@@ -311,6 +339,27 @@ class DockerRunner:
     def run(self, config: JobConfig) -> Tuple[Path, int | None]:
         """Run a job in a Docker container or directly as Python"""
         # Check Docker availability first if using Docker
+
+        # TODO: force run + hard code with Docker. Remove later
+        config.use_docker = True
+        client_email = config.client_email
+        cwd = "/Users/khoaguin/Desktop/projects/OpenMined/rds/experimentals/rpc_docker"
+        config.extra_mounts = [
+            {
+                "source": Path(f"{cwd}/.modified_configs/{client_email}.config.json"),
+                "target": "/app/config.json",
+                "mode": "ro",
+            },
+            {
+                "source": Path(
+                    f"{cwd}/SyftBox/datasites/{client_email}/app_data/flwr/rpc/messages"
+                ),
+                "target": f"/app/SyftBox/datasites/{client_email}/app_data/flwr/rpc/messages",
+                "mode": "rw",
+            },
+        ]
+        # END TODO
+
         if not self.validate_docker(config):
             return -1
 
@@ -336,22 +385,29 @@ class DockerRunner:
             text=True,
             env=env,
         )
-        # Stream output
-        while True:
-            stdout_line = process.stdout.readline()
-            stderr_line = process.stderr.readline()
 
+        stream_output = False
+        if stream_output:
+            # Stream output
+            while True:
+                stdout_line = process.stdout.readline()
+                stderr_line = process.stderr.readline()
+
+                for handler in self.handlers:
+                    handler.on_job_progress(stdout_line, stderr_line)
+
+                if not stdout_line and not stderr_line and process.poll() is not None:
+                    break
+
+                if not stdout_line and not stderr_line:
+                    time.sleep(0.5)
+
+            process.wait()
             for handler in self.handlers:
-                handler.on_job_progress(stdout_line, stderr_line)
+                handler.on_job_completion(process.returncode)
 
-            if not stdout_line and not stderr_line and process.poll() is not None:
-                break
+            return process.returncode
 
-            if not stdout_line and not stderr_line:
-                time.sleep(0.5)
+        # TODO: save output to file
 
-        process.wait()
-        for handler in self.handlers:
-            handler.on_job_completion(process.returncode)
-
-        return process.returncode
+        return process
