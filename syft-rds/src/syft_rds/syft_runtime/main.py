@@ -343,7 +343,7 @@ class DockerRunner:
         # TODO: force run + hard code with Docker. Remove later
         config.use_docker = True
         client_email = config.client_email
-        cwd = "/Users/khoaguin/Desktop/projects/OpenMined/rds/experimentals/rpc_docker"
+        cwd = "/Users/khoaguin/Desktop/projects/OpenMined/syft-rds/experimentals/rpc_docker"
         config.extra_mounts = [
             {
                 "source": Path(f"{cwd}/.modified_configs/{client_email}.config.json"),
