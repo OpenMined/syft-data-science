@@ -253,3 +253,11 @@ run-rds-stack client_names="data_owner@openmined.org data_scientist@openmined.or
 
     # Wait forever (until Ctrl+C)
     tail -f /dev/null
+
+# ---------------------------------------------------------------------------------------------------------------------
+
+# Build syft rds wheel
+[group('build')]
+build:
+    rm -rf syft-rds/dist
+    uv build syft-rds/
