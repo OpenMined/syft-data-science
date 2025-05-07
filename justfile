@@ -261,3 +261,16 @@ run-rds-stack client_names="data_owner@openmined.org data_scientist@openmined.or
 build:
     rm -rf syft-rds/dist
     uv build syft-rds/
+
+# ---------------------------------------------------------------------------------------------------------------------
+
+# Publish RDS wheel to pypi
+
+[group('publish')]
+publish-pypi repository="testpypi": (build)
+    #!/bin/bash
+
+    cd syft-rds
+    echo "{{ _cyan }}Publishing to {{repository}}...{{ _nc }}"
+    uv run --with "twine" twine upload --repository {{repository}} dist/* --verbose
+    echo "{{ _green }}Done!{{ _nc }}"
