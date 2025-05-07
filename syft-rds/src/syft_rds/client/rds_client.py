@@ -142,7 +142,6 @@ class RDSClient(RDSClientBase):
         runtime = dataset.runtime or self.config.runner_config.runtime
         runner_config = self.config.runner_config
         job_config = JobConfig(
-            client_email=self._syftbox_client.email,
             function_folder=user_code.local_dir,
             args=[user_code.entrypoint],
             data_path=dataset.get_private_path(),
@@ -151,7 +150,7 @@ class RDSClient(RDSClientBase):
             timeout=runner_config.timeout,
             use_docker=runner_config.use_docker,
         )
-        logger.info(f"Default job config: {job_config}")
+        logger.debug(f"Job config: {job_config}")
         return job_config
 
     def run_private(self, job: Job, config: Optional[JobConfig] = None) -> Job:

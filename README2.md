@@ -1,0 +1,3 @@
+- `curl -fsSL https://syftboxdev.openmined.org/install.sh | sh`
+- `syftbox init -e khoa@openmined.org`
+- `syftbox init`

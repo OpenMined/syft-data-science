@@ -337,7 +337,11 @@ class DockerRunner:
             raise RuntimeError("Docker not installed or not in PATH")
 
     def run(self, config: JobConfig) -> Tuple[Path, int | None]:
-        """Run a job in a Docker container or directly as Python"""
+        """Run a job in a Docker container or directly as Python
+        TODO: refactor into 2 functions:
+        1. run_docker: run a job in a Docker container
+        2. run_python: run a job directly as Python
+        """
         # Check Docker availability first if using Docker
 
         # TODO: force run + hard code with Docker. Remove later
