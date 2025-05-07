@@ -265,12 +265,10 @@ build:
 # ---------------------------------------------------------------------------------------------------------------------
 
 # Publish RDS wheel to pypi
-
 [group('publish')]
-publish-pypi repository="testpypi": (build)
+publish-pypi: (build)
     #!/bin/bash
-
     cd syft-rds
-    echo "{{ _cyan }}Publishing to {{repository}}...{{ _nc }}"
-    uv run --with "twine" twine upload --repository {{repository}} dist/* --verbose
+    echo "{{ _cyan }}Publishing to pypi...{{ _nc }}"
+    uvx twine upload ./dist/*
     echo "{{ _green }}Done!{{ _nc }}"
