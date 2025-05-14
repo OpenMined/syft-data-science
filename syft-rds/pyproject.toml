@@ -27,11 +27,8 @@ dev-dependencies = [
   "jupyter>=1.1.1",
   "pandas>=1.4.0",
   "httpx>=0.28.1",
-  "syftbox",                # only needed for testing e2e
+  "syftbox==0.4.0",
 ]
-
-[tool.uv.sources]
-syftbox = { git = "https://github.com/OpenMined/syft.git", rev = "main" }
 
 [build-system]
 requires = ["hatchling"]

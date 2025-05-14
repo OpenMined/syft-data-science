@@ -2899,7 +2899,7 @@ dev = [
     { name = "pre-commit", specifier = ">=4.1.0" },
     { name = "pytest", specifier = ">=8.3.4" },
     { name = "pytest-asyncio", specifier = ">=0.25.3" },
-    { name = "syftbox", git = "https://github.com/OpenMined/syft.git?rev=main" },
+    { name = "syftbox", specifier = "==0.4.0" },
 ]
 
 [[package]]
@@ -2919,7 +2919,7 @@ wheels = [
 [[package]]
 name = "syftbox"
 version = "0.4.0"
-source = { git = "https://github.com/OpenMined/syft.git?rev=main#876236eb672ace1fa1f3287d2b88c173371d8cd4" }
+source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "aiofiles" },
     { name = "croniter" },
@@ -2951,6 +2951,10 @@ dependencies = [
     { name = "typing-extensions" },
     { name = "uvicorn" },
     { name = "wcmatch" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/2e/d7/318d84a855750c718a70f9adedeebac4f9e5f5ef7c9d2728b44c6cde2ca1/syftbox-0.4.0.tar.gz", hash = "sha256:04e1043bb87805e58fed99e35391771be97ed93179177b75663e1d298fc756e6", size = 1701492, upload-time = "2025-04-09T17:19:15.813Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/f2/76/dcc8797391fcf88f7322eebf98850113d960b4cb8ca39eb483dd6cf2267e/syftbox-0.4.0-py3-none-any.whl", hash = "sha256:704c6b006d306e8229d9d26c8b2e907096be283d1844e8bfa6773cac29a53811", size = 1734231, upload-time = "2025-04-09T17:19:14.139Z" },
 ]
 
 [[package]]
