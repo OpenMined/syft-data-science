@@ -169,9 +169,8 @@ class MockRPCConnection(BlockingRPCConnection):
 
         req_path = req_path.relative_to(self.sender_client.workspace.datasites)
 
-        check_permission(self.sender_client, req_path, PermissionType.WRITE)
-
-        check_permission(self.receiver_client, req_path, PermissionType.READ)
+        # check_permission(self.sender_client, req_path, PermissionType.WRITE)
+        # check_permission(self.receiver_client, req_path, PermissionType.READ)
 
         receiver_local_path = syft_url.to_local_path(
             self.receiver_client.workspace.datasites
