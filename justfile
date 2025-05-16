@@ -36,7 +36,7 @@ run-jupyter:
     #!/bin/bash
     uv venv
     uv sync
-    jupyter lab
+    uv run jupyter-lab
 
 # Build a runtime container based on the Dockerfile name
 # Usage: just build-runtime sh (builds syft_sh_runtime from runtimes/sh.Dockerfile)
@@ -62,11 +62,9 @@ build-all-runtimes:
 
 # remove all local files & directories
 [group('utils')]
-reset:
+clean:
     #!/bin/sh
-    cd syft_rds
-    rm -rf ./.clients ./.server ./dist ./.e2e ./.logs
-
+    rm -rf ./.clients ./.server ./dist ./.e2e ./.logs **/__pycache__ ./.pytest_cache/
 
 # ---------------------------------------------------------------------------------------------------------------------
 [group('test')]
