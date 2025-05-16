@@ -27,6 +27,11 @@ jobs:
     with:
       test-type: test-unit
 
+  call-pr-tests-integration:
+    uses: ./.github/workflows/pr-tests-base.yml
+    with:
+      test-type: test-integration
+
   call-pr-tests-e2e:
     uses: ./.github/workflows/pr-tests-base.yml
     with:
