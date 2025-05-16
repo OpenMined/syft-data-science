@@ -34,7 +34,8 @@ alias rj := run-jupyter
 [group('utils')]
 run-jupyter:
     #!/bin/bash
-    source syft-rds/.venv/bin/activate
+    uv venv
+    uv sync
     jupyter lab
 
 # Build a runtime container based on the Dockerfile name
@@ -63,7 +64,7 @@ build-all-runtimes:
 [group('utils')]
 reset:
     #!/bin/sh
-    cd syft-rds
+    cd syft_rds
     rm -rf ./.clients ./.server ./dist ./.e2e ./.logs
 
 
@@ -71,24 +72,26 @@ reset:
 [group('test')]
 setup-test-env:
     #!/bin/sh
-    cd syft-rds && uv sync --frozen --cache-dir=.uv-cache && . .venv/bin/activate
+    if [ ! -d ".venv" ]; then
+        uv venv
+    fi
+    uv sync --cache-dir=.uv-cache
 
 [group('test')]
 test-unit: setup-test-env
     #!/bin/sh
-    cd syft-rds && echo "{{ _cyan }}Running unit tests {{ _nc }}"
+    echo "{{ _cyan }}Running unit tests {{ _nc }}"
     uv run --with "pytest-xdist" pytest -{{ _test_verbosity }} --color=yes -n {{ _test_workers }} tests/unit/
 
 [group('test')]
 test-integration: setup-test-env
     #!/bin/sh
-    cd syft-rds && echo "{{ _cyan }}Running integration tests {{ _nc }}"
+    echo "{{ _cyan }}Running integration tests {{ _nc }}"
     uv run --with "pytest-xdist" pytest -{{ _test_verbosity }} --color=yes -n {{ _test_workers }} tests/integration/
 
 [group('test')]
 test-e2e: setup-test-env
     #!/bin/sh
-    cd syft-rds
     rm -rf .e2e/
     echo "{{ _cyan }}Running end-to-end tests {{ _nc }}"
     echo "Using SyftBox from {{ _green }}'$(which syftbox)'{{ _nc }}"
@@ -97,10 +100,11 @@ test-e2e: setup-test-env
 [group('test')]
 test-notebooks: setup-test-env
     #!/bin/sh
-    cd syft-rds
     echo "{{ _cyan }}Running notebook tests {{ _nc }}"
-
-    uv run --with "nbmake" --with "pytest-xdist" pytest -{{ _test_verbosity }} --color=yes -n {{ _test_workers }} --nbmake ../notebooks/quickstart/full_flow.ipynb
+    uv run --with "nbmake" \
+        --with "pytest-xdist" pytest -{{ _test_verbosity }} \
+        --color=yes -n {{ _test_workers }} \
+        --nbmake notebooks/quickstart/full_flow.ipynb
 
 [group('test')]
 test: setup-test-env
@@ -119,9 +123,7 @@ test: setup-test-env
 [group('syftbox')]
 run-syftbox-server port="5001" gunicorn_args="":
     #!/bin/bash
-    cd syft-rds
     set -eou pipefail
-
     export SYFTBOX_DATA_FOLDER=${SYFTBOX_DATA_FOLDER:-.server/data}
     uv run syftbox server migrate
     uv run gunicorn syftbox.server.server:app -k uvicorn.workers.UvicornWorker --bind 127.0.0.1:{{ port }} --reload {{ gunicorn_args }}
@@ -129,7 +131,6 @@ run-syftbox-server port="5001" gunicorn_args="":
 [group('syftbox')]
 run-syftbox name port="auto" server="http://localhost:5001":
     #!/bin/bash
-    cd syft-rds
     set -eou pipefail
 
     # generate a local email from name, but if it looks like an email, then use it as is
@@ -158,19 +159,16 @@ run-syftbox name port="auto" server="http://localhost:5001":
 run-rds-server syftbox_config="":
     #!/bin/bash
     if [ -z "{{ syftbox_config }}" ]; then
-        cd syft-rds
         uv run syft-rds server
     else
         CONFIG_PATH=$(realpath "{{ syftbox_config }}")
-        cd syft-rds
         uv run syft-rds server --syftbox-config "$CONFIG_PATH"
     fi
 
 [group('rds')]
 install:
     #!/bin/bash
-    cd syft-rds
-    uv venv --allow-existing
+    uv venv
     uv sync
 
 
@@ -179,10 +177,10 @@ install:
 run-syftbox-rds name server="http://localhost:5001":
     #!/bin/bash
     set -eou pipefail
-    mkdir -p ./syft-rds/.logs
+    mkdir -p ./syft_rds/.logs
 
     echo "Starting SyftBox client for {{ name }}..."
-    just run-syftbox "{{ name }}" "auto" {{ server }} > ./syft-rds/.logs/syftbox-{{ name }}.log 2>&1 &
+    just run-syftbox "{{ name }}" "auto" {{ server }} > ./syft_rds/.logs/syftbox-{{ name }}.log 2>&1 &
     CLIENT_PID=$!
 
     # Give client time to start and create config
@@ -192,7 +190,7 @@ run-syftbox-rds name server="http://localhost:5001":
     trap "kill $CLIENT_PID; exit 0" INT
 
     # Get config path for this client
-    CONFIG_PATH="$(pwd)/syft-rds/.clients/{{ name }}/config.json"
+    CONFIG_PATH="$(pwd)/syft_rds/.clients/{{ name }}/config.json"
 
     echo "Starting RDS server with config from $CONFIG_PATH..."
     just run-rds-server "$CONFIG_PATH"
@@ -206,13 +204,13 @@ run-rds-stack client_names="data_owner@openmined.org data_scientist@openmined.or
     # Setup environment
     just reset
     just install
-    mkdir -p ./syft-rds/.logs
+    mkdir -p ./syft_rds/.logs
 
     echo "Setting up stack with clients: {{ client_names }}"
 
     # Start SyftBox server
     echo "Launching SyftBox server..."
-    just run-syftbox-server > ./syft-rds/.logs/syftbox-server.log 2>&1 &
+    just run-syftbox-server > ./syft_rds/.logs/syftbox-server.log 2>&1 &
     SERVER_PID=$!
     sleep 2
 
@@ -227,7 +225,7 @@ run-rds-stack client_names="data_owner@openmined.org data_scientist@openmined.or
         echo "Starting $client..."
 
         # Run in background and capture its PID, logging output to files
-        (just run-syftbox-rds "$client" "http://localhost:5001") > ./syft-rds/.logs/rds-$client.log 2>&1 &
+        (just run-syftbox-rds "$client" "http://localhost:5001") > ./syft_rds/.logs/rds-$client.log 2>&1 &
         STACK_PID=$!
         ALL_PIDS+=($STACK_PID)
     done
@@ -247,7 +245,7 @@ run-rds-stack client_names="data_owner@openmined.org data_scientist@openmined.or
     trap cleanup INT
 
     echo "All services started successfully!"
-    echo "Logs available in: $(pwd)/syft-rds/.logs/"
+    echo "Logs available in: $(pwd)/syft_rds/.logs/"
     echo "Press Ctrl+C to shut down"
 
     # Wait forever (until Ctrl+C)
@@ -259,8 +257,8 @@ run-rds-stack client_names="data_owner@openmined.org data_scientist@openmined.or
 [group('build')]
 build:
     @echo "{{ _cyan }}Building syft-rds wheel...{{ _nc }}"
-    rm -rf syft-rds/dist
-    uv build syft-rds/
+    rm -rf syft_rds/dist
+    uv build syft_rds/
     @echo "{{ _green }}Build complete!{{ _nc }}"
     @echo "{{ _cyan }}To inspect the build:{{ _nc }}"
     @echo "{{ _cyan }}1. Go to the build directory and unzip the .tar.gz file to inspect the contents{{ _nc }}"

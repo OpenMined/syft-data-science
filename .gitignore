@@ -174,7 +174,7 @@ cython_debug/
 # some other files
 experimental/
 experimentals/
-syft-rds/tests/integration/assets/do/job_outputs/*
+tests/integration/assets/do/job_outputs/*
 notebooks/data/
 notebooks/quickstart/data/
 

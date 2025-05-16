@@ -24,6 +24,33 @@ logger.level("INFO", color="<b><cyan>")
 logger.level("DEBUG", color="<blue>")
 
 
+def _get_random_port() -> int:
+    """Get a random available port by binding to port 0.
+
+    Returns:
+        int: A random available port number
+    """
+    import socket
+
+    # Try up to 10 times to get an available port
+    for attempt in range(10):
+        try:
+            with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+                # Bind to port 0 to get a random available port
+                s.bind(("localhost", 0))
+                port = s.getsockname()[1]
+                # Set SO_REUSEADDR to allow immediate reuse of the port
+                s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+                return port
+        except OSError as e:
+            if attempt == 9:  # Last attempt
+                logger.error(f"Failed to find available port after 10 attempts: {e}")
+                raise RuntimeError("Could not find an available port after 10 attempts")
+            continue
+
+    raise RuntimeError("Could not find an available port after 10 attempts")
+
+
 class E2ETestError(Exception):
     pass
 
@@ -34,15 +61,15 @@ class E2ETimeoutError(E2ETestError):
 
 @dataclass
 class Server:
-    port: int = 5001
+    port: int = field(default_factory=lambda: _get_random_port())
     env: Dict[str, str] = field(default_factory=dict)
 
 
 @dataclass
 class Client:
     name: str
-    port: int
-    server_port: int = 5001
+    server_port: int
+    port: int = field(default_factory=lambda: _get_random_port())
     data_dir: Path = field(default_factory=Path.cwd)  # Set by E2EContext
     env: Dict[str, str] = field(default_factory=dict)
     apps: List[str] = field(default_factory=list)
@@ -132,6 +159,7 @@ class E2EContext:
     def __init__(self, e2e_name: str, server: Server, clients: List[Client]):
         self.e2e_name = e2e_name
         self.test_dir = Path.cwd() / ".e2e" / e2e_name
+        logger.info(f"TEST DIR: {self.test_dir}")
         self.server = server
         self.clients = clients
         self.__procs: List[Process] = []
@@ -239,7 +267,9 @@ class E2EContext:
             f"Waiting for client '{client.name}' to be ready on port {client.port} (timeout={timeout}s)"
         )
         await self.wait_for_url(f"http://localhost:{client.port}/info", timeout=timeout)
-        logger.success(f"Client '{client.name}' is ready")
+        logger.success(
+            f"Client '{client.name}' is ready and connecting to server at port {client.server_port}"
+        )
 
     async def wait_for_app(self, app_name: str, client: Client, timeout: int = 30):
         logger.debug(f"Waiting for APP '{app_name}' to be ready (timeout={timeout}s)")
@@ -279,14 +309,6 @@ class E2EContext:
 
             elapsed = asyncio.get_event_loop().time() - start
             logger.debug(f"Got response from {url} (after {elapsed:.1f}s)")
-
-
-def get_random_port():
-    import socket
-
-    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-        s.bind(("localhost", 0))
-        return s.getsockname()[1]
 
 
 @pytest_asyncio.fixture(loop_scope="function")

@@ -11,12 +11,13 @@ from tests.utils import create_dataset
 
 
 def deployment_config():
+    server = Server()
     return {
         "e2e_name": "dataset_get",
-        "server": Server(port=5001),
+        "server": server,
         "clients": [
-            Client(name="data_owner", port=9090, server_port=5001),
-            Client(name="data_scientist", port=9091, server_port=5001),
+            Client(name="data_owner", server_port=server.port),
+            Client(name="data_scientist", server_port=server.port),
         ],
     }
 
