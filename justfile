@@ -111,7 +111,6 @@ test: setup-test-env
     just test-e2e &
     just test-notebooks &
     wait
-    echo "{{ _green }}All tests completed!{{ _nc }}"
 
 
 # ---------------------------------------------------------------------------------------------------------------------
