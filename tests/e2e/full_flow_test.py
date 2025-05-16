@@ -13,12 +13,13 @@ from tests.e2e.conftest import Client, E2EContext, Server
 
 
 def deployment_config():
+    server = Server()
     return {
         "e2e_name": "full_flow",
-        "server": Server(port=5002),
+        "server": server,
         "clients": [
-            Client(name="data_owner", port=9092, server_port=5002),
-            Client(name="data_scientist", port=9093, server_port=5002),
+            Client(name="data_owner", server_port=server.port),
+            Client(name="data_scientist", server_port=server.port),
         ],
     }
 
