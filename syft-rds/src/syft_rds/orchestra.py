@@ -66,7 +66,9 @@ class RDSStack:
 
 
 def _prepare_root_dir(
-    root_dir: Optional[PathLike] = None, reset: bool = False, key: str = ""
+    root_dir: Optional[PathLike] = None,
+    reset: bool = False,
+    key: str = "shared_client_dir",
 ) -> Path:
     if root_dir is None:
         return Path(tempfile.gettempdir(), key)
@@ -83,20 +85,22 @@ def _prepare_root_dir(
     return root_path
 
 
-def remove_rds_stack_dir(key: str, root_dir: Optional[PathLike] = None) -> None:
+def remove_rds_stack_dir(
+    key: str = "shared_client_dir", root_dir: Optional[PathLike] = None
+) -> None:
     root_path = (
         Path(root_dir).resolve() / key if root_dir else Path(tempfile.gettempdir(), key)
     )
 
     if not root_path.exists():
-        logger.info(f"Skipping removal, as path {root_path} does not exist")
+        logger.warning(f"⚠️ Skipping removal, as path {root_path} does not exist")
         return None
 
     try:
         shutil.rmtree(root_path)
-        logger.info(f"Successfully removed directory {root_path} ✅")
+        logger.info(f"✅ Successfully removed directory {root_path}")
     except Exception as e:
-        logger.error(f"Failed to remove directory {root_path}: {e}")
+        logger.error(f"❌ Failed to remove directory {root_path}: {e}")
 
 
 def setup_rds_stack(
@@ -105,13 +109,11 @@ def setup_rds_stack(
     ds_email: str = "data_scientist@test.openmined.org",
     reset: bool = False,
     log_level: str = "DEBUG",
+    key: str = "shared_client_dir",
     **config_kwargs,
 ) -> RDSStack:
     setup_logger(level=log_level)
-    root_dir = _prepare_root_dir(root_dir, reset)
-
-    shared_client_dir = root_dir / "shared_client_dir"
-    shared_client_dir.mkdir(exist_ok=True)
+    root_dir = _prepare_root_dir(root_dir, reset, key)
 
     logger.warning(
         "Using shared data directory for both clients. "
@@ -123,7 +125,7 @@ def setup_rds_stack(
         email=do_email,
         client_url="http://localhost:5000",  # not used, just for local dev
         path=root_dir / "do_config.json",
-        data_dir=shared_client_dir,
+        data_dir=root_dir,
     ).save()
     do_client = SyftBoxClient(
         do_client_config,
@@ -133,11 +135,11 @@ def setup_rds_stack(
         email=ds_email,
         client_url="http://localhost:5001",  # not used, just for local dev
         path=root_dir / "ds_config.json",
-        data_dir=shared_client_dir,
+        data_dir=root_dir,
     ).save()
     ds_client = SyftBoxClient(ds_client_config)
 
-    logger.info(f"Launching mock RDS stack in {root_dir}...")
+    logger.info(f"Launching mock RDS stack in {root_dir}")
 
     return RDSStack(
         do_client=do_client,
@@ -193,7 +195,7 @@ def setup_rds_server(
     email: str,
     root_dir: Optional[PathLike] = None,
     reset: bool = False,
-    key: str = "",
+    key: str = "shared_client_dir",
     log_level: str = "DEBUG",
     **config_kwargs,
 ):
