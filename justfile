@@ -257,8 +257,8 @@ run-rds-stack client_names="data_owner@openmined.org data_scientist@openmined.or
 [group('build')]
 build:
     @echo "{{ _cyan }}Building syft-rds wheel...{{ _nc }}"
-    rm -rf syft_rds/dist
-    uv build syft_rds/
+    rm -rf dist/
+    uv build
     @echo "{{ _green }}Build complete!{{ _nc }}"
     @echo "{{ _cyan }}To inspect the build:{{ _nc }}"
     @echo "{{ _cyan }}1. Go to the build directory and unzip the .tar.gz file to inspect the contents{{ _nc }}"

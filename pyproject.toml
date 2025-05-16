@@ -36,11 +36,15 @@ build-backend = "hatchling.build"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/syft_rds"]
+only-include = ["src", "pyproject.toml", "README.md"]
 exclude = ["src/**/__pycache__"]
 
 [tool.hatch.build.targets.sdist]
-include = ["src/syft_rds", "pyproject.toml", "README.md"]
-exclude = ["src/syft_rds/**/__pycache__"]
+only-include = ["src", "pyproject.toml", "README.md"]
+exclude = ["src/**/__pycache__"]
 
 [project.scripts]
 syft-rds = "syft_rds.cli:app"
+
+[tool.setuptools.packages.find]
+where = ["src"]
