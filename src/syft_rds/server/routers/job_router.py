@@ -122,7 +122,9 @@ def _handle_enclave_update(existing_item: Job, app: SyftEvents) -> None:
 
     dataset_store: YAMLStore[Dataset] = app.state["dataset_store"]
     dataset: Dataset = dataset_store.get_one(name=existing_item.dataset_name)
-    dataset_private_path = dataset.get_private_path()
+    dataset_private_path = dataset.private.to_local_path(app.client.datasites)
+    if not dataset_private_path.exists():
+        raise ValueError(f"Dataset Private Path {dataset_private_path} does not exist")
     zip_bytes = zip_to_bytes(
         files_or_dirs=dataset_private_path,
         base_dir=dataset_private_path,
