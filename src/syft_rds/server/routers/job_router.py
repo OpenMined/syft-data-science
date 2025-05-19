@@ -74,7 +74,7 @@ def update_job(update_request: JobUpdate, app: SyftEvents) -> Job:
         raise ValueError(f"Job with uid {update_request.uid} not found")
 
     if existing_item.enclave:
-        _handle_enclave_update(existing_item)
+        _handle_enclave_update(existing_item, app)
 
     updated_item = existing_item.apply_update(update_request)
     return job_store.update(updated_item.uid, updated_item)
