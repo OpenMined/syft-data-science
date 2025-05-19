@@ -1,7 +1,10 @@
+import os
+from pathlib import Path
 from syft_core import SyftBoxURL
 from syft_event import SyftEvents
 from syft_event.types import Request
 from syft_rds.models.models import (
+    Dataset,
     GetAllRequest,
     GetOneRequest,
     ItemList,
@@ -13,6 +16,10 @@ from syft_rds.server.router import RPCRouter
 from syft_rds.server.user_file_service import UserFileService
 from syft_rds.store import YAMLStore
 from syft_rds.utils.name_generator import generate_name
+from syft_rds.utils.zip_utils import zip_to_bytes
+from cryptography.hazmat.primitives import hashes, serialization
+from cryptography.hazmat.primitives.asymmetric import padding
+from cryptography.hazmat.primitives.ciphers.aead import AESGCM
 
 job_router = RPCRouter()
 
@@ -65,5 +72,75 @@ def update_job(update_request: JobUpdate, app: SyftEvents) -> Job:
     existing_item = job_store.get_by_uid(update_request.uid)
     if existing_item is None:
         raise ValueError(f"Job with uid {update_request.uid} not found")
+
+    if existing_item.enclave:
+        _handle_enclave_update(existing_item)
+
     updated_item = existing_item.apply_update(update_request)
     return job_store.update(updated_item.uid, updated_item)
+
+
+def encrypt_data(data: bytes, public_key_path: Path, output_file_path: Path) -> bytes:
+    """Encrypt data using a public key and save it to a file."""
+
+    with open(public_key_path, "rb") as key_file:
+        public_key = serialization.load_pem_public_key(
+            key_file.read(),
+        )
+
+    # Step 1: Generate a random AES key
+    aes_key = AESGCM.generate_key(bit_length=256)
+
+    # Step 2: Encrypt the zip data with AES-GCM
+    aesgcm = AESGCM(aes_key)
+    nonce = os.urandom(12)  # GCM standard nonce size
+    ciphertext = aesgcm.encrypt(nonce, data, associated_data=None)
+
+    # Step 3: Encrypt the AES key with RSA public key
+    encrypted_key = public_key.encrypt(
+        aes_key,
+        padding.OAEP(
+            mgf=padding.MGF1(algorithm=hashes.SHA256()),
+            algorithm=hashes.SHA256(),
+            label=None,
+        ),
+    )
+
+    # Step 4: Save (or send) nonce + encrypted AES key + ciphertext
+    with open(output_file_path, "wb") as f:
+        f.write(len(encrypted_key).to_bytes(2, "big"))  # length of key prefix
+        f.write(encrypted_key)
+        f.write(nonce)
+        f.write(ciphertext)
+
+
+def _handle_enclave_update(existing_item: Job, app: SyftEvents) -> None:
+    client = app.client
+
+    enclave_data_dir = client.app_data("enclave") / "data" / existing_item.enclave
+    enclave_data_dir.mkdir(parents=True, exist_ok=True)
+
+    dataset_store: YAMLStore[Dataset] = app.state["dataset_store"]
+    dataset: Dataset = dataset_store.get_one({"name": existing_item.dataset_name})
+    dataset_private_path = dataset.get_private_path()
+    zip_bytes = zip_to_bytes(
+        files_or_dirs=dataset_private_path,
+        base_dir=dataset_private_path,
+    )
+
+    enclave_public_key = (
+        client.app_data("enclave", datasite=existing_item.enclave)
+        / "keys"
+        / "public_key.pem"
+    )
+
+    if not enclave_public_key.exists():
+        raise ValueError(f"Public key for enclave {existing_item.enclave} not found")
+
+    output_file_path = enclave_data_dir / f"{dataset.uid}.enc"
+
+    encrypt_data(
+        data=zip_bytes,
+        public_key_path=enclave_public_key,
+        output_file_path=output_file_path,
+    )

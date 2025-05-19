@@ -130,6 +130,7 @@ class JobStatus(str, enum.Enum):
     # end states
     rejected = "rejected"  # failed to pass the review
     shared = "shared"  # shared with the user
+    approved = "approved"  # approved by the reviewer
 
 
 class Job(ItemBase):
@@ -156,6 +157,7 @@ class Job(ItemBase):
     error_message: str | None = None
     output_url: SyftBoxURL | None = None
     dataset_name: str
+    enclave: str = ""
 
     @property
     def user_code(self) -> UserCode:
@@ -214,6 +216,22 @@ class Job(ItemBase):
             error_message=self.error_message,
         )
 
+    def get_update_for_approve(self) -> "JobUpdate":
+        """
+        Create a JobUpdate object with the approved status
+        based on the current status
+        """
+        allowed_statuses = (JobStatus.pending_code_review,)
+        if self.status not in allowed_statuses:
+            raise ValueError(f"Cannot reject job in status: {self.status}")
+
+        self.status = JobStatus.approved
+
+        return JobUpdate(
+            uid=self.uid,
+            status=self.status,
+        )
+
     def get_update_for_return_code(self, return_code: int) -> "JobUpdate":
         if return_code == 0:
             self.status = JobStatus.job_run_finished
@@ -258,6 +276,7 @@ class JobCreate(ItemBaseCreate[Job]):
     user_code_id: UUID
     tags: list[str] = Field(default_factory=list)
     dataset_name: str
+    enclave: str = ""
 
 
 class JobUpdate(ItemBaseUpdate[Job]):

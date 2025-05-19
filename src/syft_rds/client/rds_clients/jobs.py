@@ -13,6 +13,7 @@ from syft_rds.models.models import (
     JobUpdate,
     UserCode,
 )
+from syft_core import Client
 
 
 class JobRDSClient(RDSClientModule[Job]):
@@ -26,6 +27,7 @@ class JobRDSClient(RDSClientModule[Job]):
         name: str | None = None,
         description: str | None = None,
         tags: list[str] | None = None,
+        enclave: str = "",
     ) -> Job:
         """`submit` is a convenience method to create both a UserCode and a Job in one call."""
         user_code = self.rds.user_code.create(
@@ -37,6 +39,7 @@ class JobRDSClient(RDSClientModule[Job]):
             user_code=user_code,
             dataset_name=dataset_name,
             tags=tags,
+            enclave=enclave,
         )
 
         return job
@@ -51,6 +54,17 @@ class JobRDSClient(RDSClientModule[Job]):
                 f"Invalid user_code type {type(user_code)}. Must be UserCode, UUID, or str"
             )
 
+    def _verify_enclave(self, enclave: str) -> None:
+        """Verify that the enclave is valid."""
+        client: Client = self.rpc.connection.sender_client
+        enclave_app_dir = client.app_data("enclave", datasite=enclave)
+        public_key_path = enclave_app_dir / "keys" / "public_key.pem"
+        if not public_key_path.exists():
+            raise RDSValidationError(
+                f"Enclave {enclave} does not exist or is not valid. "
+                f"Public key file {public_key_path} not found."
+            )
+
     def create(
         self,
         user_code: UserCode | UUID,
@@ -58,9 +72,13 @@ class JobRDSClient(RDSClientModule[Job]):
         name: str | None = None,
         description: str | None = None,
         tags: list[str] | None = None,
+        enclave: str = "",
     ) -> Job:
         # TODO ref dataset by UID instead of name
         user_code_id = self._resolve_usercode_id(user_code)
+
+        if enclave:
+            self._verify_enclave(enclave)
 
         job_create = JobCreate(
             name=name,
@@ -68,6 +86,7 @@ class JobRDSClient(RDSClientModule[Job]):
             tags=tags if tags is not None else [],
             user_code_id=user_code_id,
             dataset_name=dataset_name,
+            enclave=enclave,
         )
         job = self.rpc.jobs.create(job_create)
 
@@ -87,6 +106,14 @@ class JobRDSClient(RDSClientModule[Job]):
         )
         logger.info(f"Shared results for job {job.uid} at {output_path}")
         return output_path, job.apply_update(updated_job)
+
+    def approve(self, job: Job) -> Job:
+        if not self.is_admin:
+            raise RDSValidationError("Only admins can approve jobs")
+        job_update = job.get_update_for_approve()
+        updated_job = self.rpc.jobs.update(job_update)
+        job.apply_update(updated_job)
+        return job
 
     def reject(self, job: Job, reason: str = "Unspecified") -> Job:
         if not self.is_admin:
