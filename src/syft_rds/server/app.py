@@ -6,7 +6,7 @@ from syft_core import Client
 from syft_event import SyftEvents
 
 from syft_rds import __version__
-from syft_rds.models.models import Job, Runtime, UserCode
+from syft_rds.models.models import Dataset, Job, Runtime, UserCode
 from syft_rds.server.router import RPCRouter
 from syft_rds.server.routers.job_router import job_router
 from syft_rds.server.routers.runtime_router import runtime_router
@@ -36,6 +36,10 @@ def _init_services(app: SyftEvents) -> None:
     )
 
     app.state["user_file_service"] = UserFileService(app_dir=app.app_dir)
+
+    app.state["dataset_store"] = YAMLStore[Dataset](
+        item_type=Dataset, store_dir=store_dir
+    )
 
 
 def _write_app_info(app: SyftEvents) -> None:

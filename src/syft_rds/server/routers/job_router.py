@@ -121,7 +121,7 @@ def _handle_enclave_update(existing_item: Job, app: SyftEvents) -> None:
     enclave_data_dir.mkdir(parents=True, exist_ok=True)
 
     dataset_store: YAMLStore[Dataset] = app.state["dataset_store"]
-    dataset: Dataset = dataset_store.get_one({"name": existing_item.dataset_name})
+    dataset: Dataset = dataset_store.get_one(name=existing_item.dataset_name)
     dataset_private_path = dataset.get_private_path()
     zip_bytes = zip_to_bytes(
         files_or_dirs=dataset_private_path,
