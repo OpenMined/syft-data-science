@@ -22,6 +22,7 @@ from syft_rds.client.rds_clients.base import (
 )
 from syft_rds.client.rds_clients.dataset import DatasetRDSClient
 from syft_rds.client.rds_clients.jobs import JobRDSClient
+from syft_rds.client.rds_clients.runtime import RuntimeRDSClient
 from syft_rds.client.rds_clients.user_code import UserCodeRDSClient
 from syft_rds.client.rpc import RPCClient
 from syft_rds.client.utils import PathLike
@@ -106,9 +107,10 @@ class RDSClient(RDSClientBase):
         self.user_code = UserCodeRDSClient(
             self.config, self.rpc, self.local_store, parent=self
         )
+        self.runtime = RuntimeRDSClient(
+            self.config, self.rpc, self.local_store, parent=self
+        )
 
-        # TODO implement and enable runtime client
-        # self.runtime = RuntimeRDSClient(self.config, self.rpc, self.local_store)
         GlobalClientRegistry.register_client(self)
 
         self._type_map = {

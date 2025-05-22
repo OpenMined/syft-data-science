@@ -14,6 +14,7 @@ from pydantic import (
     field_validator,
     model_validator,
 )
+from syft_rds.client.utils import PathLike
 from syft_core import SyftBoxURL
 
 from syft_rds.models.base import ItemBase, ItemBaseCreate, ItemBaseUpdate
@@ -266,6 +267,48 @@ class JobUpdate(ItemBaseUpdate[Job]):
     error_message: Optional[str] = None
 
 
+class RuntimeType(str, enum.Enum):
+    PYTHON = "python"
+    DOCKER = "docker"
+    KUBERNETES = "kubernetes"
+
+
+class BaseRuntimeConfig(BaseModel):
+    type: RuntimeType
+
+
+class PythonRuntimeConfig(BaseRuntimeConfig):
+    type: RuntimeType = RuntimeType.PYTHON
+    version: Optional[str] = None
+    requirements_file: Optional[PathLike] = None
+
+    @field_validator("requirements_file")
+    def validate_requirements_file_exist(cls, value: PathLike) -> PathLike:
+        requirements_file_path = Path(value).expanduser().resolve()
+        if not requirements_file_path.exists():
+            raise FileNotFoundError(f"Requirements file '{value}' does not exist")
+        return value
+
+
+class DockerRuntimeConfig(BaseRuntimeConfig):
+    type: RuntimeType = RuntimeType.DOCKER
+    dockerfile: PathLike
+
+    @field_validator("dockerfile")
+    def validate_dockerfile(cls, value: PathLike) -> PathLike:
+        dockerfile_path = Path(value).expanduser().resolve()
+        if not dockerfile_path.exists():
+            raise FileNotFoundError(f"Dockerfile '{value}' does not exist")
+        return value
+
+
+class KubernetesRuntimeConfig(BaseRuntimeConfig):
+    type: RuntimeType = RuntimeType.KUBERNETES
+    image: str
+    namespace: str = "syft-rds"
+    num_workers: int = 1
+
+
 class Runtime(ItemBase):
     __schema_name__ = "runtime"
 
@@ -278,6 +321,8 @@ class RuntimeCreate(ItemBaseCreate[Runtime]):
     name: str
     description: str
     tags: list[str] = Field(default_factory=list)
+    type: RuntimeType
+    config: BaseRuntimeConfig
 
 
 class RuntimeUpdate(ItemBaseUpdate[Runtime]):

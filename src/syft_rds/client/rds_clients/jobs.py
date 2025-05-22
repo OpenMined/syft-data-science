@@ -26,11 +26,19 @@ class JobRDSClient(RDSClientModule[Job]):
         name: str | None = None,
         description: str | None = None,
         tags: list[str] | None = None,
+        runtime: str | None = None,
+        runtime_config: dict | None = None,
     ) -> Job:
         """`submit` is a convenience method to create both a UserCode and a Job in one call."""
         user_code = self.rds.user_code.create(
             code_path=user_code_path, entrypoint=entrypoint
         )
+
+        runtime = self.rds.runtime.create(
+            runtime=runtime,
+            config=runtime_config,
+        )
+
         job = self.create(
             name=name,
             description=description,
