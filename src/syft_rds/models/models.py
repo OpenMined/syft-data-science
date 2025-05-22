@@ -217,6 +217,10 @@ class Job(ItemBase):
     def get_update_for_return_code(self, return_code: int) -> "JobUpdate":
         if return_code == 0:
             self.status = JobStatus.job_run_finished
+        elif return_code == 124:  # Timeout exit code
+            self.status = JobStatus.job_run_failed
+            self.error = JobErrorKind.timeout
+            self.error_message = "Job execution timed out"
         else:
             self.status = JobStatus.job_run_failed
             self.error = JobErrorKind.execution_failed

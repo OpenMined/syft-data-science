@@ -336,8 +336,23 @@ class DockerRunner:
             text=True,
             env=env,
         )
+
+        # Direct Python execution - TODO: need to refactor this into a separate class
         # Stream output
+        start_time = time.time()
         while True:
+            # Check for timeout
+            if time.time() - start_time > config.timeout:
+                process.terminate()
+                for handler in self.handlers:
+                    handler.on_job_progress(
+                        stdout="",
+                        stderr=f"Job timed out after {config.timeout} seconds\n",
+                    )
+                for handler in self.handlers:
+                    handler.on_job_completion(124)  # 124 is the timeout exit code
+                return 124
+
             stdout_line = process.stdout.readline()
             stderr_line = process.stderr.readline()
 
