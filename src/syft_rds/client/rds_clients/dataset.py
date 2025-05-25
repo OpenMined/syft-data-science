@@ -24,6 +24,7 @@ class DatasetRDSClient(RDSClientModule[Dataset]):
         description_path: Optional[Union[str, Path]] = None,
         tags: list[str] = [],
         runtime: Optional[CodeRuntime] = None,
+        auto_approval: list[str] = [],
     ) -> Dataset:
         dataset_create = DatasetCreate(
             name=name,
@@ -33,6 +34,7 @@ class DatasetRDSClient(RDSClientModule[Dataset]):
             description_path=str(description_path) if description_path else None,
             tags=tags,
             runtime=runtime,
+            auto_approval=auto_approval,
         )
         return self.local_store.dataset.create(dataset_create)
 

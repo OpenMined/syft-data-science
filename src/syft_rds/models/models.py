@@ -317,6 +317,10 @@ class Dataset(ItemBase):
     readme: SyftBoxURL | None = Field(description="REAMD.md Syft URL of the dataset.")
     tags: list[str] = Field(description="Tags for the dataset.")
     runtime: CodeRuntime = Field(default_factory=CodeRuntime.default)
+    auto_approval: list[str] = Field(
+        default_factory=list,
+        description="List of datasites whose jobs will be automatically approved.",
+    )
 
     @property
     def mock_path(self) -> Path:
@@ -414,6 +418,10 @@ class DatasetCreate(ItemBaseCreate[Dataset]):
     )
     tags: list[str] | None = Field(description="Tags for the dataset.")
     runtime: CodeRuntime | None = Field(description="Runtime for the dataset.")
+    auto_approval: list[str] = Field(
+        default_factory=list,
+        description="List of datasites whose jobs will be automatically approved.",
+    )
 
 
 class DatasetUpdate(ItemBaseUpdate[Dataset]):

@@ -1,5 +1,6 @@
 import os
 from pathlib import Path
+from loguru import logger
 from syft_core import SyftBoxURL
 from syft_event import SyftEvents
 from syft_event.types import Request
@@ -11,6 +12,7 @@ from syft_rds.models.models import (
     Job,
     JobCreate,
     JobUpdate,
+    JobStatus,
 )
 from syft_rds.server.router import RPCRouter
 from syft_rds.server.user_file_service import UserFileService
@@ -38,7 +40,26 @@ def create_job(create_request: JobCreate, app: SyftEvents, request: Request) -> 
         item=new_item,
     )
     new_item.output_url = SyftBoxURL.from_path(job_output_dir, app.client.workspace)
-    return job_store.create(new_item)
+
+    job_res = job_store.create(new_item)
+
+    _handle_auto_approval(create_request, job_res, app, request)
+
+    return job_res
+
+
+def _handle_auto_approval(
+    create_request: JobCreate, job_res: Job, app: SyftEvents, request: Request
+) -> None:
+    dataset_store: YAMLStore[Dataset] = app.state["dataset_store"]
+    dataset: Dataset = dataset_store.get_one(name=create_request.dataset_name)
+
+    if request.sender in dataset.auto_approval:
+        try:
+            job_update = JobUpdate(uid=job_res.uid, status=JobStatus.approved)
+            update_job(job_update, app)
+        except Exception as e:
+            logger.error(f"Failed to auto-approve job {job_res.uid}: {e}")
 
 
 @job_router.on_request("/get_one")
