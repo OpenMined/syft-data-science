@@ -348,6 +348,7 @@ class DatasetSchemaManager:
         )
 
         # Create the dataset schema object
+        # TODO: Could we not unpack DatasetCreate directly?
         dataset = Dataset(
             name=dataset_create.name,
             private=private_url,
@@ -355,6 +356,7 @@ class DatasetSchemaManager:
             tags=dataset_create.tags,
             summary=dataset_create.summary,
             readme=readme_url,
+            auto_approval=dataset_create.auto_approval,
         )
         if dataset_create.runtime:
             dataset.runtime = dataset_create.runtime
