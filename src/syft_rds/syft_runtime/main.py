@@ -4,6 +4,7 @@ import time
 from datetime import datetime
 from pathlib import Path
 from typing import Optional, Protocol, Tuple
+from loguru import logger
 
 from pydantic import BaseModel, Field
 from rich.console import Console
@@ -329,6 +330,12 @@ class DockerRunner:
             env.update(config.get_env())
             env.update(config.extra_env)
 
+        logger.info(f"Running job with command: {cmd}")
+        if not config.use_docker and cmd and "python" in cmd[0]:
+            logger.warning("Running job using python subprocess is not secure!")
+
+        logger.info(f"Timeout: {config.timeout}")
+
         process = subprocess.Popen(
             cmd,
             stdout=subprocess.PIPE,
@@ -351,6 +358,8 @@ class DockerRunner:
 
             if not stdout_line and not stderr_line:
                 time.sleep(0.5)
+
+        logger.info(f"Job completed with return code {process.returncode}")
 
         process.wait(timeout=config.timeout)
         for handler in self.handlers:

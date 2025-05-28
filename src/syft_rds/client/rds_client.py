@@ -2,7 +2,6 @@ from pathlib import Path
 from typing import Optional, Type, TypeVar
 from uuid import UUID
 
-from loguru import logger
 from syft_core import Client as SyftBoxClient
 from syft_event import SyftEvents
 from syft_rds.syft_runtime.main import (
@@ -161,7 +160,6 @@ class RDSClient(RDSClientBase):
 
         config = config or self.get_default_config_for_job(job)
 
-        logger.warning("Running job without docker is not secure")
         return_code = self._run(config=config)
         job_update = job.get_update_for_return_code(return_code)
         new_job = self.rpc.jobs.update(job_update)
