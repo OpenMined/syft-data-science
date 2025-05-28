@@ -331,7 +331,7 @@ class Dataset(ItemBase):
         return self.get_private_path()
 
     @property
-    def readme_path(self) -> Path:
+    def readme_path(self) -> Path | None:
         return self.get_readme_path()
 
     def get_mock_path(self) -> Path:
@@ -357,20 +357,24 @@ class Dataset(ItemBase):
             )
         return private_path
 
-    def get_readme_path(self) -> Path:
+    def get_readme_path(self) -> Path | None:
         """
         Will always raise FileNotFoundError for non-admin since the
         private path will never by synced
         """
+        if not self.readme:
+            return None
         readme_path: Path = self.readme.to_local_path(
             datasites_path=self._syftbox_client.datasites
         )
         if not readme_path.exists():
-            raise FileNotFoundError(f"Readme file not found at {readme_path}")
+            return None
         return readme_path
 
     def get_description(self) -> str:
         # read the description .md file
+        if not self.readme:
+            return ""
         with open(self.get_readme_path()) as f:
             return f.read()
 
@@ -390,10 +394,17 @@ class Dataset(ItemBase):
         except FileNotFoundError:
             pass
 
+        # Only include display paths that are not None
+        display_paths = []
+        if self.mock_path is not None:
+            display_paths.append("mock_path")
+        if self.readme_path is not None:
+            display_paths.append("readme_path")
+
         description = create_html_repr(
             obj=self,
             fields=field_to_include,
-            display_paths=["mock_path", "readme_path"],
+            display_paths=display_paths,
         )
 
         display(HTML(description))

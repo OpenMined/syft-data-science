@@ -265,9 +265,12 @@ class DatasetFilesManager:
         return self.copy_directory(path, private_dataset_dir)
 
     def copy_description_file_to_public_syftbox_dir(
-        self, dataset_name: str, description_path: Union[str, Path]
-    ) -> Path:
+        self, dataset_name: str, description_path: Union[str, Path, None]
+    ) -> Path | None:
         """Copy description file to the public SyftBox directory."""
+        if not description_path:
+            return
+
         public_dataset_dir: Path = self._path_manager.get_local_public_dataset_dir(
             dataset_name
         )
