@@ -519,10 +519,6 @@ class DatasetLocalStore(CRUDLocalStore[Dataset, DatasetCreate, DatasetUpdate]):
             if existing_dataset is None:
                 raise ValueError(f"Dataset with uid {update_item.uid} not found")
 
-            update_item.auto_approval = list(
-                set(update_item.auto_approval).union(existing_dataset.auto_approval)
-            )  # Ensure unique auto_approval entries
-
             updated_dataset = existing_dataset.apply_update(update_item)
             return self.store.update(updated_dataset.uid, updated_dataset)
         except Exception as e:
