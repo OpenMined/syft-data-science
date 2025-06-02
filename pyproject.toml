@@ -1,6 +1,6 @@
 [project]
 name = "syft-rds"
-version = "0.1.1"
+version = "0.1.2"
 description = "Doing remote data science with SyftBox"
 readme = "README.md"
 requires-python = ">=3.9"
@@ -9,8 +9,8 @@ dependencies = [
   "pydantic[email]>=2.10.4",
   "rich>=13.9.4",
   "syft-core==0.2.3",
-  "syft-event==0.2.1",
-  "syft-rpc==0.2.0",
+  "syft-event==0.2.2",
+  "syft-rpc==0.2.1",
   "typing-extensions>=4.12.2",
   "pyyaml>=6.0.2",
   "typer>=0.12.5",
@@ -34,14 +34,14 @@ dev-dependencies = [
 requires = ["hatchling"]
 build-backend = "hatchling.build"
 
-[tool.hatch.build.targets.wheel]
-packages = ["src/syft_rds"]
-only-include = ["src", "pyproject.toml", "README.md"]
-exclude = ["src/**/__pycache__"]
-
 [tool.hatch.build.targets.sdist]
 only-include = ["src", "pyproject.toml", "README.md"]
 exclude = ["src/**/__pycache__"]
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/syft_rds"]
+only-include = ["src/syft_rds"]  # no need for pyproject.toml and README.md for wheel
+exclude = ["src/syft_rds/**/__pycache__"]
 
 [project.scripts]
 syft-rds = "syft_rds.cli:app"
