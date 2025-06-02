@@ -436,7 +436,11 @@ class DatasetCreate(ItemBaseCreate[Dataset]):
 
 
 class DatasetUpdate(ItemBaseUpdate[Dataset]):
-    pass
+    summary: Optional[str] = None
+    auto_approval: Optional[list[str]] = Field(
+        default_factory=list,
+        description="List of datasites whose jobs will be automatically approved.",
+    )
 
 
 class GetOneRequest(BaseModel):

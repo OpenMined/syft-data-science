@@ -55,4 +55,4 @@ class DatasetRDSClient(RDSClientModule[Dataset]):
 
     @ensure_is_admin
     def update(self, dataset_update: DatasetUpdate) -> Dataset:
-        raise NotImplementedError("Dataset update is not supported yet")
+        return self.local_store.dataset.update(dataset_update)
