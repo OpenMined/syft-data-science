@@ -26,7 +26,7 @@ class JobRDSClient(RDSClientModule[Job]):
         name: str | None = None,
         description: str | None = None,
         tags: list[str] | None = None,
-        runtime: str | None = None,
+        runtime_kind: str | None = None,
         runtime_config: dict | None = None,
     ) -> Job:
         """`submit` is a convenience method to create both a UserCode and a Job in one call."""
@@ -35,10 +35,10 @@ class JobRDSClient(RDSClientModule[Job]):
         )
 
         runtime = self.rds.runtime.create(
-            runtime=runtime,
+            runtime_kind=runtime_kind,
             config=runtime_config,
         )
-
+        logger.critical(f"Runtime: {runtime}")
         job = self.create(
             name=name,
             description=description,
@@ -66,6 +66,7 @@ class JobRDSClient(RDSClientModule[Job]):
         name: str | None = None,
         description: str | None = None,
         tags: list[str] | None = None,
+        # runtime: Runtime | None = None,
     ) -> Job:
         # TODO ref dataset by UID instead of name
         user_code_id = self._resolve_usercode_id(user_code)
@@ -76,6 +77,7 @@ class JobRDSClient(RDSClientModule[Job]):
             tags=tags if tags is not None else [],
             user_code_id=user_code_id,
             dataset_name=dataset_name,
+            # runtime_id=runtime.uid if isinstance(runtime, Runtime) else runtime,
         )
         job = self.rpc.jobs.create(job_create)
 

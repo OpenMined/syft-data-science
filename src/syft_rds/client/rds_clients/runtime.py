@@ -1,43 +1,62 @@
 from loguru import logger
+import os
 
 from syft_rds.client.rds_clients.base import RDSClientModule
 from syft_rds.models.models import (
     Runtime,
     RuntimeCreate,
-    RuntimeType,
-    BaseRuntimeConfig,
+    RuntimeKind,
+    RuntimeConfig,
     PythonRuntimeConfig,
     DockerRuntimeConfig,
     KubernetesRuntimeConfig,
 )
+
+DEFAULT_RUNTIME_KIND = os.getenv("SYFT_RDS_DEFAULT_RUNTIME_KIND", RuntimeKind.PYTHON)
 
 
 class RuntimeRDSClient(RDSClientModule[Runtime]):
     ITEM_TYPE = Runtime
 
     def _create_runtime_config(
-        self, runtime: str, config: dict | None = None
-    ) -> BaseRuntimeConfig:
-        if runtime == RuntimeType.PYTHON:
+        self, runtime_kind: str, config: dict | None = None
+    ) -> RuntimeConfig:
+        if config is None:
+            config = {}
+        runtime_kind = runtime_kind.lower()
+
+        if runtime_kind == RuntimeKind.PYTHON:
             return PythonRuntimeConfig(**config)
-        elif runtime == RuntimeType.DOCKER:
+        elif runtime_kind == RuntimeKind.DOCKER:
             return DockerRuntimeConfig(**config)
-        elif runtime == RuntimeType.KUBERNETES:
+        elif runtime_kind == RuntimeKind.KUBERNETES:
             return KubernetesRuntimeConfig(**config)
         else:
-            raise ValueError(f"Unsupported runtime type: {runtime}")
+            raise ValueError(f"Unsupported runtime type: {runtime_kind}")
 
-    def create(self, runtime: str, config: dict | None = None) -> Runtime:
-        if runtime not in [r.value for r in RuntimeType]:
-            raise ValueError(f"Invalid runtime: {runtime}")
+    def create(
+        self, runtime_kind: str | None = None, config: dict | None = None
+    ) -> Runtime:
+        if runtime_kind is None:
+            runtime_kind = DEFAULT_RUNTIME_KIND
+            logger.warning(
+                f"No runtime type provided, using default runtime: `{DEFAULT_RUNTIME_KIND}`"
+            )
 
-        runtime_create: RuntimeCreate = RuntimeCreate(
-            type=RuntimeType(runtime), **config
+        if runtime_kind not in [r.value for r in RuntimeKind]:
+            raise ValueError(f"Invalid runtime: {runtime_kind}")
+
+        runtime_config: RuntimeConfig = self._create_runtime_config(
+            runtime_kind, config
         )
-        logger.info(f"Creating runtime: {runtime_create}")
+        runtime_create: RuntimeCreate = RuntimeCreate(
+            kind=RuntimeKind(runtime_kind), config=runtime_config
+        )
+        # TODO: check if runtime_create with the same config (based on the name with hash) already exists
+        runtime: Runtime = self.rpc.runtime.create(runtime_create)
+        logger.info(f"Created runtime: {runtime}")
 
-        # return self.rpc.runtime.create(runtime_create)
-        # return Runtime(uid=uuid.uuid4(), **runtime_create.model_dump())
+        return runtime
 
     def delete(self, name: str) -> None:
         return self.rpc.runtime.delete(name)

@@ -4,6 +4,8 @@ import os
 from pathlib import Path
 from typing import Any, Generic, Literal, Optional, TypeVar
 from uuid import UUID
+import json
+import hashlib
 
 from IPython.display import HTML, display
 from loguru import logger
@@ -29,6 +31,7 @@ SYFT_RDS_OUTPUT_DIR = "SYFT_RDS_OUTPUT_DIR"
 MAX_USERCODE_ZIP_SIZE = 1  # MB
 
 
+# --------------- UserCode ---------------
 class UserCodeType(enum.Enum):
     FILE = "file"
     FOLDER = "folder"
@@ -108,6 +111,7 @@ class UserCodeUpdate(ItemBaseUpdate[UserCode]):
     pass
 
 
+# --------------- Job ---------------
 class JobErrorKind(str, enum.Enum):
     no_error = "no_error"
     timeout = "timeout"
@@ -267,31 +271,39 @@ class JobUpdate(ItemBaseUpdate[Job]):
     error_message: Optional[str] = None
 
 
-class RuntimeType(str, enum.Enum):
+# --------------- Runtime ---------------
+class RuntimeKind(str, enum.Enum):
     PYTHON = "python"
     DOCKER = "docker"
     KUBERNETES = "kubernetes"
 
 
 class BaseRuntimeConfig(BaseModel):
-    type: RuntimeType
+    """Base configuration for runtime environments."""
+
+    class Config:
+        # Common Pydantic config if needed
+        pass
+
+    def validate_config(self) -> bool:
+        """Override in subclasses for custom validation."""
+        return True
 
 
 class PythonRuntimeConfig(BaseRuntimeConfig):
-    type: RuntimeType = RuntimeType.PYTHON
     version: Optional[str] = None
     requirements_file: Optional[PathLike] = None
 
     @field_validator("requirements_file")
     def validate_requirements_file_exist(cls, value: PathLike) -> PathLike:
-        requirements_file_path = Path(value).expanduser().resolve()
-        if not requirements_file_path.exists():
-            raise FileNotFoundError(f"Requirements file '{value}' does not exist")
+        if value is not None:
+            requirements_file_path = Path(value).expanduser().resolve()
+            if not requirements_file_path.exists():
+                raise FileNotFoundError(f"Requirements file '{value}' does not exist")
         return value
 
 
 class DockerRuntimeConfig(BaseRuntimeConfig):
-    type: RuntimeType = RuntimeType.DOCKER
     dockerfile: PathLike
 
     @field_validator("dockerfile")
@@ -303,32 +315,57 @@ class DockerRuntimeConfig(BaseRuntimeConfig):
 
 
 class KubernetesRuntimeConfig(BaseRuntimeConfig):
-    type: RuntimeType = RuntimeType.KUBERNETES
     image: str
     namespace: str = "syft-rds"
     num_workers: int = 1
 
 
+RuntimeConfig = PythonRuntimeConfig | DockerRuntimeConfig | KubernetesRuntimeConfig
+
+
 class Runtime(ItemBase):
     __schema_name__ = "runtime"
 
-    name: str
-    description: str
+    name: str | None = None
+    kind: RuntimeKind
+    config: RuntimeConfig = Field(default_factory=dict)
     tags: list[str] = Field(default_factory=list)
+
+    @model_validator(mode="after")
+    def set_name_with_prefix(self):
+        if self.name is not None:
+            return self
+        # Create a unique name for the runtime based on the config's hash
+        config_dict = self.config.model_dump(mode="json")
+        config_str = json.dumps(config_dict, sort_keys=True)
+        config_hash = hashlib.sha256(config_str.encode()).hexdigest()[:6]
+        self.name = f"{self.kind.value.lower()}_{config_hash}"
+        return self
 
 
 class RuntimeCreate(ItemBaseCreate[Runtime]):
-    name: str
-    description: str
+    name: str | None = None
+    kind: RuntimeKind
+    config: RuntimeConfig = Field(default_factory=dict)
     tags: list[str] = Field(default_factory=list)
-    type: RuntimeType
-    config: BaseRuntimeConfig
+
+    @model_validator(mode="after")
+    def set_name_with_prefix(self):
+        if self.name is not None:
+            return self
+        # Create a unique name for the runtime based on the config's hash
+        config_dict = self.config.model_dump(mode="json")
+        config_str = json.dumps(config_dict, sort_keys=True)
+        config_hash = hashlib.sha256(config_str.encode()).hexdigest()[:6]
+        self.name = f"{self.kind.value.lower()}_{config_hash}"
+        return self
 
 
 class RuntimeUpdate(ItemBaseUpdate[Runtime]):
     pass
 
 
+# --------------- Dataset ---------------
 class Dataset(ItemBase):
     __schema_name__ = "dataset"
     __table_extra_fields__ = [

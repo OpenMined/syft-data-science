@@ -17,6 +17,8 @@ from syft_rds.models.models import (
 )
 from syft_rds.orchestra import RDSStack
 
+from tests.conftest import DS_PATH
+
 
 def test_job_crud_file_rpc(rds_no_sync_stack: RDSStack):
     do_rds_client = rds_no_sync_stack.do_rds_client
@@ -135,6 +137,10 @@ def test_user_code_crud(ds_rds_client: RDSClient):
 def test_runtime_crud(ds_rds_client: RDSClient):
     runtime_create = RuntimeCreate(
         name="python3.9",
+        kind="python",
+        config={
+            "requirements_file": "./pyproject.toml",
+        },
         description="Python 3.9 Runtime",
         tags=["python", "test"],
     )
@@ -146,9 +152,10 @@ def test_runtime_crud(ds_rds_client: RDSClient):
     fetched_runtime = ds_rds_client.rpc.runtime.get_one(get_req)
     assert fetched_runtime == runtime
 
-    # Insert second, get all
+    # Insert second (python runtime)
     runtime2_create = RuntimeCreate(
         name="python3.10",
+        kind="python",
         description="Python 3.10 Runtime",
         tags=["python", "test"],
     )
@@ -159,6 +166,29 @@ def test_runtime_crud(ds_rds_client: RDSClient):
     assert len(all_runtimes) == 2
     assert runtime in all_runtimes
     assert runtime2 in all_runtimes
+
+    # Insert third (docker runtime)
+    runtime3_create = RuntimeCreate(
+        kind="docker",
+        config={
+            "dockerfile": str(DS_PATH / "Dockerfile"),
+        },
+        description="Docker Runtime",
+        tags=["docker", "test"],
+    )
+    runtime3 = ds_rds_client.rpc.runtime.create(runtime3_create)
+
+    get_req = GetOneRequest(uid=runtime3.uid)
+    fetched_runtime = ds_rds_client.rpc.runtime.get_one(get_req)
+    assert fetched_runtime == runtime3
+
+    all_req = GetAllRequest()
+    all_runtimes = ds_rds_client.rpc.runtime.get_all(all_req)
+    assert len(all_runtimes) == 3
+
+    assert runtime in all_runtimes
+    assert runtime2 in all_runtimes
+    assert runtime3 in all_runtimes
 
 
 def test_apply_update(ds_rds_client: RDSClient):

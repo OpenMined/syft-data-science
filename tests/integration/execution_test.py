@@ -51,7 +51,7 @@ def test_job_execution(
 @pytest.mark.parametrize(
     "use_docker",
     [
-        # True, # TODO setup docker flow in CI
+        True,
         False,
     ],
 )
@@ -60,23 +60,40 @@ def test_job_folder_execution(
     do_rds_client: RDSClient,
     use_docker: bool,
 ):
+    # DO create dataset
+    create_dataset(do_rds_client, "dummy")
+
+    # DS submits job
     user_code_dir = DS_PATH / "code"
     entrypoint = "main.py"
-    create_dataset(do_rds_client, "dummy")
-    # Client Side
-    job = ds_rds_client.jobs.submit(
-        user_code_path=user_code_dir,
-        entrypoint=entrypoint,
-        dataset_name="dummy",
-    )
+    if use_docker:
+        job = ds_rds_client.jobs.submit(
+            dataset_name="dummy",
+            user_code_path=user_code_dir,
+            entrypoint=entrypoint,
+            runtime_kind="docker",
+            runtime_config={"dockerfile": str(DS_PATH / "Dockerfile")},
+        )
+    else:
+        job = ds_rds_client.jobs.submit(
+            dataset_name="dummy",
+            user_code_path=user_code_dir,
+            entrypoint=entrypoint,
+        )
     assert job.status == JobStatus.pending_code_review
 
-    # Server Side
+    # DO reviews job
     job = do_rds_client.rpc.jobs.get_all(GetAllRequest())[0]
 
-    # Runner side
+    # Runner side (DO)
     config = do_rds_client.get_default_config_for_job(job)
     config.use_docker = use_docker
+
+    from loguru import logger
+
+    logger.info(f"Running job: {job.name}")
+    logger.info(f"Job config: {config}")
+
     do_rds_client.run_private(job, config)
     assert job.status == JobStatus.job_run_finished
 
