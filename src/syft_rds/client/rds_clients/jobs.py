@@ -12,6 +12,7 @@ from syft_rds.models.models import (
     JobStatus,
     JobUpdate,
     UserCode,
+    Runtime,
 )
 
 
@@ -26,6 +27,7 @@ class JobRDSClient(RDSClientModule[Job]):
         name: str | None = None,
         description: str | None = None,
         tags: list[str] | None = None,
+        runtime_name: str | None = None,
         runtime_kind: str | None = None,
         runtime_config: dict | None = None,
     ) -> Job:
@@ -35,16 +37,18 @@ class JobRDSClient(RDSClientModule[Job]):
         )
 
         runtime = self.rds.runtime.create(
+            runtime_name=runtime_name,
             runtime_kind=runtime_kind,
             config=runtime_config,
         )
-        logger.critical(f"Runtime: {runtime}")
+
         job = self.create(
             name=name,
             description=description,
             user_code=user_code,
             dataset_name=dataset_name,
             tags=tags,
+            runtime=runtime,
         )
 
         return job
@@ -63,10 +67,10 @@ class JobRDSClient(RDSClientModule[Job]):
         self,
         user_code: UserCode | UUID,
         dataset_name: str,
+        runtime: Runtime,
         name: str | None = None,
         description: str | None = None,
         tags: list[str] | None = None,
-        # runtime: Runtime | None = None,
     ) -> Job:
         # TODO ref dataset by UID instead of name
         user_code_id = self._resolve_usercode_id(user_code)
@@ -76,8 +80,8 @@ class JobRDSClient(RDSClientModule[Job]):
             description=description,
             tags=tags if tags is not None else [],
             user_code_id=user_code_id,
+            runtime_id=runtime.uid if runtime is not None else None,
             dataset_name=dataset_name,
-            # runtime_id=runtime.uid if isinstance(runtime, Runtime) else runtime,
         )
         job = self.rpc.jobs.create(job_create)
 

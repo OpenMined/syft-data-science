@@ -161,6 +161,7 @@ class Job(ItemBase):
     error_message: str | None = None
     output_url: SyftBoxURL | None = None
     dataset_name: str
+    runtime_id: UUID
 
     @property
     def user_code(self) -> UserCode:
@@ -263,6 +264,7 @@ class JobCreate(ItemBaseCreate[Job]):
     user_code_id: UUID
     tags: list[str] = Field(default_factory=list)
     dataset_name: str
+    runtime_id: UUID | None = None
 
 
 class JobUpdate(ItemBaseUpdate[Job]):
@@ -280,10 +282,6 @@ class RuntimeKind(str, enum.Enum):
 
 class BaseRuntimeConfig(BaseModel):
     """Base configuration for runtime environments."""
-
-    class Config:
-        # Common Pydantic config if needed
-        pass
 
     def validate_config(self) -> bool:
         """Override in subclasses for custom validation."""
