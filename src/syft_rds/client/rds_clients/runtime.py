@@ -43,13 +43,7 @@ class RuntimeRDSClient(RDSClientModule[Runtime]):
             name=runtime_name, kind=RuntimeKind(runtime_kind), config=runtime_config
         )
 
-        fetched_runtime = self.get_runtime_by_name(runtime_create.name)
-        if fetched_runtime is not None:
-            logger.info(f"Runtime already exists: {fetched_runtime}")
-            return fetched_runtime
-
-        logger.info(f"Creating runtime: {runtime_name}")
-        return self.rpc.runtime.create(runtime_create)
+        return self._get_or_create(runtime_create)
 
     def get_runtime_by_name(self, name: str) -> Runtime | None:
         try:
@@ -67,16 +61,30 @@ class RuntimeRDSClient(RDSClientModule[Runtime]):
     ) -> RuntimeConfig:
         if config is None:
             config = {}
-        runtime_kind = runtime_kind.lower()
 
-        if runtime_kind == RuntimeKind.PYTHON:
-            return PythonRuntimeConfig(**config)
-        elif runtime_kind == RuntimeKind.DOCKER:
-            return DockerRuntimeConfig(**config)
-        elif runtime_kind == RuntimeKind.KUBERNETES:
-            return KubernetesRuntimeConfig(**config)
+        kind_str = runtime_kind.lower()
+
+        config_map = {
+            RuntimeKind.PYTHON.value: PythonRuntimeConfig,
+            RuntimeKind.DOCKER.value: DockerRuntimeConfig,
+            RuntimeKind.KUBERNETES.value: KubernetesRuntimeConfig,
+        }
+
+        config_class = config_map.get(kind_str)
+
+        if config_class:
+            return config_class(**config)
         else:
             raise ValueError(f"Unsupported runtime type: {runtime_kind}")
+
+    def _get_or_create(self, runtime_create: RuntimeCreate) -> Runtime:
+        fetched_runtime = self.get_runtime_by_name(runtime_create.name)
+        if fetched_runtime:
+            logger.info(f"Runtime already exists: {fetched_runtime}")
+            return fetched_runtime
+
+        logger.info(f"Creating runtime: {runtime_create.name}")
+        return self.rpc.runtime.create(runtime_create)
 
     def _get_or_create_default(self) -> Runtime:
         """
@@ -85,22 +93,16 @@ class RuntimeRDSClient(RDSClientModule[Runtime]):
         The name of the default runtime is "docker_python_3.12".
         """
         try:
-            default_runtime = self.get_runtime_by_name(DEFAULT_RUNTIME_NAME)
-            if default_runtime is not None:
-                return default_runtime
-            else:
-                default_runtime_create: RuntimeCreate = RuntimeCreate(
-                    name=DEFAULT_RUNTIME_NAME,
-                    kind=RuntimeKind.DOCKER,
-                    config={
-                        "dockerfile": str(DEFAULT_DOCKERFILE_FILE_PATH),
-                    },
-                )
-                default_runtime = self.rpc.runtime.create(default_runtime_create)
-                logger.info(f"Created default runtime: {default_runtime.name}")
-                return default_runtime
+            default_runtime_create = RuntimeCreate(
+                name=DEFAULT_RUNTIME_NAME,
+                kind=RuntimeKind.DOCKER,
+                config={
+                    "dockerfile": str(DEFAULT_DOCKERFILE_FILE_PATH),
+                },
+            )
+            return self._get_or_create(default_runtime_create)
         except Exception as e:
-            logger.error(f"Error getting default runtime: {e}")
+            logger.error(f"Error getting or creating default runtime: {e}")
             raise e
 
     def _validate_runtime_args(self, runtime_name, runtime_kind, config):
