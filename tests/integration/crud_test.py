@@ -10,25 +10,27 @@ from syft_rds.models.models import (
     JobCreate,
     JobStatus,
     JobUpdate,
+    Runtime,
     RuntimeCreate,
     RuntimeUpdate,
     UserCodeCreate,
     UserCodeType,
 )
-from syft_rds.orchestra import RDSStack
 
 from tests.conftest import DS_PATH
 
 
-def test_job_crud_file_rpc(rds_no_sync_stack: RDSStack):
-    do_rds_client = rds_no_sync_stack.do_rds_client
+def test_job_crud_file_rpc(do_rds_client: RDSClient):
+    runtime = do_rds_client.runtime.create(
+        runtime_name="python3.12", runtime_kind="python"
+    )
 
     job_create = JobCreate(
         name="Test Job",
-        runtime="python3.9",
+        dataset_name="test",
+        runtime_id=runtime.uid,
         user_code_id=uuid4(),
         tags=["test"],
-        dataset_name="test",
     )
     job = do_rds_client.rpc.jobs.create(job_create)
     assert job.name == "Test Job"
@@ -41,10 +43,10 @@ def test_job_crud_file_rpc(rds_no_sync_stack: RDSStack):
     # Insert second, get all
     job2_create = JobCreate(
         name="Test Job 2",
-        runtime="python3.9",
-        user_code_id=uuid4(),
-        tags=["test"],
         dataset_name="test2",
+        user_code_id=uuid4(),
+        runtime_id=runtime.uid,
+        tags=["test"],
     )
     job2 = do_rds_client.rpc.jobs.create(job2_create)
 
@@ -65,12 +67,16 @@ def test_job_crud_file_rpc(rds_no_sync_stack: RDSStack):
 
 
 def test_job_crud(ds_rds_client: RDSClient, do_rds_client: RDSClient):
+    runtime: Runtime = do_rds_client.runtime.create(
+        runtime_name="python3.12", runtime_kind="python"
+    )
+
     job_create = JobCreate(
         name="Test Job",
-        runtime="python3.9",
-        user_code_id=uuid4(),
-        tags=["test"],
         dataset_name="test",
+        user_code_id=uuid4(),
+        runtime_id=runtime.uid,
+        tags=["test"],
     )
     job = ds_rds_client.rpc.jobs.create(job_create)
     assert job.name == "Test Job"
@@ -83,10 +89,10 @@ def test_job_crud(ds_rds_client: RDSClient, do_rds_client: RDSClient):
     # Insert second, get all
     job2_create = JobCreate(
         name="Test Job 2",
-        runtime="python3.9",
-        user_code_id=uuid4(),
-        tags=["test"],
         dataset_name="test2",
+        user_code_id=uuid4(),
+        runtime_id=runtime.uid,
+        tags=["test"],
     )
     job2 = ds_rds_client.rpc.jobs.create(job2_create)
 
@@ -192,9 +198,14 @@ def test_runtime_crud(ds_rds_client: RDSClient):
 
 
 def test_apply_update(ds_rds_client: RDSClient):
+    runtime: Runtime = ds_rds_client.runtime.create(
+        runtime_name="python3.12", runtime_kind="python"
+    )
+
     job = Job(
         dataset_name="test",
         user_code_id=uuid4(),
+        runtime_id=runtime.uid,
     )
 
     # apply job update
@@ -220,6 +231,7 @@ def test_apply_update(ds_rds_client: RDSClient):
     other_job = Job(
         dataset_name="test",
         user_code_id=uuid4(),
+        runtime_id=runtime.uid,
     )
 
     with pytest.raises(ValueError) as e:
@@ -241,13 +253,16 @@ def test_apply_update(ds_rds_client: RDSClient):
 
 
 def test_search_with_filters(do_rds_client):
+    runtime: Runtime = do_rds_client.runtime.create(
+        runtime_name="python3.12", runtime_kind="python"
+    )
     # Create 10 sample jobs
     for i in range(10):
         job_create = JobCreate(
             name=f"Job {i}",
-            runtime="python3.9",
-            user_code_id=uuid4(),
             dataset_name="test",
+            user_code_id=uuid4(),
+            runtime_id=runtime.uid,
         )
         do_rds_client.rpc.jobs.create(job_create)
 

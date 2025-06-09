@@ -152,16 +152,16 @@ class Job(ItemBase):
     ]
 
     name: str = Field(default_factory=generate_name)
-    description: str | None = None
+    dataset_name: str
+    runtime_id: UUID
     user_code_id: UUID
+    description: str | None = None
     tags: list[str] = Field(default_factory=list)
     user_metadata: dict = {}
     status: JobStatus = JobStatus.pending_code_review
     error: JobErrorKind = JobErrorKind.no_error
     error_message: str | None = None
     output_url: SyftBoxURL | None = None
-    dataset_name: str
-    runtime_id: UUID
 
     @property
     def user_code(self) -> UserCode:
@@ -259,12 +259,12 @@ class Job(ItemBase):
 
 
 class JobCreate(ItemBaseCreate[Job]):
+    dataset_name: str
+    user_code_id: UUID
+    runtime_id: UUID
     name: str | None = None
     description: str | None = None
-    user_code_id: UUID
     tags: list[str] = Field(default_factory=list)
-    dataset_name: str
-    runtime_id: UUID | None = None
 
 
 class JobUpdate(ItemBaseUpdate[Job]):

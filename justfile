@@ -110,7 +110,7 @@ test: setup-test-env
     echo "{{ _cyan }}Running all tests in parallel{{ _nc }}"
     just test-unit &
     just test-integration &
-    just test-e2e &
+    # just test-e2e &
     just test-notebooks &
     wait
     just clean

@@ -80,7 +80,7 @@ class JobRDSClient(RDSClientModule[Job]):
             description=description,
             tags=tags if tags is not None else [],
             user_code_id=user_code_id,
-            runtime_id=runtime.uid if runtime is not None else None,
+            runtime_id=runtime.uid,
             dataset_name=dataset_name,
         )
         job = self.rpc.jobs.create(job_create)
