@@ -138,41 +138,41 @@ class RDSClient(RDSClientBase):
         """
         return self.dataset.get_all()
 
-    def get_default_config_for_job(self, job: Job) -> JobConfig:
+    def _get_config_for_job(self, job: Job) -> JobConfig:
         user_code = self.user_code.get(job.user_code_id)
         dataset = self.dataset.get(name=job.dataset_name)
-        runtime = dataset.runtime or self.config.runner_config.runtime
+        runtime = self.runtime.get(job.runtime_id)
         runner_config = self.config.runner_config
-        return JobConfig(
-            function_folder=user_code.local_dir,
-            args=[user_code.entrypoint],
+        job_config = JobConfig(
             data_path=dataset.get_private_path(),
+            function_folder=user_code.local_dir,
             runtime=runtime,
+            args=[user_code.entrypoint],
             job_folder=runner_config.job_output_folder / job.uid.hex,
             timeout=runner_config.timeout,
             use_docker=runner_config.use_docker,
         )
+        return job_config
 
-    def run_private(self, job: Job, config: Optional[JobConfig] = None) -> Job:
+    def run_private(self, job: Job) -> Job:
         if job.status == JobStatus.rejected:
             raise ValueError(
                 "Cannot run rejected job, "
                 "if you want to override this, "
                 "set job.status to something else"
             )
-
-        config = config or self.get_default_config_for_job(job)
-
-        logger.warning("Running job without docker is not secure")
-        return_code = self._run(config=config)
+        logger.debug(f"Running job '{job.name}' on private data")
+        job_config: JobConfig = self._get_config_for_job(job)
+        return_code = self._run(config=job_config)
         job_update = job.get_update_for_return_code(return_code)
         new_job = self.rpc.jobs.update(job_update)
         return job.apply_update(new_job)
 
-    def run_mock(self, job: Job, config: Optional[JobConfig] = None) -> Job:
-        config = config or self.get_default_config_for_job(job)
-        config.data_path = self.dataset.get(name=job.dataset_name).get_mock_path()
-        self._run(config=config)
+    def run_mock(self, job: Job) -> Job:
+        logger.debug(f"Running job {job.name} on mock data")
+        job_config: JobConfig = self._get_config_for_job(job)
+        job_config.data_path = self.dataset.get(name=job.dataset_name).get_mock_path()
+        self._run(config=job_config)
         return job
 
     def _run(self, config: JobConfig) -> int:

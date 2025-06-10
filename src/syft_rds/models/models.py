@@ -6,6 +6,8 @@ from typing import Any, Generic, Literal, Optional, TypeVar
 from uuid import UUID
 import json
 import hashlib
+from datetime import datetime
+
 
 from IPython.display import HTML, display
 from loguru import logger
@@ -22,7 +24,7 @@ from syft_core import SyftBoxURL
 from syft_rds.models.base import ItemBase, ItemBaseCreate, ItemBaseUpdate
 from syft_rds.models.html_format import create_html_repr
 from syft_rds.utils.name_generator import generate_name
-from syft_rds.syft_runtime.main import CodeRuntime
+
 
 T = TypeVar("T", bound=ItemBase)
 
@@ -108,6 +110,107 @@ class UserCodeCreate(ItemBaseCreate[UserCode]):
 
 
 class UserCodeUpdate(ItemBaseUpdate[UserCode]):
+    pass
+
+
+# --------------- Runtime ---------------
+class RuntimeKind(str, enum.Enum):
+    PYTHON = "python"
+    DOCKER = "docker"
+    KUBERNETES = "kubernetes"
+
+
+class BaseRuntimeConfig(BaseModel):
+    """Base configuration for runtime environments."""
+
+    cmd: list[str]
+
+    def validate_config(self) -> bool:
+        """Override in subclasses for custom validation."""
+        return True
+
+
+class PythonRuntimeConfig(BaseRuntimeConfig):
+    version: str | None = None
+    requirements_file: PathLike | None = None
+    cmd: list[str] = Field(default_factory=lambda: ["python"])
+
+    @field_validator("requirements_file")
+    def validate_requirements_file_exist(cls, value: PathLike) -> PathLike:
+        if value is not None:
+            requirements_file_path = Path(value).expanduser().resolve()
+            if not requirements_file_path.exists():
+                raise FileNotFoundError(f"Requirements file '{value}' does not exist")
+        return value
+
+
+class DockerRuntimeConfig(BaseRuntimeConfig):
+    dockerfile: PathLike
+    image_name: str | None = None
+    cmd: list[str] = Field(default_factory=lambda: ["docker", "info"])
+
+    @field_validator("dockerfile")
+    def validate_dockerfile(cls, value: PathLike) -> PathLike:
+        dockerfile_path = Path(value).expanduser().resolve()
+        if not dockerfile_path.exists():
+            raise FileNotFoundError(f"Dockerfile '{value}' does not exist")
+        return value
+
+
+class KubernetesRuntimeConfig(BaseRuntimeConfig):
+    image: str
+    namespace: str = "syft-rds"
+    num_workers: int = 1
+    cmd: list[str] = Field(default_factory=lambda: ["kubectl"])
+
+
+RuntimeConfig = PythonRuntimeConfig | DockerRuntimeConfig | KubernetesRuntimeConfig
+
+
+class Runtime(ItemBase):
+    __schema_name__ = "runtime"
+
+    name: str | None = None
+    kind: RuntimeKind
+    config: RuntimeConfig = Field(default_factory=dict)
+    tags: list[str] = Field(default_factory=list)
+
+    @model_validator(mode="after")
+    def set_name_with_prefix(self):
+        if self.name is not None:
+            return self
+        # Create a unique name for the runtime based on the config's hash
+        # TODO: create hash based on Docker file's content
+        config_dict = self.config.model_dump(mode="json")
+        config_str = json.dumps(config_dict, sort_keys=True)
+        config_hash = hashlib.sha256(config_str.encode()).hexdigest()[:6]
+        self.name = f"{self.kind.value.lower()}_{config_hash}"
+        return self
+
+    @property
+    def cmd(self) -> list[str]:
+        return self.config.cmd
+
+
+class RuntimeCreate(ItemBaseCreate[Runtime]):
+    name: str | None = None
+    kind: RuntimeKind
+    config: RuntimeConfig = Field(default_factory=dict)
+    tags: list[str] = Field(default_factory=list)
+
+    @model_validator(mode="after")
+    def set_name_with_prefix(self):
+        if self.name is not None:
+            return self
+        # Create a unique name for the runtime based on the config's hash
+        config_dict = self.config.model_dump(mode="json")
+        config_str = json.dumps(config_dict, sort_keys=True)
+        config_hash = hashlib.sha256(config_str.encode()).hexdigest()[:6]
+        self.name = f"{self.kind.value.lower()}_{config_hash}"
+        return self
+
+
+class RuntimeUpdate(ItemBaseUpdate[Runtime]):
     pass
 
 
@@ -273,94 +376,56 @@ class JobUpdate(ItemBaseUpdate[Job]):
     error_message: Optional[str] = None
 
 
-# --------------- Runtime ---------------
-class RuntimeKind(str, enum.Enum):
-    PYTHON = "python"
-    DOCKER = "docker"
-    KUBERNETES = "kubernetes"
+class JobConfig(BaseModel):
+    """Configuration for a job run"""
 
+    function_folder: Path
+    args: list[str]
+    data_path: Path
+    runtime: Runtime
+    job_folder: Optional[Path] = Field(
+        default_factory=lambda: Path("jobs") / datetime.now().strftime("%Y%m%d_%H%M%S")
+    )
+    timeout: int = 60
+    data_mount_dir: str = "/data"
+    use_docker: bool = True  # TODO: remove this
+    extra_env: dict[str, str] = {}
 
-class BaseRuntimeConfig(BaseModel):
-    """Base configuration for runtime environments."""
+    @property
+    def job_path(self) -> Path:
+        """Derived path for job folder"""
+        return Path(self.job_folder)
 
-    def validate_config(self) -> bool:
-        """Override in subclasses for custom validation."""
-        return True
+    @property
+    def logs_dir(self) -> Path:
+        """Derived path for logs directory"""
+        return self.job_path / "logs"
 
+    @property
+    def output_dir(self) -> Path:
+        """Derived path for output directory"""
+        return self.job_path / "output"
 
-class PythonRuntimeConfig(BaseRuntimeConfig):
-    version: Optional[str] = None
-    requirements_file: Optional[PathLike] = None
+    def get_env(self) -> dict[str, str]:
+        return self.extra_env | self._base_env
 
-    @field_validator("requirements_file")
-    def validate_requirements_file_exist(cls, value: PathLike) -> PathLike:
-        if value is not None:
-            requirements_file_path = Path(value).expanduser().resolve()
-            if not requirements_file_path.exists():
-                raise FileNotFoundError(f"Requirements file '{value}' does not exist")
-        return value
+    def get_env_as_docker_args(self) -> list[str]:
+        return [f"-e {k}={v}" for k, v in self.get_env().items()]
 
+    def get_extra_env_as_docker_args(self) -> list[str]:
+        return [f"-e {k}={v}" for k, v in self.extra_env.items()]
 
-class DockerRuntimeConfig(BaseRuntimeConfig):
-    dockerfile: PathLike
-
-    @field_validator("dockerfile")
-    def validate_dockerfile(cls, value: PathLike) -> PathLike:
-        dockerfile_path = Path(value).expanduser().resolve()
-        if not dockerfile_path.exists():
-            raise FileNotFoundError(f"Dockerfile '{value}' does not exist")
-        return value
-
-
-class KubernetesRuntimeConfig(BaseRuntimeConfig):
-    image: str
-    namespace: str = "syft-rds"
-    num_workers: int = 1
-
-
-RuntimeConfig = PythonRuntimeConfig | DockerRuntimeConfig | KubernetesRuntimeConfig
-
-
-class Runtime(ItemBase):
-    __schema_name__ = "runtime"
-
-    name: str | None = None
-    kind: RuntimeKind
-    config: RuntimeConfig = Field(default_factory=dict)
-    tags: list[str] = Field(default_factory=list)
-
-    @model_validator(mode="after")
-    def set_name_with_prefix(self):
-        if self.name is not None:
-            return self
-        # Create a unique name for the runtime based on the config's hash
-        config_dict = self.config.model_dump(mode="json")
-        config_str = json.dumps(config_dict, sort_keys=True)
-        config_hash = hashlib.sha256(config_str.encode()).hexdigest()[:6]
-        self.name = f"{self.kind.value.lower()}_{config_hash}"
-        return self
-
-
-class RuntimeCreate(ItemBaseCreate[Runtime]):
-    name: str | None = None
-    kind: RuntimeKind
-    config: RuntimeConfig = Field(default_factory=dict)
-    tags: list[str] = Field(default_factory=list)
-
-    @model_validator(mode="after")
-    def set_name_with_prefix(self):
-        if self.name is not None:
-            return self
-        # Create a unique name for the runtime based on the config's hash
-        config_dict = self.config.model_dump(mode="json")
-        config_str = json.dumps(config_dict, sort_keys=True)
-        config_hash = hashlib.sha256(config_str.encode()).hexdigest()[:6]
-        self.name = f"{self.kind.value.lower()}_{config_hash}"
-        return self
-
-
-class RuntimeUpdate(ItemBaseUpdate[Runtime]):
-    pass
+    @property
+    def _base_env(self) -> dict[str, str]:
+        interpreter = " ".join(self.runtime.cmd)
+        # interpreter_str = f"'{interpreter}'" if " " in interpreter else interpreter
+        return {
+            "OUTPUT_DIR": str(self.output_dir.absolute()),
+            "DATA_DIR": str(self.data_path.absolute()),
+            "TIMEOUT": str(self.timeout),
+            "INPUT_FILE": str(self.function_folder / self.args[0]),
+            "INTERPRETER": interpreter,
+        }
 
 
 # --------------- Dataset ---------------
@@ -377,7 +442,9 @@ class Dataset(ItemBase):
     summary: str | None = Field(description="Summary string of the dataset.")
     readme: SyftBoxURL | None = Field(description="REAMD.md Syft URL of the dataset.")
     tags: list[str] = Field(description="Tags for the dataset.")
-    runtime: CodeRuntime = Field(default_factory=CodeRuntime.default)
+    runtime_id: UUID | None = Field(
+        default=None, description="Default runtime for the dataset."
+    )
 
     @property
     def mock_path(self) -> Path:
@@ -474,13 +541,16 @@ class DatasetCreate(ItemBaseCreate[Dataset]):
         description="Path to the detailed REAMD.md of the dataset."
     )
     tags: list[str] | None = Field(description="Tags for the dataset.")
-    runtime: CodeRuntime | None = Field(description="Runtime for the dataset.")
+    runtime_id: UUID | None = Field(
+        description="Runtime for the dataset.", default=None
+    )
 
 
 class DatasetUpdate(ItemBaseUpdate[Dataset]):
     pass
 
 
+# --------------- Other ---------------
 class GetOneRequest(BaseModel):
     uid: UUID | None = None
     filters: dict[str, Any] = Field(default_factory=dict)

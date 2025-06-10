@@ -6,16 +6,26 @@ from pydantic import BaseModel, Field
 from syft_core import Client as SyftBoxClient
 
 from syft_rds.client.local_store import LocalStore
-from syft_rds.syft_runtime.main import CodeRuntime
 from syft_rds.client.rpc import RPCClient, T
-from syft_rds.models.models import GetAllRequest, GetOneRequest, Job
+from syft_rds.models.models import (
+    GetAllRequest,
+    GetOneRequest,
+    Job,
+    Runtime,
+    RuntimeKind,
+    PythonRuntimeConfig,
+)
 
 if TYPE_CHECKING:
     from syft_rds.client.rds_client import RDSClient
 
 
 class ClientRunnerConfig(BaseModel):
-    runtime: CodeRuntime = CodeRuntime(cmd=["python"])
+    runtime: Runtime = Field(
+        default_factory=lambda: Runtime(  # TODO: make this configurable
+            kind=RuntimeKind.PYTHON, config=PythonRuntimeConfig()
+        )
+    )
     timeout: int = 60
     use_docker: bool = False
     job_output_folder: Path = Field(

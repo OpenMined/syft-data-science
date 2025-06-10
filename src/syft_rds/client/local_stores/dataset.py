@@ -356,8 +356,8 @@ class DatasetSchemaManager:
             summary=dataset_create.summary,
             readme=readme_url,
         )
-        if dataset_create.runtime:
-            dataset.runtime = dataset_create.runtime
+        if dataset_create.runtime_id:
+            dataset.runtime_id = dataset_create.runtime_id
 
         # Persist the schema to store
         self._schema_store.create(dataset)

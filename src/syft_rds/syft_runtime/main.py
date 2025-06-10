@@ -1,81 +1,17 @@
 import os
 import subprocess
 import time
-from datetime import datetime
 from pathlib import Path
-from typing import Optional, Protocol, Tuple
+from typing import Protocol, Tuple
 
-from pydantic import BaseModel, Field
 from rich.console import Console
 from rich.live import Live
 from rich.panel import Panel
 from rich.spinner import Spinner
 
+from syft_rds.models.models import JobConfig
+
 DEFAULT_OUTPUT_DIR = "/output"
-
-
-class CodeRuntime(BaseModel):
-    cmd: list[str]
-    image_name: str | None = None
-    mount_dir: Path | None = None
-
-    @classmethod
-    def default(cls):
-        return cls(
-            cmd=["python"],
-        )
-
-
-class JobConfig(BaseModel):
-    """Configuration for a job run"""
-
-    function_folder: Path
-    args: list[str]
-    data_path: Path
-    runtime: CodeRuntime
-    job_folder: Optional[Path] = Field(
-        default_factory=lambda: Path("jobs") / datetime.now().strftime("%Y%m%d_%H%M%S")
-    )
-    timeout: int = 60
-    data_mount_dir: str = "/data"
-    use_docker: bool = True
-    extra_env: dict[str, str] = {}
-
-    @property
-    def job_path(self) -> Path:
-        """Derived path for job folder"""
-        return Path(self.job_folder)
-
-    @property
-    def logs_dir(self) -> Path:
-        """Derived path for logs directory"""
-        return self.job_path / "logs"
-
-    @property
-    def output_dir(self) -> Path:
-        """Derived path for output directory"""
-        return self.job_path / "output"
-
-    def get_env(self) -> dict[str, str]:
-        return self.extra_env | self._base_env
-
-    def get_env_as_docker_args(self) -> list[str]:
-        return [f"-e {k}={v}" for k, v in self.get_env().items()]
-
-    def get_extra_env_as_docker_args(self) -> list[str]:
-        return [f"-e {k}={v}" for k, v in self.extra_env.items()]
-
-    @property
-    def _base_env(self) -> dict[str, str]:
-        interpreter = " ".join(self.runtime.cmd)
-        # interpreter_str = f"'{interpreter}'" if " " in interpreter else interpreter
-        return {
-            "OUTPUT_DIR": str(self.output_dir.absolute()),
-            "DATA_DIR": str(self.data_path.absolute()),
-            "TIMEOUT": str(self.timeout),
-            "INPUT_FILE": str(self.function_folder / self.args[0]),
-            "INTERPRETER": interpreter,
-        }
 
 
 class JobOutputHandler(Protocol):
