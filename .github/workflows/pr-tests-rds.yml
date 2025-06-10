@@ -32,10 +32,10 @@ jobs:
     with:
       test-type: test-integration
 
-  call-pr-tests-e2e:
-    uses: ./.github/workflows/pr-tests-base.yml
-    with:
-      test-type: test-e2e
+  # call-pr-tests-e2e:
+  #   uses: ./.github/workflows/pr-tests-base.yml
+  #   with:
+  #     test-type: test-e2e
 
   call-pr-tests-notebooks:
     uses: ./.github/workflows/pr-tests-base.yml

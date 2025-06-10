@@ -9,10 +9,11 @@ from pydantic import TypeAdapter
 from syft_rds.models.base import ItemBase
 
 PERMS = """
-- path: '**'
-  permissions:
-  - read
-  user: '*'
+rules:
+- pattern: '**'
+  access:
+    read:
+    - '*'
 """
 
 T = TypeVar("T", bound=ItemBase)
@@ -23,7 +24,7 @@ def ensure_store_exists(func):
     def wrapper(self: "YAMLStore", *args, **kwargs):
         if not self.item_type_dir.exists():
             self.item_type_dir.mkdir(parents=True, exist_ok=True)
-            perms_file = self.item_type_dir.parent / "syftperm.yaml"
+            perms_file = self.item_type_dir.parent / "syft.pub.yaml"
             perms_file.write_text(PERMS)  # TODO create more restrictive permissions
         return func(self, *args, **kwargs)
 
