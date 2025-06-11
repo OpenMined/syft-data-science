@@ -172,7 +172,7 @@ def test_job_submit_with_custom_runtime(
     "runtime_kind",
     [
         "docker",
-        # "python",
+        "python",
     ],
 )
 def test_job_folder_execution(
@@ -203,9 +203,7 @@ def test_job_folder_execution(
         )
 
     assert job.status == JobStatus.pending_code_review
-    assert (
-        len(do_rds_client.runtime.get_all()) == 2
-    )  # the created runtime + default runtime
+    assert len(do_rds_client.runtime.get_all()) == 1
 
     # DO reviews job
     job = do_rds_client.rpc.jobs.get_all(GetAllRequest())[0]
@@ -222,7 +220,7 @@ def test_job_folder_execution(
 
     all_files_folders = list(output_path.glob("**/*"))
     all_files = [f for f in all_files_folders if f.is_file()]
-    assert len(all_files) == 3
+    assert len(all_files) == 3  # output.txt, stdout.log, stderr.log
 
     output_txt = output_path / "output" / "output.txt"
     assert output_txt.exists()

@@ -1,15 +1,11 @@
 import pandas as pd
 import pytest
-from syft_core import SyftClientConfig
-from syft_rds.client.rds_client import RDSClient, init_session
+from syft_rds.client.rds_client import RDSClient
 from tests.conftest import MOCK_DATA_PATH, PRIVATE_DATA_PATH, README_PATH
 from tests.utils import create_dataset
 
 
-def test_create_dataset(do_syftbox_config: SyftClientConfig) -> None:
-    do_rds_client: RDSClient = init_session(
-        host=do_syftbox_config.email, syftbox_client_config_path=do_syftbox_config.path
-    )
+def test_create_dataset(do_rds_client: RDSClient) -> None:
     assert do_rds_client.is_admin
 
     dataset = create_dataset(do_rds_client, "Test")
@@ -24,10 +20,7 @@ def test_create_dataset(do_syftbox_config: SyftClientConfig) -> None:
     assert mock_df.equals(pd.read_csv(MOCK_DATA_PATH / "data.csv"))
 
 
-def test_get_dataset(do_syftbox_config: SyftClientConfig) -> None:
-    do_rds_client: RDSClient = init_session(
-        host=do_syftbox_config.email, syftbox_client_config_path=do_syftbox_config.path
-    )
+def test_get_dataset(do_rds_client: RDSClient) -> None:
     assert do_rds_client.is_admin
 
     dataset = create_dataset(do_rds_client, "Test")
@@ -42,10 +35,7 @@ def test_get_dataset(do_syftbox_config: SyftClientConfig) -> None:
     assert mock_df.equals(pd.read_csv(MOCK_DATA_PATH / "data.csv"))
 
 
-def test_get_all_datasets(do_syftbox_config: SyftClientConfig) -> None:
-    do_rds_client: RDSClient = init_session(
-        host=do_syftbox_config.email, syftbox_client_config_path=do_syftbox_config.path
-    )
+def test_get_all_datasets(do_rds_client: RDSClient) -> None:
     assert do_rds_client.is_admin
 
     dataset_1 = create_dataset(do_rds_client, "Test")
@@ -60,11 +50,8 @@ def test_get_all_datasets(do_syftbox_config: SyftClientConfig) -> None:
     assert dataset_2 in datasets
 
 
-def test_delete_dataset(do_syftbox_config: SyftClientConfig) -> None:
+def test_delete_dataset(do_rds_client: RDSClient) -> None:
     """Test deleting a dataset and verifying it's removed from storage and filesystem."""
-    do_rds_client: RDSClient = init_session(
-        host=do_syftbox_config.email, syftbox_client_config_path=do_syftbox_config.path
-    )
     assert do_rds_client.is_admin
 
     # Create a dataset to delete
@@ -98,11 +85,8 @@ def test_delete_dataset(do_syftbox_config: SyftClientConfig) -> None:
     assert not private_path.parent.exists() or not any(private_path.parent.iterdir())
 
 
-def test_delete_nonexistent_dataset(do_syftbox_config: SyftClientConfig) -> None:
+def test_delete_nonexistent_dataset(do_rds_client: RDSClient) -> None:
     """Test deleting a dataset that doesn't exist returns False."""
-    do_rds_client: RDSClient = init_session(
-        host=do_syftbox_config.email, syftbox_client_config_path=do_syftbox_config.path
-    )
     assert do_rds_client.is_admin
 
     # Try to delete a non-existent dataset
@@ -111,16 +95,10 @@ def test_delete_nonexistent_dataset(do_syftbox_config: SyftClientConfig) -> None
 
 
 def test_permission_error_non_admin(
-    do_syftbox_config: SyftClientConfig, ds_syftbox_config: SyftClientConfig
+    do_rds_client: RDSClient, ds_rds_client: RDSClient
 ) -> None:
     """Test that non-admin users cannot create or delete datasets."""
-    do_rds_client: RDSClient = init_session(
-        host=do_syftbox_config.email, syftbox_client_config_path=do_syftbox_config.path
-    )
     assert do_rds_client.is_admin
-    ds_rds_client: RDSClient = init_session(
-        host=do_syftbox_config.email, syftbox_client_config_path=ds_syftbox_config.path
-    )
     assert not ds_rds_client.is_admin
 
     # Attempt to create a dataset as non-admin
@@ -135,11 +113,8 @@ def test_permission_error_non_admin(
         ds_rds_client.dataset.delete(dataset.name)
 
 
-def test_create_datasets_same_name(do_syftbox_config: SyftClientConfig) -> None:
+def test_create_datasets_same_name(do_rds_client: RDSClient) -> None:
     """Test that creating a dataset with an existing name raises an error."""
-    do_rds_client: RDSClient = init_session(
-        host=do_syftbox_config.email, syftbox_client_config_path=do_syftbox_config.path
-    )
     assert do_rds_client.is_admin
 
     # Create a dataset
@@ -151,11 +126,8 @@ def test_create_datasets_same_name(do_syftbox_config: SyftClientConfig) -> None:
         create_dataset(do_rds_client, "DuplicateName")
 
 
-def test_readme_content(do_syftbox_config: SyftClientConfig) -> None:
+def test_readme_content(do_rds_client: RDSClient) -> None:
     """Test that README content is correctly stored and retrieved."""
-    do_rds_client: RDSClient = init_session(
-        host=do_syftbox_config.email, syftbox_client_config_path=do_syftbox_config.path
-    )
     assert do_rds_client.is_admin
 
     # Create a dataset with a README

@@ -27,7 +27,7 @@ from syft_rds.client.rds_clients.user_code import UserCodeRDSClient
 from syft_rds.client.rpc import RPCClient
 from syft_rds.client.utils import PathLike
 from syft_rds.models.base import ItemBase
-from syft_rds.models.models import Dataset, Job, JobStatus, UserCode
+from syft_rds.models.models import Dataset, Job, JobStatus, UserCode, Runtime
 
 T = TypeVar("T", bound=ItemBase)
 
@@ -110,15 +110,12 @@ class RDSClient(RDSClientBase):
         self.runtime = RuntimeRDSClient(
             self.config, self.rpc, self.local_store, parent=self
         )
-        if self.config.runner_config.runtime is None:
-            self.config.runner_config.runtime = self.runtime._get_or_create_default()
-
         GlobalClientRegistry.register_client(self)
 
         self._type_map = {
             Job: self.jobs,
             Dataset: self.dataset,
-            # Runtime: self.runtime,
+            Runtime: self.runtime,
             UserCode: self.user_code,
         }
 
