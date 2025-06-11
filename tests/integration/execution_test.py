@@ -10,17 +10,9 @@ from tests.conftest import DS_PATH
 from tests.utils import create_dataset
 
 
-@pytest.mark.parametrize(
-    "use_docker",
-    [
-        # True, # TODO setup docker flow in CI
-        False,
-    ],
-)
 def test_job_execution(
     ds_rds_client: RDSClient,
     do_rds_client: RDSClient,
-    use_docker: bool,
 ):
     user_code_path = DS_PATH / "ds.py"
     create_dataset(do_rds_client, "dummy")
@@ -177,16 +169,16 @@ def test_job_submit_with_custom_runtime(
 
 
 @pytest.mark.parametrize(
-    "use_docker",
+    "runtime_kind",
     [
-        True,
-        False,
+        "docker",
+        # "python",
     ],
 )
 def test_job_folder_execution(
     ds_rds_client: RDSClient,
     do_rds_client: RDSClient,
-    use_docker: bool,
+    runtime_kind: str,
 ):
     # DO create dataset
     create_dataset(do_rds_client, "dummy")
@@ -194,23 +186,26 @@ def test_job_folder_execution(
     # DS submits job
     user_code_dir = DS_PATH / "code"
     entrypoint = "main.py"
-    if use_docker:
+    if runtime_kind == "docker":
         job = ds_rds_client.jobs.submit(
             dataset_name="dummy",
             user_code_path=user_code_dir,
             entrypoint=entrypoint,
             runtime_kind="docker",
-            runtime_config={"dockerfile": str(DS_PATH / "Dockerfile")},
+            runtime_config={"dockerfile": str(DEFAULT_DOCKERFILE_FILE_PATH)},
         )
     else:
         job = ds_rds_client.jobs.submit(
             dataset_name="dummy",
             user_code_path=user_code_dir,
             entrypoint=entrypoint,
+            runtime_kind="python",
         )
 
     assert job.status == JobStatus.pending_code_review
-    assert len(do_rds_client.runtime.get_all()) == 1
+    assert (
+        len(do_rds_client.runtime.get_all()) == 2
+    )  # the created runtime + default runtime
 
     # DO reviews job
     job = do_rds_client.rpc.jobs.get_all(GetAllRequest())[0]
@@ -235,7 +230,7 @@ def test_job_folder_execution(
         assert f.read() == "ABC"
 
 
-def test_job_folder_execution_python(
+def test_job_folder_execution_python_runtime(
     ds_rds_client: RDSClient,
     do_rds_client: RDSClient,
 ):
@@ -244,7 +239,7 @@ def test_job_folder_execution_python(
         user_code_path=DS_PATH / "code",
         entrypoint="main.py",
         dataset_name="dummy",
-        runtime_name="python",
+        runtime_name="my_python_runtime",
         runtime_kind="python",
     )
     assert job.status == JobStatus.pending_code_review
@@ -285,7 +280,6 @@ def test_job_folder_execution_default_runtime(
     job = do_rds_client.rpc.jobs.get_all(GetAllRequest())[0]
 
     do_rds_client.run_private(job)
-
     assert job.status == JobStatus.job_run_finished
 
     do_rds_client.jobs.share_results(job)

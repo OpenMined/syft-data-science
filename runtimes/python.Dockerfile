@@ -1,7 +1,7 @@
 FROM python:3.12-slim
 
 # Copy the common entrypoint script
-COPY runtimes/entrypoint.sh /entrypoint.sh
+COPY entrypoint.sh /entrypoint.sh
 RUN chmod +x /entrypoint.sh
 
 # Create a restricted user with no home directory and no shell

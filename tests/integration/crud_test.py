@@ -141,6 +141,11 @@ def test_user_code_crud(ds_rds_client: RDSClient):
 
 
 def test_runtime_crud(ds_rds_client: RDSClient):
+    # default runtime should be created
+    all_req = GetAllRequest()
+    all_runtimes = ds_rds_client.rpc.runtime.get_all(all_req)
+    assert len(all_runtimes) == 1
+
     runtime_create = RuntimeCreate(
         name="python3.9",
         kind="python",
@@ -158,6 +163,10 @@ def test_runtime_crud(ds_rds_client: RDSClient):
     fetched_runtime = ds_rds_client.rpc.runtime.get_one(get_req)
     assert fetched_runtime == runtime
 
+    all_req = GetAllRequest()
+    all_runtimes = ds_rds_client.rpc.runtime.get_all(all_req)
+    assert len(all_runtimes) == 2
+
     # Insert second (python runtime)
     runtime2_create = RuntimeCreate(
         name="python3.10",
@@ -169,7 +178,8 @@ def test_runtime_crud(ds_rds_client: RDSClient):
 
     all_req = GetAllRequest()
     all_runtimes = ds_rds_client.rpc.runtime.get_all(all_req)
-    assert len(all_runtimes) == 2
+    assert len(all_runtimes) == 3
+
     assert runtime in all_runtimes
     assert runtime2 in all_runtimes
 
@@ -190,7 +200,7 @@ def test_runtime_crud(ds_rds_client: RDSClient):
 
     all_req = GetAllRequest()
     all_runtimes = ds_rds_client.rpc.runtime.get_all(all_req)
-    assert len(all_runtimes) == 3
+    assert len(all_runtimes) == 4
 
     assert runtime in all_runtimes
     assert runtime2 in all_runtimes

@@ -12,8 +12,6 @@ from syft_rds.models.models import (
     GetOneRequest,
     Job,
     Runtime,
-    RuntimeKind,
-    PythonRuntimeConfig,
 )
 
 if TYPE_CHECKING:
@@ -21,24 +19,19 @@ if TYPE_CHECKING:
 
 
 class ClientRunnerConfig(BaseModel):
-    runtime: Runtime = Field(
-        default_factory=lambda: Runtime(  # TODO: make this configurable
-            kind=RuntimeKind.PYTHON, config=PythonRuntimeConfig()
-        )
-    )
+    runtime: Runtime | None = None
     timeout: int = 60
-    use_docker: bool = False
     job_output_folder: Path = Field(
         default_factory=lambda: Path(".server/syft-rds-jobs")
     )
 
 
 class RDSClientConfig(BaseModel):
-    # UUID is used to register the client to reference it from other objects
-    uid: UUID = Field(default_factory=uuid4)
+    uid: UUID = Field(
+        default_factory=uuid4
+    )  # used to register the client & reference it from other objects
     host: str
     app_name: str = "RDS"
-
     rpc_expiry: str = "5m"
     runner_config: ClientRunnerConfig = Field(default_factory=ClientRunnerConfig)
 

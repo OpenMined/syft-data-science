@@ -123,7 +123,7 @@ class RuntimeKind(str, enum.Enum):
 class BaseRuntimeConfig(BaseModel):
     """Base configuration for runtime environments."""
 
-    cmd: list[str]
+    cmd: list[str] | None = None
 
     def validate_config(self) -> bool:
         """Override in subclasses for custom validation."""
@@ -147,7 +147,8 @@ class PythonRuntimeConfig(BaseRuntimeConfig):
 class DockerRuntimeConfig(BaseRuntimeConfig):
     dockerfile: PathLike
     image_name: str | None = None
-    cmd: list[str] = Field(default_factory=lambda: ["docker", "info"])
+    cmd: list[str] = ["python"]
+    mount_dir: Path | None = None
 
     @field_validator("dockerfile")
     def validate_dockerfile(cls, value: PathLike) -> PathLike:
@@ -161,7 +162,7 @@ class KubernetesRuntimeConfig(BaseRuntimeConfig):
     image: str
     namespace: str = "syft-rds"
     num_workers: int = 1
-    cmd: list[str] = Field(default_factory=lambda: ["kubectl"])
+    cmd: list[str] = Field(default_factory=list)
 
 
 RuntimeConfig = PythonRuntimeConfig | DockerRuntimeConfig | KubernetesRuntimeConfig
@@ -388,7 +389,6 @@ class JobConfig(BaseModel):
     )
     timeout: int = 60
     data_mount_dir: str = "/data"
-    use_docker: bool = True  # TODO: remove this
     extra_env: dict[str, str] = {}
 
     @property

@@ -6,10 +6,10 @@ from loguru import logger
 from syft_core import Client as SyftBoxClient
 from syft_event import SyftEvents
 from syft_rds.syft_runtime.main import (
-    DockerRunner,
     FileOutputHandler,
     JobConfig,
     RichConsoleUI,
+    SyftRunner,
 )
 
 from syft_rds.client.client_registry import GlobalClientRegistry
@@ -110,6 +110,8 @@ class RDSClient(RDSClientBase):
         self.runtime = RuntimeRDSClient(
             self.config, self.rpc, self.local_store, parent=self
         )
+        if self.config.runner_config.runtime is None:
+            self.config.runner_config.runtime = self.runtime._get_or_create_default()
 
         GlobalClientRegistry.register_client(self)
 
@@ -150,16 +152,14 @@ class RDSClient(RDSClientBase):
             args=[user_code.entrypoint],
             job_folder=runner_config.job_output_folder / job.uid.hex,
             timeout=runner_config.timeout,
-            use_docker=runner_config.use_docker,
         )
         return job_config
 
     def run_private(self, job: Job) -> Job:
         if job.status == JobStatus.rejected:
             raise ValueError(
-                "Cannot run rejected job, "
-                "if you want to override this, "
-                "set job.status to something else"
+                "Cannot run rejected job. "
+                "If you want to override this, set `job.status` to something else."
             )
         logger.debug(f"Running job '{job.name}' on private data")
         job_config: JobConfig = self._get_config_for_job(job)
@@ -176,12 +176,6 @@ class RDSClient(RDSClientBase):
         return job
 
     def _run(self, config: JobConfig) -> int:
-        """Runs a job.
-
-        Args:
-            job (Job): The job to run
-        """
-
-        runner = DockerRunner(handlers=[FileOutputHandler(), RichConsoleUI()])
+        runner = SyftRunner(handlers=[FileOutputHandler(), RichConsoleUI()])
         return_code = runner.run(config)
         return return_code

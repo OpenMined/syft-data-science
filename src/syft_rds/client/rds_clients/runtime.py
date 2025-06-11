@@ -14,7 +14,9 @@ from syft_rds.models.models import (
     GetOneRequest,
 )
 
-DEFAULT_RUNTIME_NAME = os.getenv("SYFT_RDS_DEFAULT_RUNTIME_NAME", "docker_python_3.12")
+DEFAULT_RUNTIME_NAME = os.getenv(
+    "SYFT_RDS_DEFAULT_RUNTIME_NAME", "syft_python_3.12_docker_runtime"
+)
 PROJECT_ROOT = Path(__file__).resolve().parents[4]
 DEFAULT_DOCKERFILE_FILE_PATH = PROJECT_ROOT / "runtimes" / "python.Dockerfile"
 
@@ -53,9 +55,6 @@ class RuntimeRDSClient(RDSClientModule[Runtime]):
             logger.error(f"Error getting runtime by name: {e}")
             return None
 
-    def delete(self, uid: str) -> None:
-        return self.rpc.runtime.delete(uid)
-
     def _create_runtime_config(
         self, runtime_kind: str, config: dict | None = None
     ) -> RuntimeConfig:
@@ -80,11 +79,13 @@ class RuntimeRDSClient(RDSClientModule[Runtime]):
     def _get_or_create(self, runtime_create: RuntimeCreate) -> Runtime:
         fetched_runtime = self.get_runtime_by_name(runtime_create.name)
         if fetched_runtime:
-            logger.info(f"Runtime already exists: {fetched_runtime}")
+            logger.debug(f"Runtime '{fetched_runtime.name}' already exists")
             return fetched_runtime
 
-        logger.info(f"Creating runtime: {runtime_create.name}")
-        return self.rpc.runtime.create(runtime_create)
+        runtime = self.rpc.runtime.create(runtime_create)
+
+        logger.debug(f"Runtime created: {runtime}")
+        return runtime
 
     def _get_or_create_default(self) -> Runtime:
         """
@@ -93,12 +94,14 @@ class RuntimeRDSClient(RDSClientModule[Runtime]):
         The name of the default runtime is "docker_python_3.12".
         """
         try:
+            logger.debug(f"Getting or creating default runtime: {DEFAULT_RUNTIME_NAME}")
             default_runtime_create = RuntimeCreate(
                 name=DEFAULT_RUNTIME_NAME,
                 kind=RuntimeKind.DOCKER,
-                config={
-                    "dockerfile": str(DEFAULT_DOCKERFILE_FILE_PATH),
-                },
+                config=DockerRuntimeConfig(
+                    dockerfile=str(DEFAULT_DOCKERFILE_FILE_PATH),
+                    image_name=DEFAULT_RUNTIME_NAME,
+                ),
             )
             return self._get_or_create(default_runtime_create)
         except Exception as e:

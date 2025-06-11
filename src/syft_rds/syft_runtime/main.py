@@ -2,14 +2,16 @@ import os
 import subprocess
 import time
 from pathlib import Path
-from typing import Protocol, Tuple
+from typing import Protocol
 
+from loguru import logger
 from rich.console import Console
 from rich.live import Live
 from rich.panel import Panel
 from rich.spinner import Spinner
 
-from syft_rds.models.models import JobConfig
+from syft_rds.client.rds_clients.runtime import DEFAULT_RUNTIME_NAME
+from syft_rds.models.models import JobConfig, RuntimeKind
 
 DEFAULT_OUTPUT_DIR = "/output"
 
@@ -17,7 +19,7 @@ DEFAULT_OUTPUT_DIR = "/output"
 class JobOutputHandler(Protocol):
     """Protocol defining the interface for job output handling and display"""
 
-    def on_job_start(self, config: JobConfig) -> None:
+    def on_job_start(self, job_config: JobConfig) -> None:
         """Display job configuration"""
         pass
 
@@ -36,10 +38,10 @@ class FileOutputHandler(JobOutputHandler):
     def __init__(self):
         pass
 
-    def on_job_start(self, config: JobConfig) -> None:
-        self.config = config
-        self.stdout_file = (config.logs_dir / "stdout.log").open("w")
-        self.stderr_file = (config.logs_dir / "stderr.log").open("w")
+    def on_job_start(self, job_config: JobConfig) -> None:
+        self.config = job_config
+        self.stdout_file = (job_config.logs_dir / "stdout.log").open("w")
+        self.stderr_file = (job_config.logs_dir / "stderr.log").open("w")
         self.on_job_progress(stdout="Starting job...\n", stderr="Starting job...\n")
 
     def on_job_progress(self, stdout: str, stderr: str) -> None:
@@ -78,16 +80,16 @@ class RichConsoleUI(JobOutputHandler):
         spinner = Spinner("dots")
         self.live = Live(spinner, refresh_per_second=10)
 
-    def on_job_start(self, config: JobConfig) -> None:
+    def on_job_start(self, job_config: JobConfig) -> None:
         self.console.print(
             Panel.fit(
                 "\n".join(
                     [
                         "[bold green]Starting job[/]",
-                        f"[bold white]Execution:[/] [cyan]{' '.join(config.runtime.cmd)} {' '.join(config.args)}[/]",
-                        f"[bold white]Dataset Dir.:[/]  [cyan]{limit_path_depth(config.data_path)}[/]",
-                        f"[bold white]Output Dir.:[/]   [cyan]{limit_path_depth(config.output_dir)}[/]",
-                        f"[bold white]Timeout:[/]  [cyan]{config.timeout}s[/]",
+                        f"[bold white]Execution:[/] [cyan]{' '.join(job_config.runtime.cmd)} {' '.join(job_config.args)}[/]",
+                        f"[bold white]Dataset Dir.:[/]  [cyan]{limit_path_depth(job_config.data_path)}[/]",
+                        f"[bold white]Output Dir.:[/]   [cyan]{limit_path_depth(job_config.output_dir)}[/]",
+                        f"[bold white]Timeout:[/]  [cyan]{job_config.timeout}s[/]",
                     ]
                 ),
                 title="[bold]Job Configuration",
@@ -126,144 +128,36 @@ class RichConsoleUI(JobOutputHandler):
         self.live.stop()
 
 
-class DockerRunner:
-    """Handles running jobs in Docker containers with security constraints"""
+class JobRunner:
+    """Base class for running jobs."""
 
     def __init__(self, handlers: list[JobOutputHandler]):
         self.handlers = handlers
 
-    def prepare_job_folders(self, config: JobConfig) -> None:
+    def run(self, job_config: JobConfig) -> int | None:
+        """Run a job"""
+        raise NotImplementedError
+
+    def _prepare_job_folders(self, job_config: JobConfig) -> None:
         """Create necessary job folders"""
-        config.job_path.mkdir(parents=True, exist_ok=True)
-        config.logs_dir.mkdir(exist_ok=True)
-        config.output_dir.mkdir(exist_ok=True)
+        job_config.job_path.mkdir(parents=True, exist_ok=True)
+        job_config.logs_dir.mkdir(exist_ok=True)
+        job_config.output_dir.mkdir(exist_ok=True)
 
-    def validate_paths(self, config: JobConfig) -> None:
+    def _validate_paths(self, job_config: JobConfig) -> None:
         """Validate input paths exist"""
-        if not config.function_folder.exists():
-            raise ValueError(f"Function folder {config.function_folder} does not exist")
-        if not config.data_path.exists():
-            raise ValueError(f"Dataset folder {config.data_path} does not exist")
-
-    def build_docker_command(self, config: JobConfig) -> list[str]:
-        """Build the Docker run command with security constraints"""
-
-        if not config.use_docker:
-            # For direct Python execution, build a command that runs Python directly
-            # Assuming the first arg is the Python script to run
-            return [
-                *config.runtime.cmd,
-                str(Path(config.function_folder) / config.args[0]),
-                *config.args[1:],
-            ]
-        config.output_dir.absolute().mkdir(parents=True, exist_ok=True)
-        docker_mounts = [
-            "-v",
-            f"{Path(config.function_folder).absolute()}:/code:ro",
-            "-v",
-            f"{Path(config.data_path).absolute()}:{config.data_mount_dir}:ro",
-            "-v",
-            f"{config.output_dir.absolute()}:{DEFAULT_OUTPUT_DIR}:rw",
-        ]
-
-        if config.runtime.mount_dir:
-            docker_mounts.extend(
-                [
-                    "-v",
-                    f"{config.runtime.mount_dir.absolute()}:{config.runtime.mount_dir.absolute()}:ro",
-                ]
+        if not job_config.function_folder.exists():
+            raise ValueError(
+                f"Function folder {job_config.function_folder} does not exist"
             )
+        if not job_config.data_path.exists():
+            raise ValueError(f"Dataset folder {job_config.data_path} does not exist")
 
-        limits = [
-            # Security constraints
-            "--cap-drop",
-            "ALL",  # Drop all capabilities
-            "--network",
-            "none",  # Disable networking
-            "--read-only",  # Read-only root filesystem
-            "--tmpfs",
-            "/tmp:size=16m,noexec,nosuid,nodev",  # Secure temp directory
-            # Resource limits
-            "--memory",
-            "1G",
-            "--cpus",
-            "1",
-            "--pids-limit",
-            "100",
-            "--ulimit",
-            "nproc=4096:4096",
-            "--ulimit",
-            "nofile=50:50",
-            "--ulimit",
-            "fsize=10000000:10000000",  # ~10MB file size limit
-        ]
-        interpreter = " ".join(config.runtime.cmd)
-        interpreter_str = f'"{interpreter}"' if " " in interpreter else interpreter
-        return [
-            "docker",
-            "run",
-            "--rm",  # Remove container after completion
-            *limits,
-            # Environment variables
-            "-e",
-            f"TIMEOUT={config.timeout}",
-            "-e",
-            f"DATA_DIR={config.data_mount_dir}",
-            "-e",
-            f"OUTPUT_DIR={DEFAULT_OUTPUT_DIR}",
-            "-e",
-            f"INTERPRETER={interpreter_str}",
-            "-e",
-            f"INPUT_FILE='{config.function_folder / config.args[0]}'",
-            *config.get_extra_env_as_docker_args(),
-            *docker_mounts,
-            "syft_python_runtime",
-            *config.args,
-        ]
-
-    def validate_docker(self, config: JobConfig) -> bool:
-        """Validate Docker image availability"""
-        if not config.use_docker:
-            return True  # Skip Docker validation when not using Docker
-
-        image_name = "syft_python_runtime"
-        # Check Docker daemon availability
-        subprocess.run(["docker", "info"], check=True, capture_output=True)
-
-        # Check if required image exists
-        try:
-            result = subprocess.run(
-                ["docker", "image", "inspect", image_name],
-                capture_output=True,
-                check=False,
-                text=True,
-            )
-            if result.returncode != 0:
-                raise RuntimeError(f"\n\n{result.stderr}")
-            return True
-        except FileNotFoundError:
-            raise RuntimeError("Docker not installed or not in PATH")
-
-    def run(self, config: JobConfig) -> Tuple[Path, int | None]:
-        """Run a job in a Docker container or directly as Python"""
-        # Check Docker availability first if using Docker
-        if not self.validate_docker(config):
-            return -1
-
-        self.validate_paths(config)
-        self.prepare_job_folders(config)
-
+    def _run_subprocess(
+        self, cmd: list[str], job_config: JobConfig, env: dict | None = None
+    ) -> int | None:
         for handler in self.handlers:
-            handler.on_job_start(config)
-
-        cmd = self.build_docker_command(config)
-
-        # Set up environment variables for direct Python execution
-        env = None
-        if not config.use_docker:
-            env = os.environ.copy()
-            env.update(config.get_env())
-            env.update(config.extra_env)
+            handler.on_job_start(job_config)
 
         process = subprocess.Popen(
             cmd,
@@ -291,3 +185,209 @@ class DockerRunner:
             handler.on_job_completion(process.returncode)
 
         return process.returncode
+
+
+class PythonRunner(JobRunner):
+    """Handles running jobs directly as Python subprocesses"""
+
+    def run(self, job_config: JobConfig) -> int | None:
+        """Run a job as a Python subprocess"""
+        logger.debug(
+            f"Running code in '{job_config.function_folder}' on dataset '{job_config.data_path}' with runtime '{job_config.runtime.kind.value}'"
+        )
+
+        self._validate_paths(job_config)
+        self._prepare_job_folders(job_config)
+
+        cmd = self._prepare_run_command(job_config)
+
+        env = os.environ.copy()
+        env.update(job_config.get_env())
+        env.update(job_config.extra_env)
+
+        return self._run_subprocess(cmd, job_config, env=env)
+
+    def _prepare_run_command(self, job_config: JobConfig) -> list[str]:
+        return [
+            *job_config.runtime.cmd,
+            str(Path(job_config.function_folder) / job_config.args[0]),
+            *job_config.args[1:],
+        ]
+
+
+class DockerRunner(JobRunner):
+    """Handles running jobs in Docker containers with security constraints"""
+
+    def run(self, job_config: JobConfig) -> int | None:
+        """Run a job in a Docker container"""
+        logger.debug(
+            f"Running code in '{job_config.function_folder}' on dataset '{job_config.data_path}' with runtime '{job_config.runtime.kind.value}'"
+        )
+
+        self._validate_paths(job_config)
+        self._prepare_job_folders(job_config)
+
+        self._validate_docker(job_config)
+
+        cmd = self._prepare_run_command(job_config)
+
+        return self._run_subprocess(cmd, job_config)
+
+    def _validate_docker(self, job_config: JobConfig) -> None:
+        """Validate Docker is available and the required image exists."""
+        self._check_docker_daemon()
+        self._check_or_build_image(job_config)
+
+    def _check_docker_daemon(self) -> None:
+        """Check if the Docker daemon is running."""
+        try:
+            subprocess.run(["docker", "info"], check=True, capture_output=True)
+            logger.debug("Docker daemon is available")
+        except FileNotFoundError:
+            raise RuntimeError("Docker not installed or not in PATH.")
+        except subprocess.CalledProcessError:
+            raise RuntimeError("Docker daemon is not running.")
+
+    def _get_image_name(self, job_config: JobConfig) -> str:
+        """Get the Docker image name from the config or use the default."""
+        runtime_config = job_config.runtime.config
+        return runtime_config.image_name or DEFAULT_RUNTIME_NAME
+
+    def _check_or_build_image(self, job_config: JobConfig) -> None:
+        """Check if a required Docker image exists."""
+        image_name = self._get_image_name(job_config)
+        result = subprocess.run(
+            ["docker", "image", "inspect", image_name],
+            capture_output=True,
+            check=False,
+            text=True,
+        )
+        if result.returncode == 0:
+            logger.debug(f"Docker image '{image_name}' already exists.")
+            return
+
+        self._build_docker_image(job_config)
+
+    def _build_docker_image(self, job_config: JobConfig) -> None:
+        """Build the Docker image."""
+        image_name = self._get_image_name(job_config)
+        dockerfile_path = (
+            Path(job_config.runtime.config.dockerfile).expanduser().resolve()
+        )
+        if not dockerfile_path.exists():
+            raise FileNotFoundError(f"Dockerfile not found at {dockerfile_path}")
+        logger.info(f"Docker image '{image_name}' not found. Building it now...")
+        build_context = dockerfile_path.parent
+        try:
+            build_cmd = [
+                "docker",
+                "build",
+                "-t",
+                image_name,
+                "-f",
+                str(dockerfile_path),
+                str(build_context),
+            ]
+            logger.debug(f"Running docker build command: {' '.join(build_cmd)}")
+            process = subprocess.run(
+                build_cmd, capture_output=True, check=True, text=True
+            )
+
+            logger.debug(process.stdout)
+            logger.info(f"Successfully built Docker image '{image_name}'.")
+
+        except FileNotFoundError:
+            raise RuntimeError("Docker not installed or not in PATH.")
+        except subprocess.CalledProcessError as e:
+            logger.error(f"Docker build failed. stderr: {e.stderr}")
+            raise RuntimeError(f"Failed to build Docker image '{image_name}'.")
+        except Exception as e:
+            raise RuntimeError(f"An error occurred during Docker image build: {e}")
+
+    def _prepare_run_command(self, job_config: JobConfig) -> list[str]:
+        """Build the Docker run command with security constraints"""
+        image_name = self._get_image_name(job_config)
+        docker_mounts = [
+            "-v",
+            f"{Path(job_config.function_folder).absolute()}:/code:ro",
+            "-v",
+            f"{Path(job_config.data_path).absolute()}:{job_config.data_mount_dir}:ro",
+            "-v",
+            f"{job_config.output_dir.absolute()}:{DEFAULT_OUTPUT_DIR}:rw",
+        ]
+
+        runtime_config = job_config.runtime.config
+        if runtime_config.mount_dir:
+            docker_mounts.extend(
+                [
+                    "-v",
+                    f"{runtime_config.mount_dir.absolute()}:{runtime_config.mount_dir.absolute()}:ro",
+                ]
+            )
+
+        limits = [
+            # Security constraints
+            "--cap-drop",
+            "ALL",  # Drop all capabilities
+            "--network",
+            "none",  # Disable networking
+            "--read-only",  # Read-only root filesystem
+            "--tmpfs",
+            "/tmp:size=16m,noexec,nosuid,nodev",  # Secure temp directory
+            # Resource limits
+            "--memory",
+            "1G",
+            "--cpus",
+            "1",
+            "--pids-limit",
+            "100",
+            "--ulimit",
+            "nproc=4096:4096",
+            "--ulimit",
+            "nofile=50:50",
+            "--ulimit",
+            "fsize=10000000:10000000",  # ~10MB file size limit
+        ]
+        interpreter = " ".join(job_config.runtime.cmd)
+        interpreter_str = f'"{interpreter}"' if " " in interpreter else interpreter
+        return [
+            "docker",
+            "run",
+            "--rm",  # Remove container after completion
+            *limits,
+            # Environment variables
+            "-e",
+            f"TIMEOUT={job_config.timeout}",
+            "-e",
+            f"DATA_DIR={job_config.data_mount_dir}",
+            "-e",
+            f"OUTPUT_DIR={DEFAULT_OUTPUT_DIR}",
+            "-e",
+            f"INTERPRETER={interpreter_str}",
+            "-e",
+            f"INPUT_FILE='{job_config.function_folder / job_config.args[0]}'",
+            *job_config.get_extra_env_as_docker_args(),
+            *docker_mounts,
+            image_name,
+            *job_config.args,
+        ]
+
+
+class SyftRunner:
+    """A factory class to select and run the appropriate job runner."""
+
+    def __init__(self, handlers: list[JobOutputHandler]):
+        self.handlers = handlers
+        self._runners = {
+            RuntimeKind.PYTHON: PythonRunner(handlers),
+            RuntimeKind.DOCKER: DockerRunner(handlers),
+        }
+
+    def run(self, job_config: JobConfig) -> int | None:
+        """Selects the appropriate runner based on runtime kind and runs the job."""
+        runner = self._runners.get(job_config.runtime.kind)
+        if not runner:
+            raise NotImplementedError(
+                f"Unsupported runtime kind: {job_config.runtime.kind}"
+            )
+        return runner.run(job_config)
