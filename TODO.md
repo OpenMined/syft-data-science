@@ -1,4 +1,5 @@
 # Long term
+
 - We can switch to full HTTP-based RDS client
   - difficulties:
     - Datasets are right now filesync based
@@ -10,6 +11,7 @@
   - Maybe we can do a hybrid approach, where we have a HTTP-based client with filesync fallback
 
 # Short term
+
 - Fix user_file_service permissions, right now we cannot share job results to DS
   - currently, either everyone can see, or only the DO (both are bad and need to be fixed)
 - app.yaml permissions (or remove app.yaml?)
