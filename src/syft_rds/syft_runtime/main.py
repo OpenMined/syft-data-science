@@ -72,6 +72,7 @@ class JobConfig(BaseModel):
         return {
             "OUTPUT_DIR": str(self.output_dir.absolute()),
             "DATA_DIR": str(self.data_path.absolute()),
+            "CODE_DIR": str(self.function_folder.absolute()),
             "TIMEOUT": str(self.timeout),
             "INPUT_FILE": str(self.function_folder / self.args[0]),
             "INTERPRETER": interpreter,
