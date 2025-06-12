@@ -71,11 +71,11 @@ def _prepare_root_dir(
     key: str = "shared_client_dir",
 ) -> Path:
     if root_dir is None:
-        return Path(tempfile.gettempdir(), key)
+        root_path = Path(tempfile.gettempdir(), key)
+    else:
+        root_path = Path(root_dir).resolve() / key
 
-    root_path = Path(root_dir) / key
-
-    if reset and root_path.exists():
+    if reset and root_path.is_dir():
         try:
             shutil.rmtree(root_path)
         except Exception as e:
