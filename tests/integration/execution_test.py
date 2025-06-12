@@ -1,92 +1,89 @@
 import pytest
 from syft_rds.client.rds_client import RDSClient
-from syft_rds.models.models import GetAllRequest, JobStatus
+from syft_rds.models.models import GetAllRequest, Job, JobStatus
+from syft_rds.client.rds_clients.runtime import (
+    DEFAULT_DOCKERFILE_FILE_PATH,
+)
 
-from tests.conftest import DS_PATH, TEST_DOCKERFILE_FILE_PATH
+from tests.conftest import DS_PATH
 from tests.utils import create_dataset
 from loguru import logger
 
 
+single_file_submission = {"user_code_path": DS_PATH / "ds.py"}
+folder_submission = {"user_code_path": DS_PATH / "code", "entrypoint": "main.py"}
+runtime_configs = {
+    "default_runtime": {},
+    "docker_runtime": {
+        "runtime_kind": "docker",
+        "runtime_config": {"dockerfile": str(DEFAULT_DOCKERFILE_FILE_PATH)},
+    },
+    "python_runtime": {"runtime_kind": "python"},
+    "named_python_runtime": {
+        "runtime_name": "my_python_runtime",
+        "runtime_kind": "python",
+    },
+}
+test_cases = []
+for sub_type, sub_params in [
+    ("single_file", single_file_submission),
+    ("folder", folder_submission),
+]:
+    for rt_name, rt_params in runtime_configs.items():
+        test_cases.append(
+            {
+                "id": f"{sub_type}_{rt_name}",
+                "submission_params": {**sub_params, **rt_params},
+                "expected_num_runtimes": 1,
+            }
+        )
+
+
+@pytest.mark.parametrize(
+    "test_case",
+    test_cases,
+    ids=lambda x: x["id"],
+)
 def test_job_execution(
     ds_rds_client: RDSClient,
     do_rds_client: RDSClient,
+    test_case: dict,
 ):
-    user_code_path = DS_PATH / "ds.py"
+    """Test job execution with a file or a folder, for various configurations."""
+    submit_kwargs = {
+        "dataset_name": "dummy",
+        **test_case["submission_params"],
+    }
+
     create_dataset(do_rds_client, "dummy")
-    # Client Side
-    job = ds_rds_client.jobs.submit(
-        user_code_path=user_code_path,
-        dataset_name="dummy",
-    )
+
+    # DS submits job
+    job = ds_rds_client.jobs.submit(**submit_kwargs)
     assert job.status == JobStatus.pending_code_review
 
-    # Server Side
-    job = do_rds_client.rpc.jobs.get_all(GetAllRequest())[0]
+    assert len(do_rds_client.runtime.get_all()) == test_case["expected_num_runtimes"]
 
-    # Runner side
+    # DO reviews, runs, and shares job
+    _run_and_verify_job(do_rds_client)
+
+
+def _run_and_verify_job(do_rds_client: RDSClient):
+    """Helper function to run a job and verify its execution."""
+    # Server side: Get the job from the server.
+    # We assume there is only one job in the queue.
+    job: Job = do_rds_client.rpc.jobs.get_all(GetAllRequest())[0]
+
+    # Runner side: Execute the job
     do_rds_client.run_private(job)
     if job.status == JobStatus.job_run_failed:
         logger.error(f"Job failed: {job.error_message}")
     assert job.status == JobStatus.job_run_finished
 
+    # DO shares results with DS
     do_rds_client.jobs.share_results(job)
     assert job.status == JobStatus.shared
 
-    output_path = job.get_output_path()
-    assert output_path.exists()
-
-    all_files_folders = list(output_path.glob("**/*"))
-    all_files = [f for f in all_files_folders if f.is_file()]
-    assert len(all_files) == 3
-
-
-@pytest.mark.parametrize(
-    "runtime_kind",
-    [
-        "docker",
-        "python",
-    ],
-)
-def test_job_folder_execution(
-    ds_rds_client: RDSClient,
-    do_rds_client: RDSClient,
-    runtime_kind: str,
-):
-    # DO create dataset
-    create_dataset(do_rds_client, "dummy")
-
-    # DS submits job
-    user_code_dir = DS_PATH / "code"
-    entrypoint = "main.py"
-    if runtime_kind == "docker":
-        job = ds_rds_client.jobs.submit(
-            dataset_name="dummy",
-            user_code_path=user_code_dir,
-            entrypoint=entrypoint,
-            runtime_kind="docker",
-            runtime_config={"dockerfile": str(TEST_DOCKERFILE_FILE_PATH)},
-        )
-    else:
-        job = ds_rds_client.jobs.submit(
-            dataset_name="dummy",
-            user_code_path=user_code_dir,
-            entrypoint=entrypoint,
-            runtime_kind="python",
-        )
-
-    assert job.status == JobStatus.pending_code_review
-    assert len(do_rds_client.runtime.get_all()) == 1
-
-    # DO reviews job
-    job = do_rds_client.rpc.jobs.get_all(GetAllRequest())[0]
-
-    # Runner side (DO)
-    do_rds_client.run_private(job)
-    assert job.status == JobStatus.job_run_finished
-
-    do_rds_client.jobs.share_results(job)
-    assert job.status == JobStatus.shared
-
+    # DS checks for output
     output_path = job.get_output_path()
     assert output_path.exists()
 
@@ -94,75 +91,7 @@ def test_job_folder_execution(
     all_files = [f for f in all_files_folders if f.is_file()]
     assert len(all_files) == 3  # output.txt, stdout.log, stderr.log
 
-    output_txt = output_path / "output" / "output.txt"
-    assert output_txt.exists()
-    with open(output_txt, "r") as f:
-        assert f.read() == "ABC"
-
-
-def test_job_folder_execution_python_runtime(
-    ds_rds_client: RDSClient,
-    do_rds_client: RDSClient,
-):
-    create_dataset(do_rds_client, "dummy")
-    job = ds_rds_client.jobs.submit(
-        user_code_path=DS_PATH / "code",
-        entrypoint="main.py",
-        dataset_name="dummy",
-        runtime_name="my_python_runtime",
-        runtime_kind="python",
-    )
-    assert job.status == JobStatus.pending_code_review
-
-    job = do_rds_client.rpc.jobs.get_all(GetAllRequest())[0]
-
-    do_rds_client.run_private(job)
-    assert job.status == JobStatus.job_run_finished
-
-    do_rds_client.jobs.share_results(job)
-    assert job.status == JobStatus.shared
-
-    output_path = job.get_output_path()
-    assert output_path.exists()
-
-    all_files_folders = list(output_path.glob("**/*"))
-    all_files = [f for f in all_files_folders if f.is_file()]
-    assert len(all_files) == 3
-
-    output_txt = output_path / "output" / "output.txt"
-    assert output_txt.exists()
-    with open(output_txt, "r") as f:
-        assert f.read() == "ABC"
-
-
-def test_job_folder_execution_default_runtime(
-    ds_rds_client: RDSClient,
-    do_rds_client: RDSClient,
-):
-    create_dataset(do_rds_client, "dummy")
-    job = ds_rds_client.jobs.submit(
-        user_code_path=DS_PATH / "code",
-        entrypoint="main.py",
-        dataset_name="dummy",
-    )
-    assert job.status == JobStatus.pending_code_review
-
-    job = do_rds_client.rpc.jobs.get_all(GetAllRequest())[0]
-
-    do_rds_client.run_private(job)
-    assert job.status == JobStatus.job_run_finished
-
-    do_rds_client.jobs.share_results(job)
-    assert job.status == JobStatus.shared
-
-    output_path = job.get_output_path()
-    assert output_path.exists()
-
-    all_files_folders = list(output_path.glob("**/*"))
-    all_files = [f for f in all_files_folders if f.is_file()]
-    assert len(all_files) == 3
-
-    output_txt = output_path / "output" / "output.txt"
-    assert output_txt.exists()
-    with open(output_txt, "r") as f:
-        assert f.read() == "ABC"
+    my_result = output_path / "output" / "my_result.csv"
+    assert my_result.exists()
+    with open(my_result, "r") as f:
+        assert f.read() == "Hello, world!"

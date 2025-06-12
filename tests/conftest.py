@@ -28,7 +28,6 @@ MOCK_CODE_PATH = DO_PATH / "mock_code"
 README_PATH = DO_PATH / "README.md"
 DO_OUTPUT_PATH = DO_PATH / "job_outputs"
 DS_PATH = ASSET_PATH / "ds"
-TEST_DOCKERFILE_FILE_PATH = TEST_DIR.parent / "runtimes" / "python_test.Dockerfile"
 
 
 @pytest.fixture
