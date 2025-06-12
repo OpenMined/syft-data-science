@@ -1,11 +1,8 @@
 import pytest
 from syft_rds.client.rds_client import RDSClient
 from syft_rds.models.models import GetAllRequest, JobStatus
-from syft_rds.client.rds_clients.runtime import (
-    DEFAULT_DOCKERFILE_FILE_PATH,
-)
 
-from tests.conftest import DS_PATH
+from tests.conftest import DS_PATH, TEST_DOCKERFILE_FILE_PATH
 from tests.utils import create_dataset
 from loguru import logger
 
@@ -67,7 +64,7 @@ def test_job_folder_execution(
             user_code_path=user_code_dir,
             entrypoint=entrypoint,
             runtime_kind="docker",
-            runtime_config={"dockerfile": str(DEFAULT_DOCKERFILE_FILE_PATH)},
+            runtime_config={"dockerfile": str(TEST_DOCKERFILE_FILE_PATH)},
         )
     else:
         job = ds_rds_client.jobs.submit(
