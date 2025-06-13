@@ -5,12 +5,6 @@ from uuid import UUID
 from loguru import logger
 from syft_core import Client as SyftBoxClient
 from syft_event import SyftEvents
-from syft_rds.syft_runtime.main import (
-    DockerRunner,
-    FileOutputHandler,
-    JobConfig,
-    RichConsoleUI,
-)
 
 from syft_rds.client.client_registry import GlobalClientRegistry
 from syft_rds.client.connection import get_connection
@@ -27,6 +21,13 @@ from syft_rds.client.rpc import RPCClient
 from syft_rds.client.utils import PathLike
 from syft_rds.models.base import ItemBase
 from syft_rds.models.models import Dataset, Job, JobStatus, UserCode
+from syft_rds.syft_runtime.main import (
+    DockerRunner,
+    FileOutputHandler,
+    JobConfig,
+    RichConsoleUI,
+    TextUI,
+)
 
 T = TypeVar("T", bound=ItemBase)
 
@@ -151,7 +152,14 @@ class RDSClient(RDSClientBase):
             use_docker=runner_config.use_docker,
         )
 
-    def run_private(self, job: Job, config: Optional[JobConfig] = None) -> Job:
+    def run_private(
+        self,
+        job: Job,
+        config: Optional[JobConfig] = None,
+        display_type: str = "text",
+        show_stdout: bool = True,
+        show_stderr: bool = True,
+    ) -> Job:
         if job.status == JobStatus.rejected:
             raise ValueError(
                 "Cannot run rejected job, "
@@ -162,24 +170,60 @@ class RDSClient(RDSClientBase):
         config = config or self.get_default_config_for_job(job)
 
         logger.warning("Running job without docker is not secure")
-        return_code = self._run(config=config)
+        return_code = self._run(
+            config=config,
+            display_type=display_type,
+            show_stdout=show_stdout,
+            show_stderr=show_stderr,
+        )
         job_update = job.get_update_for_return_code(return_code)
         new_job = self.rpc.jobs.update(job_update)
         return job.apply_update(new_job)
 
-    def run_mock(self, job: Job, config: Optional[JobConfig] = None) -> Job:
+    def run_mock(
+        self,
+        job: Job,
+        config: Optional[JobConfig] = None,
+        display_type: str = "text",
+        show_stdout: bool = True,
+        show_stderr: bool = True,
+    ) -> Job:
         config = config or self.get_default_config_for_job(job)
         config.data_path = self.dataset.get(name=job.dataset_name).get_mock_path()
-        self._run(config=config)
+        self._run(
+            config=config,
+            display_type=display_type,
+            show_stdout=show_stdout,
+            show_stderr=show_stderr,
+        )
         return job
 
-    def _run(self, config: JobConfig) -> int:
+    def _run(
+        self,
+        config: JobConfig,
+        display_type: str = "text",
+        show_stdout: bool = True,
+        show_stderr: bool = True,
+    ) -> int:
         """Runs a job.
 
         Args:
             job (Job): The job to run
         """
 
-        runner = DockerRunner(handlers=[FileOutputHandler(), RichConsoleUI()])
+        if display_type == "rich":
+            display_handler = RichConsoleUI(
+                show_stdout=show_stdout,
+                show_stderr=show_stderr,
+            )
+        elif display_type == "text":
+            display_handler = TextUI(
+                show_stdout=show_stdout,
+                show_stderr=show_stderr,
+            )
+        else:
+            raise ValueError(f"Unknown display type: {display_type}")
+
+        runner = DockerRunner(handlers=[FileOutputHandler(), display_handler])
         return_code = runner.run(config)
         return return_code

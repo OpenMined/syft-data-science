@@ -138,7 +138,9 @@ def limit_path_depth(path: Path, max_depth: int = 4) -> str:
 class RichConsoleUI(JobOutputHandler):
     """Rich console implementation of JobOutputHandler"""
 
-    def __init__(self):
+    def __init__(self, show_stdout: bool = True, show_stderr: bool = True):
+        self.show_stdout = show_stdout
+        self.show_stderr = show_stderr
         self.console = Console()
         spinner = Spinner("dots")
         self.live = Live(spinner, refresh_per_second=10)
@@ -170,9 +172,9 @@ class RichConsoleUI(JobOutputHandler):
         if not self.live:
             return
 
-        if stdout:
+        if stdout and self.show_stdout:
             self.live.console.print(stdout, end="")
-        if stderr:
+        if stderr and self.show_stderr:
             self.live.console.print(f"[red]{stderr}[/]", end="")
 
     def on_job_completion(self, return_code: int) -> None:
@@ -189,6 +191,45 @@ class RichConsoleUI(JobOutputHandler):
 
     def __del__(self):
         self.live.stop()
+
+
+class TextUI(JobOutputHandler):
+    """Simple text-based implementation of JobOutputHandler using print statements"""
+
+    def __init__(self, show_stdout: bool = True, show_stderr: bool = True):
+        self.show_stdout = show_stdout
+        self.show_stderr = show_stderr
+        self._job_running = False
+
+    def on_job_start(self, config: JobConfig) -> None:
+        first_line = "================ Job Configuration ================"
+        last_line = "=" * len(first_line)
+        print(f"\n{first_line}")
+        print(f"Execution:    {' '.join(config.runtime.cmd)} {' '.join(config.args)}")
+        print(f"Dataset Dir.: {limit_path_depth(config.data_path)}")
+        print(f"Output Dir.:  {limit_path_depth(config.output_dir)}")
+        print(f"Timeout:      {config.timeout}s")
+        print(f"{last_line}\n")
+        print("[STARTING JOB]")
+        self._job_running = True
+
+    def on_job_progress(self, stdout: str, stderr: str) -> None:
+        if not self._job_running:
+            return
+        if stdout and self.show_stdout:
+            print(stdout, end="")
+        if stderr and self.show_stderr:
+            print(f"[STDERR] {stderr}", end="")
+
+    def on_job_completion(self, return_code: int) -> None:
+        self._job_running = False
+        if return_code == 0:
+            print("\n[JOB COMPLETED SUCCESSFULLY]\n")
+        else:
+            print(f"\n[JOB FAILED] Return code: {return_code}\n")
+
+    def __del__(self):
+        self._job_running = False
 
 
 class DockerRunner:
