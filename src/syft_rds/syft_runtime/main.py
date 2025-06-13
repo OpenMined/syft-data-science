@@ -202,14 +202,15 @@ class TextUI(JobOutputHandler):
         self._job_running = False
 
     def on_job_start(self, config: JobConfig) -> None:
-        print("\n================ Job Configuration ================")
-        print("[STARTING JOB]")
+        first_line = "================ Job Configuration ================"
+        last_line = "=" * len(first_line)
+        print(f"\n{first_line}")
         print(f"Execution:    {' '.join(config.runtime.cmd)} {' '.join(config.args)}")
         print(f"Dataset Dir.: {limit_path_depth(config.data_path)}")
         print(f"Output Dir.:  {limit_path_depth(config.output_dir)}")
         print(f"Timeout:      {config.timeout}s")
-        print("==================================================\n")
-        print("Running job...")
+        print(f"{last_line}\n")
+        print("[STARTING JOB]")
         self._job_running = True
 
     def on_job_progress(self, stdout: str, stderr: str) -> None:
