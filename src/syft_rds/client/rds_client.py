@@ -1,5 +1,5 @@
 from pathlib import Path
-from typing import Optional, Type, TypeVar
+from typing import Callable, Optional, Type, TypeVar
 from uuid import UUID
 
 from loguru import logger
@@ -27,7 +27,7 @@ from syft_rds.client.rds_clients.user_code import UserCodeRDSClient
 from syft_rds.client.rpc import RPCClient
 from syft_rds.client.utils import PathLike
 from syft_rds.models.base import ItemBase
-from syft_rds.models.models import Dataset, Job, JobStatus, UserCode, Runtime
+from syft_rds.models.models import Dataset, Job, JobStatus, JobUpdate, UserCode, Runtime
 
 T = TypeVar("T", bound=ItemBase)
 
@@ -152,6 +152,10 @@ class RDSClient(RDSClientBase):
         )
         return job_config
 
+    def _update_job_status(self, job_update: JobUpdate, job: Job) -> Job:
+        new_job = self.rpc.jobs.update(job_update)
+        return job.apply_update(new_job)
+
     def run_private(self, job: Job) -> Job:
         if job.status == JobStatus.rejected:
             raise ValueError(
@@ -160,19 +164,24 @@ class RDSClient(RDSClientBase):
             )
         logger.debug(f"Running job '{job.name}' on private data")
         job_config: JobConfig = self._get_config_for_job(job)
-        return_code = self._run(config=job_config)
+        return_code = self._run(job_config, job, self._update_job_status)
         job_update = job.get_update_for_return_code(return_code)
-        new_job = self.rpc.jobs.update(job_update)
-        return job.apply_update(new_job)
+        return self._update_job_status(job_update, job)
 
     def run_mock(self, job: Job) -> Job:
-        logger.debug(f"Running job {job.name} on mock data")
+        logger.debug(f"Running job '{job.name}' on mock data")
         job_config: JobConfig = self._get_config_for_job(job)
         job_config.data_path = self.dataset.get(name=job.dataset_name).get_mock_path()
-        self._run(config=job_config)
-        return job
+        return_code = self._run(job_config, job, self._update_job_status)
+        job_update = job.get_update_for_return_code(return_code)
+        return self._update_job_status(job_update, job)
 
-    def _run(self, config: JobConfig) -> int:
+    def _run(
+        self,
+        config: JobConfig,
+        job: Job,
+        update_job_status: Callable[[JobUpdate, Job], Job],
+    ) -> int:
         runner = SyftRunner(handlers=[FileOutputHandler(), RichConsoleUI()])
-        return_code = runner.run(config)
+        return_code = runner.run(config, job, update_job_status)
         return return_code

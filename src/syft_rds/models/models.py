@@ -1,5 +1,5 @@
 import base64
-import enum
+from enum import Enum
 import os
 from pathlib import Path
 from typing import Any, Generic, Literal, Optional, TypeVar
@@ -34,7 +34,7 @@ MAX_USERCODE_ZIP_SIZE = 1  # MB
 
 
 # --------------- UserCode ---------------
-class UserCodeType(enum.Enum):
+class UserCodeType(Enum):
     FILE = "file"
     FOLDER = "folder"
 
@@ -114,7 +114,7 @@ class UserCodeUpdate(ItemBaseUpdate[UserCode]):
 
 
 # --------------- Runtime ---------------
-class RuntimeKind(str, enum.Enum):
+class RuntimeKind(str, Enum):
     PYTHON = "python"
     DOCKER = "docker"
     KUBERNETES = "kubernetes"
@@ -144,11 +144,25 @@ class PythonRuntimeConfig(BaseRuntimeConfig):
         return value
 
 
+class DockerMount(BaseModel):
+    source: PathLike
+    target: PathLike
+    mode: Literal["ro", "rw"] = "ro"
+
+    @field_validator("source")
+    def validate_source_path_exists(cls, value: PathLike) -> PathLike:
+        source_path = Path(value).expanduser().resolve()
+        if not source_path.exists():
+            # raise FileNotFoundError(f"Source path '{value}' does not exist")
+            logger.warning(f"Source path '{value}' does not exist")
+        return value
+
+
 class DockerRuntimeConfig(BaseRuntimeConfig):
     dockerfile: PathLike
     image_name: str | None = None
     cmd: list[str] = ["python"]
-    mount_dir: Path | None = None
+    extra_mounts: list[DockerMount] = Field(default_factory=list)
 
     @field_validator("dockerfile")
     def validate_dockerfile(cls, value: PathLike) -> PathLike:
@@ -170,6 +184,10 @@ RuntimeConfig = PythonRuntimeConfig | DockerRuntimeConfig | KubernetesRuntimeCon
 
 class Runtime(ItemBase):
     __schema_name__ = "runtime"
+    __table_extra_fields__ = [
+        "name",
+        "kind",
+    ]
 
     name: str | None = None
     kind: RuntimeKind
@@ -216,7 +234,7 @@ class RuntimeUpdate(ItemBaseUpdate[Runtime]):
 
 
 # --------------- Job ---------------
-class JobErrorKind(str, enum.Enum):
+class JobErrorKind(str, Enum):
     no_error = "no_error"
     timeout = "timeout"
     cancelled = "cancelled"
@@ -225,16 +243,17 @@ class JobErrorKind(str, enum.Enum):
     failed_output_review = "failed_output_review"
 
 
-class JobArtifactKind(str, enum.Enum):
+class JobArtifactKind(str, Enum):
     computation_result = "computation_result"
     error_log = "error_log"
     execution_log = "execution_log"
 
 
-class JobStatus(str, enum.Enum):
+class JobStatus(str, Enum):
     pending_code_review = "pending_code_review"
     job_run_failed = "job_run_failed"
     job_run_finished = "job_run_finished"
+    job_in_progress = "job_in_progress"
 
     # end states
     rejected = "rejected"  # failed to pass the review
@@ -324,7 +343,15 @@ class Job(ItemBase):
             error_message=self.error_message,
         )
 
-    def get_update_for_return_code(self, return_code: int) -> "JobUpdate":
+    def get_update_for_in_progress(self) -> "JobUpdate":
+        return JobUpdate(
+            uid=self.uid,
+            status=JobStatus.job_in_progress,
+        )
+
+    def get_update_for_return_code(self, return_code: int | None) -> "JobUpdate":
+        if return_code is None:
+            return self.get_update_for_in_progress()
         if return_code == 0:
             self.status = JobStatus.job_run_finished
         else:
@@ -388,7 +415,7 @@ class JobConfig(BaseModel):
         default_factory=lambda: Path("jobs") / datetime.now().strftime("%Y%m%d_%H%M%S")
     )
     timeout: int = 60
-    data_mount_dir: str = "/data"
+    data_mount_dir: str = "/app/data"
     extra_env: dict[str, str] = {}
 
     @property

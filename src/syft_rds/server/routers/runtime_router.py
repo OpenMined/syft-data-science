@@ -1,3 +1,4 @@
+from loguru import logger
 from syft_event import SyftEvents
 from syft_rds.models.models import (
     GetAllRequest,
@@ -21,14 +22,15 @@ def create_runtime(create_request: RuntimeCreate, app: SyftEvents) -> Runtime:
 
 
 @runtime_router.on_request("/get_one")
-def get_runtime(request: GetOneRequest, app: SyftEvents) -> Runtime:
+def get_runtime(request: GetOneRequest, app: SyftEvents) -> Runtime | None:
     runtime_store: YAMLStore[Runtime] = app.state["runtime_store"]
     filters = request.filters
     if request.uid is not None:
         filters["uid"] = request.uid
     item = runtime_store.get_one(**filters)
     if item is None:
-        raise ValueError(f"No runtime found with filters {filters}")
+        # raise ValueError(f"No runtime found with filters {filters}")
+        logger.error(f"No runtime found with filters {filters}")
     return item
 
 

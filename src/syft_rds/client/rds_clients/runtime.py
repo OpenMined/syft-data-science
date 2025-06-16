@@ -14,8 +14,9 @@ from syft_rds.models.models import (
     GetOneRequest,
 )
 
+DEFAULT_RUNTIME_KIND = os.getenv("SYFT_RDS_DEFAULT_RUNTIME_KIND", "python")
 DEFAULT_RUNTIME_NAME = os.getenv(
-    "SYFT_RDS_DEFAULT_RUNTIME_NAME", "syft_python_3.12_docker_runtime"
+    "SYFT_RDS_DEFAULT_RUNTIME_NAME", "syft_default_python_runtime"
 )
 PROJECT_ROOT = Path(__file__).resolve().parents[4]
 DEFAULT_DOCKERFILE_FILE_PATH = PROJECT_ROOT / "runtimes" / "python.Dockerfile"
@@ -52,7 +53,7 @@ class RuntimeRDSClient(RDSClientModule[Runtime]):
             get_req = GetOneRequest(filters={"name": name})
             return self.rpc.runtime.get_one(get_req)
         except Exception as e:
-            logger.error(f"Error getting runtime by name: {e}")
+            logger.debug(f"Error getting runtime by name: {e}")
             return None
 
     def _create_runtime_config(
@@ -90,17 +91,15 @@ class RuntimeRDSClient(RDSClientModule[Runtime]):
     def _get_or_create_default(self) -> Runtime:
         """
         Get the default runtime if it exists, otherwise create it.
-        The default runtime is a docker runtime with the python 3.12 image.
-        The name of the default runtime is "docker_python_3.12".
+        The default runtime is a python runtime with the python 3.12.
         """
         try:
             logger.debug(f"Getting or creating default runtime: {DEFAULT_RUNTIME_NAME}")
             default_runtime_create = RuntimeCreate(
+                kind=DEFAULT_RUNTIME_KIND,
                 name=DEFAULT_RUNTIME_NAME,
-                kind=RuntimeKind.DOCKER,
-                config=DockerRuntimeConfig(
-                    dockerfile=str(DEFAULT_DOCKERFILE_FILE_PATH),
-                    image_name=DEFAULT_RUNTIME_NAME,
+                config=PythonRuntimeConfig(
+                    version="3.12",
                 ),
             )
             return self._get_or_create(default_runtime_create)

@@ -2,7 +2,7 @@ import os
 import subprocess
 import time
 from pathlib import Path
-from typing import Protocol
+from typing import Callable, Protocol
 
 from loguru import logger
 from rich.console import Console
@@ -10,10 +10,10 @@ from rich.live import Live
 from rich.panel import Panel
 from rich.spinner import Spinner
 
-from syft_rds.client.rds_clients.runtime import DEFAULT_RUNTIME_NAME
-from syft_rds.models.models import JobConfig, RuntimeKind
+from syft_rds.models.models import Job, JobConfig, JobUpdate, RuntimeKind
 
-DEFAULT_OUTPUT_DIR = "/output"
+DEFAULT_WORKDIR = "/app"
+DEFAULT_OUTPUT_DIR = DEFAULT_WORKDIR + "/output"
 
 
 class JobOutputHandler(Protocol):
@@ -134,7 +134,12 @@ class JobRunner:
     def __init__(self, handlers: list[JobOutputHandler]):
         self.handlers = handlers
 
-    def run(self, job_config: JobConfig) -> int | None:
+    def run(
+        self,
+        job_config: JobConfig,
+        job: Job,
+        update_job_status: Callable[[JobUpdate, Job], Job],
+    ) -> int | None:
         """Run a job"""
         raise NotImplementedError
 
@@ -154,8 +159,16 @@ class JobRunner:
             raise ValueError(f"Dataset folder {job_config.data_path} does not exist")
 
     def _run_subprocess(
-        self, cmd: list[str], job_config: JobConfig, env: dict | None = None
+        self,
+        cmd: list[str],
+        job_config: JobConfig,
+        job: Job,
+        update_job_status: Callable[[JobUpdate, Job], Job],
+        env: dict | None = None,
     ) -> int | None:
+        job_update = job.get_update_for_in_progress()
+        update_job_status(job_update, job)
+
         for handler in self.handlers:
             handler.on_job_start(job_config)
 
@@ -166,31 +179,57 @@ class JobRunner:
             text=True,
             env=env,
         )
-        # Stream output
-        while True:
-            stdout_line = process.stdout.readline()
-            stderr_line = process.stderr.readline()
+
+        blocking: bool = False
+        if job_config.runtime.kind == RuntimeKind.PYTHON:
+            blocking = True
+
+        # Stream logs
+        if blocking:
+            while True:
+                stdout_line = process.stdout.readline()
+                stderr_line = process.stderr.readline()
+                if stdout_line or stderr_line:
+                    for handler in self.handlers:
+                        handler.on_job_progress(stdout_line, stderr_line)
+                if process.poll() is not None:
+                    logger.debug(
+                        f"Process {process.pid} terminated with return code {process.returncode}"
+                    )
+                    break
+                time.sleep(0.1)
+
+            # Flush remaining output
+            for line in process.stdout:
+                for handler in self.handlers:
+                    handler.on_job_progress(line, "")
+            for line in process.stderr:
+                for handler in self.handlers:
+                    handler.on_job_progress("", line)
+
+            return_code = process.returncode
+
+            # Update job status
+            job_update = job.get_update_for_return_code(return_code)
+            update_job_status(job_update, job)
 
             for handler in self.handlers:
-                handler.on_job_progress(stdout_line, stderr_line)
+                handler.on_job_completion(process.returncode)
 
-            if not stdout_line and not stderr_line and process.poll() is not None:
-                break
+            return process.returncode
 
-            if not stdout_line and not stderr_line:
-                time.sleep(0.5)
-
-        process.wait()
-        for handler in self.handlers:
-            handler.on_job_completion(process.returncode)
-
-        return process.returncode
+        return None
 
 
 class PythonRunner(JobRunner):
     """Handles running jobs directly as Python subprocesses"""
 
-    def run(self, job_config: JobConfig) -> int | None:
+    def run(
+        self,
+        job_config: JobConfig,
+        job: Job,
+        update_job_status: Callable[[JobUpdate, Job], Job],
+    ) -> int | None:
         """Run a job as a Python subprocess"""
         logger.debug(
             f"Running code in '{job_config.function_folder}' on dataset '{job_config.data_path}' with runtime '{job_config.runtime.kind.value}'"
@@ -205,7 +244,7 @@ class PythonRunner(JobRunner):
         env.update(job_config.get_env())
         env.update(job_config.extra_env)
 
-        return self._run_subprocess(cmd, job_config, env=env)
+        return self._run_subprocess(cmd, job_config, job, update_job_status, env=env)
 
     def _prepare_run_command(self, job_config: JobConfig) -> list[str]:
         return [
@@ -218,7 +257,12 @@ class PythonRunner(JobRunner):
 class DockerRunner(JobRunner):
     """Handles running jobs in Docker containers with security constraints"""
 
-    def run(self, job_config: JobConfig) -> int | None:
+    def run(
+        self,
+        job_config: JobConfig,
+        job: Job,
+        update_job_status: Callable[[JobUpdate, Job], Job],
+    ) -> int | None:
         """Run a job in a Docker container"""
         logger.debug(
             f"Running code in '{job_config.function_folder}' on dataset '{job_config.data_path}' with runtime '{job_config.runtime.kind.value}'"
@@ -231,7 +275,7 @@ class DockerRunner(JobRunner):
 
         cmd = self._prepare_run_command(job_config)
 
-        return self._run_subprocess(cmd, job_config)
+        return self._run_subprocess(cmd, job_config, job, update_job_status)
 
     def _validate_docker(self, job_config: JobConfig) -> None:
         """Validate Docker is available and the required image exists."""
@@ -251,7 +295,9 @@ class DockerRunner(JobRunner):
     def _get_image_name(self, job_config: JobConfig) -> str:
         """Get the Docker image name from the config or use the default."""
         runtime_config = job_config.runtime.config
-        return runtime_config.image_name or DEFAULT_RUNTIME_NAME
+        if not runtime_config.image_name:
+            return job_config.runtime.name
+        return runtime_config.image_name
 
     def _check_or_build_image(self, job_config: JobConfig) -> None:
         """Check if a required Docker image exists."""
@@ -309,21 +355,58 @@ class DockerRunner(JobRunner):
         image_name = self._get_image_name(job_config)
         docker_mounts = [
             "-v",
-            f"{Path(job_config.function_folder).absolute()}:/code:ro",
+            f"{Path(job_config.function_folder).absolute()}:{DEFAULT_WORKDIR}/code:ro",
             "-v",
-            f"{Path(job_config.data_path).absolute()}:{job_config.data_mount_dir}:ro",
+            f"{Path(job_config.data_path).absolute()}:{DEFAULT_WORKDIR}/data:ro",
             "-v",
             f"{job_config.output_dir.absolute()}:{DEFAULT_OUTPUT_DIR}:rw",
         ]
 
         runtime_config = job_config.runtime.config
-        if runtime_config.mount_dir:
-            docker_mounts.extend(
-                [
-                    "-v",
-                    f"{runtime_config.mount_dir.absolute()}:{runtime_config.mount_dir.absolute()}:ro",
-                ]
-            )
+
+        # TODO: hard coding to make things work with syft_flwr. Remove later. TODO: make this generic for all apps
+        # TODO: think about submitting app_name in jobs.submit()
+        from syft_rds.models.models import DockerMount
+        from syft_core import Client
+        import tomli
+
+        client = Client.load()
+        client_email = client.email
+        flwr_app_data = client.app_data("flwr")
+        logger.debug(f"Client email: {client_email}")
+        with open(job_config.function_folder / "pyproject.toml", "rb") as fp:
+            toml_dict = tomli.load(fp)
+            syft_flwr_app_name = toml_dict["tool"]["syft_flwr"]["app_name"]
+        logger.debug(f"Syft Flwr app name: {syft_flwr_app_name}")
+        extra_mounts = [
+            DockerMount(
+                source=client.workspace.data_dir.parent
+                / ".modified_configs"
+                / f"{client_email}.config.json",
+                target="/app/config.json",
+                mode="ro",
+            ),
+            DockerMount(
+                source=Path(f"{flwr_app_data}/{syft_flwr_app_name}/rpc/messages"),
+                target=f"/app/SyftBox/datasites/{client_email}/app_data/flwr/{syft_flwr_app_name}/rpc/messages",
+                mode="rw",
+            ),
+        ]
+        runtime_config.extra_mounts = extra_mounts
+        # END OF TODO
+
+        if runtime_config.extra_mounts:
+            for mount in runtime_config.extra_mounts:
+                docker_mounts.extend(
+                    [
+                        "-v",
+                        f"{mount.source.resolve()}:{mount.target}:{mount.mode}",
+                    ]
+                )
+        logger.debug(f"Docker mounts: {docker_mounts}")
+
+        interpreter = " ".join(job_config.runtime.cmd)
+        interpreter_str = f'"{interpreter}"' if " " in interpreter else interpreter
 
         limits = [
             # Security constraints
@@ -331,7 +414,7 @@ class DockerRunner(JobRunner):
             "ALL",  # Drop all capabilities
             "--network",
             "none",  # Disable networking
-            "--read-only",  # Read-only root filesystem
+            # "--read-only",  # Read-only root filesystem - TODO: re-enable this
             "--tmpfs",
             "/tmp:size=16m,noexec,nosuid,nodev",  # Secure temp directory
             # Resource limits
@@ -348,9 +431,8 @@ class DockerRunner(JobRunner):
             "--ulimit",
             "fsize=10000000:10000000",  # ~10MB file size limit
         ]
-        interpreter = " ".join(job_config.runtime.cmd)
-        interpreter_str = f'"{interpreter}"' if " " in interpreter else interpreter
-        return [
+
+        docker_run_cmd = [
             "docker",
             "run",
             "--rm",  # Remove container after completion
@@ -365,12 +447,17 @@ class DockerRunner(JobRunner):
             "-e",
             f"INTERPRETER={interpreter_str}",
             "-e",
-            f"INPUT_FILE='{job_config.function_folder / job_config.args[0]}'",
+            f"INPUT_FILE='{DEFAULT_WORKDIR}/code/{job_config.args[0]}'",
             *job_config.get_extra_env_as_docker_args(),
             *docker_mounts,
+            "--workdir",
+            DEFAULT_WORKDIR,
             image_name,
-            *job_config.args,
+            f"{DEFAULT_WORKDIR}/code/{job_config.args[0]}",
+            *job_config.args[1:],
         ]
+        logger.debug(f"Docker run command: {docker_run_cmd}")
+        return docker_run_cmd
 
 
 class SyftRunner:
@@ -383,11 +470,16 @@ class SyftRunner:
             RuntimeKind.DOCKER: DockerRunner(handlers),
         }
 
-    def run(self, job_config: JobConfig) -> int | None:
+    def run(
+        self,
+        job_config: JobConfig,
+        job: Job,
+        update_job_status: Callable[[JobUpdate, Job], Job],
+    ) -> int | None:
         """Selects the appropriate runner based on runtime kind and runs the job."""
         runner = self._runners.get(job_config.runtime.kind)
         if not runner:
             raise NotImplementedError(
                 f"Unsupported runtime kind: {job_config.runtime.kind}"
             )
-        return runner.run(job_config)
+        return runner.run(job_config, job, update_job_status)
