@@ -5,12 +5,6 @@ from uuid import UUID
 from loguru import logger
 from syft_core import Client as SyftBoxClient
 from syft_event import SyftEvents
-from syft_rds.syft_runtime.main import (
-    FileOutputHandler,
-    JobConfig,
-    RichConsoleUI,
-    SyftRunner,
-)
 
 from syft_rds.client.client_registry import GlobalClientRegistry
 from syft_rds.client.connection import get_connection
@@ -28,6 +22,13 @@ from syft_rds.client.rpc import RPCClient
 from syft_rds.client.utils import PathLike
 from syft_rds.models.base import ItemBase
 from syft_rds.models.models import Dataset, Job, JobStatus, JobUpdate, UserCode, Runtime
+from syft_rds.syft_runtime.main import (
+    FileOutputHandler,
+    JobConfig,
+    RichConsoleUI,
+    TextUI,
+    SyftRunner,
+)
 
 T = TypeVar("T", bound=ItemBase)
 
@@ -156,7 +157,13 @@ class RDSClient(RDSClientBase):
         new_job = self.rpc.jobs.update(job_update)
         return job.apply_update(new_job)
 
-    def run_private(self, job: Job) -> Job:
+    def run_private(
+        self,
+        job: Job,
+        display_type: str = "text",
+        show_stdout: bool = True,
+        show_stderr: bool = True,
+    ) -> Job:
         if job.status == JobStatus.rejected:
             raise ValueError(
                 "Cannot run rejected job. "
@@ -164,15 +171,35 @@ class RDSClient(RDSClientBase):
             )
         logger.debug(f"Running job '{job.name}' on private data")
         job_config: JobConfig = self._get_config_for_job(job)
-        return_code = self._run(job_config, job, self._update_job_status)
+        return_code = self._run(
+            job_config,
+            job,
+            self._update_job_status,
+            display_type,
+            show_stdout,
+            show_stderr,
+        )
         job_update = job.get_update_for_return_code(return_code)
         return self._update_job_status(job_update, job)
 
-    def run_mock(self, job: Job) -> Job:
+    def run_mock(
+        self,
+        job: Job,
+        display_type: str = "text",
+        show_stdout: bool = True,
+        show_stderr: bool = True,
+    ) -> Job:
         logger.debug(f"Running job '{job.name}' on mock data")
         job_config: JobConfig = self._get_config_for_job(job)
         job_config.data_path = self.dataset.get(name=job.dataset_name).get_mock_path()
-        return_code = self._run(job_config, job, self._update_job_status)
+        return_code = self._run(
+            job_config,
+            job,
+            self._update_job_status,
+            display_type,
+            show_stdout,
+            show_stderr,
+        )
         job_update = job.get_update_for_return_code(return_code)
         return self._update_job_status(job_update, job)
 
@@ -181,7 +208,23 @@ class RDSClient(RDSClientBase):
         config: JobConfig,
         job: Job,
         update_job_status: Callable[[JobUpdate, Job], Job],
+        display_type: str = "text",
+        show_stdout: bool = True,
+        show_stderr: bool = True,
     ) -> int:
-        runner = SyftRunner(handlers=[FileOutputHandler(), RichConsoleUI()])
+        if display_type == "rich":
+            display_handler = RichConsoleUI(
+                show_stdout=show_stdout,
+                show_stderr=show_stderr,
+            )
+        elif display_type == "text":
+            display_handler = TextUI(
+                show_stdout=show_stdout,
+                show_stderr=show_stderr,
+            )
+        else:
+            raise ValueError(f"Unknown display type: {display_type}")
+
+        runner = SyftRunner(handlers=[FileOutputHandler(), display_handler])
         return_code = runner.run(config, job, update_job_status)
         return return_code
