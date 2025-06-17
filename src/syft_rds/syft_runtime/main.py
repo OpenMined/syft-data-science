@@ -230,6 +230,7 @@ class JobRunner:
         )
         logger.debug(f"Blocking execution: {blocking}")
         if not blocking:
+            # TODO: handle job status update after the non-blocking job is finished
             return None
 
         # Stream logs
