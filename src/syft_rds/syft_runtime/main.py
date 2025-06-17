@@ -15,6 +15,7 @@ from syft_rds.syft_runtime.mounts import get_mount_provider
 
 DEFAULT_WORKDIR = "/app"
 DEFAULT_OUTPUT_DIR = DEFAULT_WORKDIR + "/output"
+SYFT_RDS_BLOCKING_EXECUTION = "SYFT_RDS_BLOCKING_EXECUTION"
 
 
 class JobOutputHandler(Protocol):
@@ -222,45 +223,47 @@ class JobRunner:
             env=env,
         )
 
-        blocking: bool = False
-        if job_config.runtime.kind == RuntimeKind.PYTHON:
-            blocking = True
+        blocking: bool = (
+            job_config.runtime.kind
+            == RuntimeKind.PYTHON  # Python always blocks for now. TODO: make it non-blocking
+            or os.getenv(SYFT_RDS_BLOCKING_EXECUTION, "true").lower() == "true"
+        )
+        logger.debug(f"Blocking execution: {blocking}")
+        if not blocking:
+            return None
 
         # Stream logs
-        if blocking:
-            while True:
-                stdout_line = process.stdout.readline()
-                stderr_line = process.stderr.readline()
-                if stdout_line or stderr_line:
-                    for handler in self.handlers:
-                        handler.on_job_progress(stdout_line, stderr_line)
-                if process.poll() is not None:
-                    logger.debug(
-                        f"Process {process.pid} terminated with return code {process.returncode}"
-                    )
-                    break
-                time.sleep(0.1)
-
-            # Flush remaining output
-            for line in process.stdout:
+        while True:
+            stdout_line = process.stdout.readline()
+            stderr_line = process.stderr.readline()
+            if stdout_line or stderr_line:
                 for handler in self.handlers:
-                    handler.on_job_progress(line, "")
-            for line in process.stderr:
-                for handler in self.handlers:
-                    handler.on_job_progress("", line)
+                    handler.on_job_progress(stdout_line, stderr_line)
+            if process.poll() is not None:
+                logger.debug(
+                    f"Process {process.pid} terminated with return code {process.returncode}"
+                )
+                break
+            time.sleep(0.1)
 
-            return_code = process.returncode
-
-            # Update job status
-            job_update = job.get_update_for_return_code(return_code)
-            update_job_status(job_update, job)
-
+        # Flush remaining output
+        for line in process.stdout:
             for handler in self.handlers:
-                handler.on_job_completion(process.returncode)
+                handler.on_job_progress(line, "")
+        for line in process.stderr:
+            for handler in self.handlers:
+                handler.on_job_progress("", line)
 
-            return process.returncode
+        return_code = process.returncode
 
-        return None
+        # Update job status
+        job_update = job.get_update_for_return_code(return_code)
+        update_job_status(job_update, job)
+
+        for handler in self.handlers:
+            handler.on_job_completion(process.returncode)
+
+        return process.returncode
 
 
 class PythonRunner(JobRunner):

@@ -4,6 +4,7 @@ from tests.conftest import DS_PATH
 from tests.utils import create_dataset
 
 from syft_rds.client.rds_clients.runtime import (
+    DEFAULT_RUNTIME_KIND,
     DEFAULT_RUNTIME_NAME,
     DEFAULT_DOCKERFILE_FILE_PATH,
 )
@@ -23,7 +24,7 @@ from syft_rds.models.models import JobStatus
                 "entrypoint": "main.py",
                 "dataset_name": "dummy",
             },
-            "docker",
+            DEFAULT_RUNTIME_KIND,
             DEFAULT_RUNTIME_NAME,
         ),
         # Python runtime
