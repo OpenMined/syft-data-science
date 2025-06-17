@@ -4,11 +4,13 @@ from typing import Type
 from syft_rds.models.base import ItemBase
 
 USER_FILES_DIR = "user_files"
+# TODO fix permissions to only allow users to read their own folder
 USER_FILES_PERMISSION = """
-- path: '{useremail}/**'
-  permissions:
-  - read
-  user: '*'
+rules:
+- pattern: '**'
+  access:
+    read:
+    - '*'
 """
 
 
@@ -44,7 +46,7 @@ class UserFileService:
         """Initialize the user files directory with proper permissions."""
         self.user_files_dir.mkdir(exist_ok=True)
 
-        perm_path = self.user_files_dir / "syftperm.yaml"
+        perm_path = self.user_files_dir / "syft.pub.yaml"
         perm_path.write_text(USER_FILES_PERMISSION)
 
     def dir_for_user(self, user: str) -> Path:
