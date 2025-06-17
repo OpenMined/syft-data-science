@@ -30,7 +30,7 @@ def get_runtime(request: GetOneRequest, app: SyftEvents) -> Runtime | None:
     item = runtime_store.get_one(**filters)
     if item is None:
         # raise ValueError(f"No runtime found with filters {filters}")
-        logger.error(f"No runtime found with filters {filters}")
+        logger.warning(f"No runtime found with filters {filters}")
     return item
 
 

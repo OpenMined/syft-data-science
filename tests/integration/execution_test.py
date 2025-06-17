@@ -77,7 +77,8 @@ def _run_and_verify_job(do_rds_client: RDSClient):
     # Runner side: Execute the job
     do_rds_client.run_private(job)
     if job.status == JobStatus.job_run_failed:
-        logger.error(f"Job failed: {job.error_message}")
+        logger.info(f"Job failed: {job.error_message}")
+        raise Exception(f"Job failed: {job.error_message}")
     time.sleep(10)
     assert job.status == JobStatus.job_run_finished
 
