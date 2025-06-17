@@ -2888,7 +2888,6 @@ dependencies = [
     { name = "syft-core" },
     { name = "syft-event" },
     { name = "syft-rpc" },
-    { name = "tomli" },
     { name = "typer" },
     { name = "typing-extensions" },
 ]
@@ -2916,7 +2915,6 @@ requires-dist = [
     { name = "syft-core", specifier = "==0.2.3" },
     { name = "syft-event", specifier = "==0.2.3" },
     { name = "syft-rpc", specifier = "==0.2.2" },
-    { name = "tomli", specifier = ">=2.0.1" },
     { name = "typer", specifier = ">=0.12.5" },
     { name = "typing-extensions", specifier = ">=4.12.2" },
 ]

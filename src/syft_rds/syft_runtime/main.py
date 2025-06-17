@@ -10,7 +10,8 @@ from rich.live import Live
 from rich.panel import Panel
 from rich.spinner import Spinner
 
-from syft_rds.models.models import Job, JobConfig, JobUpdate, RuntimeKind
+from syft_rds.models.models import DockerMount, Job, JobConfig, JobUpdate, RuntimeKind
+from syft_rds.syft_runtime.mounts import get_mount_provider
 
 DEFAULT_WORKDIR = "/app"
 DEFAULT_OUTPUT_DIR = DEFAULT_WORKDIR + "/output"
@@ -391,6 +392,16 @@ class DockerRunner(JobRunner):
         except Exception as e:
             raise RuntimeError(f"An error occurred during Docker image build: {e}")
 
+    def _get_extra_mounts(self, job_config: JobConfig) -> list[DockerMount]:
+        """Get extra mounts for a job"""
+        docker_runtime_config = job_config.runtime.config
+        if docker_runtime_config.app_name is None:
+            return []
+        mount_provider = get_mount_provider(docker_runtime_config.app_name)
+        if mount_provider:
+            return mount_provider.get_mounts(job_config)
+        return []
+
     def _prepare_run_command(self, job_config: JobConfig) -> list[str]:
         """Build the Docker run command with security constraints"""
         image_name = self._get_image_name(job_config)
@@ -403,48 +414,15 @@ class DockerRunner(JobRunner):
             f"{job_config.output_dir.absolute()}:{DEFAULT_OUTPUT_DIR}:rw",
         ]
 
-        runtime_config = job_config.runtime.config
-
-        # TODO: hard coding to make things work with syft_flwr. Remove later. TODO: make this generic for all apps
-        # TODO: think about submitting app_name in jobs.submit()
-        from syft_rds.models.models import DockerMount
-        from syft_core import Client
-        import tomli
-
-        client = Client.load()
-        client_email = client.email
-        flwr_app_data = client.app_data("flwr")
-        logger.debug(f"Client email: {client_email}")
-        with open(job_config.function_folder / "pyproject.toml", "rb") as fp:
-            toml_dict = tomli.load(fp)
-            syft_flwr_app_name = toml_dict["tool"]["syft_flwr"]["app_name"]
-        logger.debug(f"Syft Flwr app name: {syft_flwr_app_name}")
-        extra_mounts = [
-            DockerMount(
-                source=client.workspace.data_dir.parent
-                / ".modified_configs"
-                / f"{client_email}.config.json",
-                target="/app/config.json",
-                mode="ro",
-            ),
-            DockerMount(
-                source=Path(f"{flwr_app_data}/{syft_flwr_app_name}/rpc/messages"),
-                target=f"/app/SyftBox/datasites/{client_email}/app_data/flwr/{syft_flwr_app_name}/rpc/messages",
-                mode="rw",
-            ),
-        ]
-        runtime_config.extra_mounts = extra_mounts
-        # END OF TODO
-
-        if runtime_config.extra_mounts:
-            for mount in runtime_config.extra_mounts:
+        extra_mounts = self._get_extra_mounts(job_config)
+        if extra_mounts:
+            for mount in extra_mounts:
                 docker_mounts.extend(
                     [
                         "-v",
                         f"{mount.source.resolve()}:{mount.target}:{mount.mode}",
                     ]
                 )
-        logger.debug(f"Docker mounts: {docker_mounts}")
 
         interpreter = " ".join(job_config.runtime.cmd)
         interpreter_str = f'"{interpreter}"' if " " in interpreter else interpreter

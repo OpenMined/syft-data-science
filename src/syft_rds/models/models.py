@@ -162,6 +162,7 @@ class DockerRuntimeConfig(BaseRuntimeConfig):
     dockerfile: PathLike
     image_name: str | None = None
     cmd: list[str] = ["python"]
+    app_name: str | None = None
     extra_mounts: list[DockerMount] = Field(default_factory=list)
 
     @field_validator("dockerfile")
