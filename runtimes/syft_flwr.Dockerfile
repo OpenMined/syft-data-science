@@ -19,7 +19,8 @@ RUN uv venv && \
     uv pip install \
     "flwr[simulation]==1.17.0" "flwr-datasets>=0.5.0" \
     "scikit-learn==1.6.1" "torch==2.7.0" \
-    "syft_flwr==0.1.3" \
+    "syft_flwr==0.1.3" "syft_rds==0.1.3" \
+    "syft_core" \
     imblearn pandas loguru \
     seaborn matplotlib
 

@@ -8,6 +8,7 @@ from syft_rds.client.rds_clients.runtime import (
 from tests.conftest import DS_PATH
 from tests.utils import create_dataset
 from loguru import logger
+import time
 
 
 single_file_submission = {"user_code_path": DS_PATH / "ds.py"}
@@ -77,6 +78,7 @@ def _run_and_verify_job(do_rds_client: RDSClient):
     do_rds_client.run_private(job)
     if job.status == JobStatus.job_run_failed:
         logger.error(f"Job failed: {job.error_message}")
+    time.sleep(10)
     assert job.status == JobStatus.job_run_finished
 
     # DO shares results with DS
