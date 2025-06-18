@@ -15,7 +15,7 @@ from syft_rds.client.rds_clients.base import (
     RDSClientModule,
 )
 from syft_rds.client.rds_clients.dataset import DatasetRDSClient
-from syft_rds.client.rds_clients.jobs import JobRDSClient
+from syft_rds.client.rds_clients.job import JobRDSClient
 from syft_rds.client.rds_clients.user_code import UserCodeRDSClient
 from syft_rds.client.rpc import RPCClient
 from syft_rds.client.utils import PathLike, deprecation_warning
