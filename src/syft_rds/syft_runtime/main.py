@@ -191,9 +191,10 @@ class JobRunner:
         job_config.job_path.mkdir(parents=True, exist_ok=True)
         job_config.logs_dir.mkdir(exist_ok=True)
         job_config.output_dir.mkdir(exist_ok=True)
+        os.chmod(job_config.output_dir, 0o777)
 
     def _validate_paths(self, job_config: JobConfig) -> None:
-        """Validate input paths exist"""
+        """Validate that the necessary paths exist and are of the correct type."""
         if not job_config.function_folder.exists():
             raise ValueError(
                 f"Function folder {job_config.function_folder} does not exist"

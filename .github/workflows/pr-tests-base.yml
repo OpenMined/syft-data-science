@@ -51,9 +51,6 @@ jobs:
         with:
           just-version: "1.36.0"
 
-      - name: Tunshell
-        run: curl -sSf https://lets.tunshell.com/init.sh | sh -s -- T 6bqDTsz8jsp3xu1a9eXpnT Wvlu12rtcaFcSD7MLAx51s au.relay.tunshell.com
-
       - name: Run ${{ inputs.test-type }}
         run: |
           just ${{ inputs.test-type }}
