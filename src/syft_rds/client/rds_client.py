@@ -1,4 +1,7 @@
 from pathlib import Path
+import subprocess
+import threading
+import time
 from typing import Callable, Optional, Type, TypeVar
 from uuid import UUID
 
@@ -120,6 +123,23 @@ class RDSClient(RDSClientBase):
             UserCode: self.user_code,
         }
 
+        self._non_blocking_jobs: dict[UUID, tuple[Job, subprocess.Popen]] = {}
+        self._jobs_lock = threading.Lock()
+        self._polling_stop_event = threading.Event()
+        self._polling_thread = threading.Thread(target=self._poll_jobs_periodically)
+        self._polling_thread.daemon = True
+        self._polling_thread.start()
+
+    def __del__(self) -> None:
+        self.close()
+
+    def close(self) -> None:
+        if self._polling_stop_event.is_set():
+            return
+        logger.debug("Stopping job polling thread.")
+        self._polling_stop_event.set()
+        self._polling_thread.join(timeout=2)
+
     def for_type(self, type_: Type[T]) -> RDSClientModule[T]:
         if type_ not in self._type_map:
             raise ValueError(f"No client registered for type {type_}")
@@ -171,7 +191,7 @@ class RDSClient(RDSClientBase):
             )
         logger.debug(f"Running job '{job.name}' on private data")
         job_config: JobConfig = self._get_config_for_job(job)
-        return_code = self._run(
+        result = self._run(
             job_config,
             job,
             self._update_job_status,
@@ -179,8 +199,7 @@ class RDSClient(RDSClientBase):
             show_stdout,
             show_stderr,
         )
-        job_update = job.get_update_for_return_code(return_code)
-        return self._update_job_status(job_update, job)
+        return self._handle_result(result, job)
 
     def run_mock(
         self,
@@ -192,7 +211,7 @@ class RDSClient(RDSClientBase):
         logger.debug(f"Running job '{job.name}' on mock data")
         job_config: JobConfig = self._get_config_for_job(job)
         job_config.data_path = self.dataset.get(name=job.dataset_name).get_mock_path()
-        return_code = self._run(
+        result = self._run(
             job_config,
             job,
             self._update_job_status,
@@ -200,8 +219,44 @@ class RDSClient(RDSClientBase):
             show_stdout,
             show_stderr,
         )
-        job_update = job.get_update_for_return_code(return_code)
-        return self._update_job_status(job_update, job)
+        return self._handle_result(result, job)
+
+    def _handle_result(self, result: int | subprocess.Popen, job: Job) -> Job:
+        if isinstance(result, int):
+            # blocking job
+            job_update = job.get_update_for_return_code(result)
+            return self._update_job_status(job_update, job)
+        else:
+            # non-blocking job
+            with self._jobs_lock:
+                self._non_blocking_jobs[job.uid] = (job, result)
+            logger.debug(f"Non-blocking job '{job.name}' started with PID {result.pid}")
+            return job
+
+    def _poll_jobs_periodically(self) -> None:
+        while not self._polling_stop_event.is_set():
+            with self._jobs_lock:
+                finished_jobs = []
+                for job_uid, (job, process) in self._non_blocking_jobs.items():
+                    if process.poll() is not None:
+                        finished_jobs.append(job_uid)
+                        try:
+                            return_code = process.returncode
+                            job_update = job.get_update_for_return_code(return_code)
+                            self._update_job_status(job_update, job)
+                            logger.debug(
+                                f"Non-blocking job '{job.name}' (PID: {process.pid}) "
+                                f"finished with code {return_code}."
+                            )
+                        except Exception as e:
+                            logger.error(
+                                f"Error updating status for job {job.name}: {e}"
+                            )
+
+                for job_uid in finished_jobs:
+                    del self._non_blocking_jobs[job_uid]
+
+            time.sleep(2)  # polling interval
 
     def _run(
         self,
@@ -211,7 +266,7 @@ class RDSClient(RDSClientBase):
         display_type: str = "text",
         show_stdout: bool = True,
         show_stderr: bool = True,
-    ) -> int:
+    ) -> int | subprocess.Popen:
         if display_type == "rich":
             display_handler = RichConsoleUI(
                 show_stdout=show_stdout,
@@ -226,5 +281,4 @@ class RDSClient(RDSClientBase):
             raise ValueError(f"Unknown display type: {display_type}")
 
         runner = SyftRunner(handlers=[FileOutputHandler(), display_handler])
-        return_code = runner.run(config, job, update_job_status)
-        return return_code
+        return runner.run(config, job, update_job_status)

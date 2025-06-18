@@ -209,7 +209,7 @@ class JobRunner:
         job: Job,
         update_job_status: Callable[[JobUpdate, Job], Job],
         env: dict | None = None,
-    ) -> int | None:
+    ) -> int | subprocess.Popen:
         job_update = job.get_update_for_in_progress()
         update_job_status(job_update, job)
 
@@ -224,16 +224,19 @@ class JobRunner:
             env=env,
         )
 
-        blocking: bool = (
-            job_config.runtime.kind
-            == RuntimeKind.PYTHON  # Python always blocks for now. TODO: make it non-blocking
-            or os.getenv(SYFT_RDS_BLOCKING_EXECUTION, "true").lower() == "true"
-        )
-        logger.debug(f"Blocking execution: {blocking}")
-        if not blocking:
-            # TODO: handle job status update after the non-blocking job is finished
-            return None
+        if os.getenv(SYFT_RDS_BLOCKING_EXECUTION, "true").lower() == "true":
+            logger.info("Running job in blocking mode")
+            return self._run_blocking(process, job, update_job_status)
+        else:
+            logger.info("Running job in non-blocking mode")
+            return process
 
+    def _run_blocking(
+        self,
+        process: subprocess.Popen,
+        job: Job,
+        update_job_status: Callable[[JobUpdate, Job], Job],
+    ) -> int:
         # Stream logs
         while True:
             stdout_line = process.stdout.readline()
@@ -276,7 +279,7 @@ class PythonRunner(JobRunner):
         job_config: JobConfig,
         job: Job,
         update_job_status: Callable[[JobUpdate, Job], Job],
-    ) -> int | None:
+    ) -> int | subprocess.Popen:
         """Run a job as a Python subprocess"""
         logger.debug(
             f"Running code in '{job_config.function_folder}' on dataset '{job_config.data_path}' with runtime '{job_config.runtime.kind.value}'"
@@ -309,7 +312,7 @@ class DockerRunner(JobRunner):
         job_config: JobConfig,
         job: Job,
         update_job_status: Callable[[JobUpdate, Job], Job],
-    ) -> int | None:
+    ) -> int | subprocess.Popen:
         """Run a job in a Docker container"""
         logger.debug(
             f"Running code in '{job_config.function_folder}' on dataset '{job_config.data_path}' with runtime '{job_config.runtime.kind.value}'"
