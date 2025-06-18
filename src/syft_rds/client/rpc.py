@@ -12,8 +12,7 @@ from syft_rpc import SyftResponse
 from syft_rpc.rpc import BodyType
 
 from syft_rds.client.connection import BlockingRPCConnection
-from syft_rds.models.base import ItemBase, ItemBaseCreate, ItemBaseUpdate
-from syft_rds.models.models import (
+from syft_rds.models import (
     Dataset,
     DatasetCreate,
     DatasetUpdate,
@@ -30,6 +29,7 @@ from syft_rds.models.models import (
     UserCodeCreate,
     UserCodeUpdate,
 )
+from syft_rds.models.base import ItemBase, ItemBaseCreate, ItemBaseUpdate
 
 if TYPE_CHECKING:
     from syft_rds.client.rds_client import RDSClientConfig

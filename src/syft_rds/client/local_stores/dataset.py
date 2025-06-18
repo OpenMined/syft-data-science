@@ -7,7 +7,7 @@ from syft_core import Client as SyftBoxClient
 from syft_core.url import SyftBoxURL
 
 from syft_rds.client.local_stores.base import CRUDLocalStore
-from syft_rds.models.models import (
+from syft_rds.models import (
     Dataset,
     DatasetCreate,
     DatasetUpdate,

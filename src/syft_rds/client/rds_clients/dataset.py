@@ -3,7 +3,7 @@ from typing import Optional, Union
 
 from syft_rds.client.rds_clients.base import RDSClientModule
 from syft_rds.client.rds_clients.utils import ensure_is_admin
-from syft_rds.models.models import (
+from syft_rds.models import (
     Dataset,
     DatasetCreate,
     DatasetUpdate,

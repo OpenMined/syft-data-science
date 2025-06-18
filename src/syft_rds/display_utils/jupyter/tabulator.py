@@ -7,9 +7,9 @@ from typing import Any, Optional
 import jinja2
 from IPython.display import HTML, display
 
-# from syft_rds.jupyter_utils.components import Badge, CopyButton, Label
-from syft_rds.jupyter_utils.icons import Icon
-from syft_rds.jupyter_utils.table_utils import (
+# from syft_rds.display_utils.jupyter.components import Badge, CopyButton, Label
+from syft_rds.display_utils.jupyter.icons import Icon
+from syft_rds.display_utils.jupyter.table_utils import (
     TABLE_INDEX_KEY,
     format_table_data,
     prepare_table_data,

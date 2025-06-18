@@ -3,7 +3,7 @@ import os
 import pytest
 
 from syft_rds.client.rds_client import RDSClient
-from syft_rds.models.models import GetAllRequest, JobStatus
+from syft_rds.models import GetAllRequest, JobStatus
 from tests.conftest import DS_PATH, PRIVATE_CODE_PATH
 from tests.utils import create_dataset, create_dataset_with_custom_runtime
 

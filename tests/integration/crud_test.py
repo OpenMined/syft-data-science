@@ -4,7 +4,7 @@ from uuid import UUID, uuid4
 import pytest
 
 from syft_rds.client.rds_client import RDSClient
-from syft_rds.models.models import (
+from syft_rds.models import (
     GetAllRequest,
     GetOneRequest,
     Job,
