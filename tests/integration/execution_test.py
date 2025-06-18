@@ -1,6 +1,7 @@
 import os
 
 import pytest
+
 from syft_rds.client.rds_client import RDSClient
 from syft_rds.models.models import GetAllRequest, JobStatus
 from tests.conftest import DS_PATH, PRIVATE_CODE_PATH
@@ -22,14 +23,14 @@ def test_job_execution(
     user_code_path = DS_PATH / "ds.py"
     create_dataset(do_rds_client, "dummy")
     # Client Side
-    job = ds_rds_client.jobs.submit(
+    job = ds_rds_client.job.submit(
         user_code_path=user_code_path,
         dataset_name="dummy",
     )
     assert job.status == JobStatus.pending_code_review
 
     # Server Side
-    job = do_rds_client.rpc.jobs.get_all(GetAllRequest())[0]
+    job = do_rds_client.rpc.job.get_all(GetAllRequest())[0]
 
     # Runner side
     config = do_rds_client.get_default_config_for_job(job)
@@ -37,7 +38,7 @@ def test_job_execution(
     do_rds_client.run_private(job, config)
     assert job.status == JobStatus.job_run_finished
 
-    do_rds_client.jobs.share_results(job)
+    do_rds_client.job.share_results(job)
     assert job.status == JobStatus.shared
 
     output_path = job.get_output_path()
@@ -64,7 +65,7 @@ def test_job_folder_execution(
     entrypoint = "main.py"
     create_dataset(do_rds_client, "dummy")
     # Client Side
-    job = ds_rds_client.jobs.submit(
+    job = ds_rds_client.job.submit(
         user_code_path=user_code_dir,
         entrypoint=entrypoint,
         dataset_name="dummy",
@@ -72,7 +73,7 @@ def test_job_folder_execution(
     assert job.status == JobStatus.pending_code_review
 
     # Server Side
-    job = do_rds_client.rpc.jobs.get_all(GetAllRequest())[0]
+    job = do_rds_client.rpc.job.get_all(GetAllRequest())[0]
 
     # Runner side
     config = do_rds_client.get_default_config_for_job(job)
@@ -80,7 +81,7 @@ def test_job_folder_execution(
     do_rds_client.run_private(job, config)
     assert job.status == JobStatus.job_run_finished
 
-    do_rds_client.jobs.share_results(job)
+    do_rds_client.job.share_results(job)
     assert job.status == JobStatus.shared
 
     output_path = job.get_output_path()
@@ -110,13 +111,13 @@ def test_job_execution_with_custom_runtime(
 ):
     create_dataset_with_custom_runtime(do_rds_client, "dummy")
     # Client Side
-    job = ds_rds_client.jobs.submit(
+    job = ds_rds_client.job.submit(
         user_code_path=DS_PATH / "ds.txt",
         dataset_name="dummy",
     )
 
     # Server Side
-    job = do_rds_client.rpc.jobs.get_all(GetAllRequest())[0]
+    job = do_rds_client.rpc.job.get_all(GetAllRequest())[0]
 
     # Runner side
     do_rds_client.run_private(job)
@@ -131,7 +132,7 @@ def test_job_execution_with_custom_runtime(
     do_rds_client.run_private(job, config)
 
     assert job.status == JobStatus.job_run_finished
-    do_rds_client.jobs.share_results(job)
+    do_rds_client.job.share_results(job)
     output_path = job.get_output_path()
     assert output_path.exists()
 

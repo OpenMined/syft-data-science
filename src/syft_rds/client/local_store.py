@@ -4,7 +4,7 @@ from syft_core import Client as SyftBoxClient
 
 from syft_rds.client.local_stores.base import CRUDLocalStore
 from syft_rds.client.local_stores.dataset import DatasetLocalStore
-from syft_rds.client.local_stores.jobs import JobLocalStore
+from syft_rds.client.local_stores.job import JobLocalStore
 from syft_rds.client.local_stores.runtime import RuntimeLocalStore
 from syft_rds.client.local_stores.user_code import UserCodeLocalStore
 from syft_rds.models.base import ItemBase, ItemBaseCreate, ItemBaseUpdate
@@ -20,13 +20,13 @@ class LocalStore:
     def __init__(self, config: "RDSClientConfig", syftbox_client: SyftBoxClient):
         self.config = config
         self.syftbox_client = syftbox_client
-        self.jobs = JobLocalStore(self.config, self.syftbox_client)
+        self.job = JobLocalStore(self.config, self.syftbox_client)
         self.user_code = UserCodeLocalStore(self.config, self.syftbox_client)
         self.runtime = RuntimeLocalStore(self.config, self.syftbox_client)
         self.dataset = DatasetLocalStore(self.config, self.syftbox_client)
 
         self._type_map = {
-            Job: self.jobs,
+            Job: self.job,
             UserCode: self.user_code,
             Runtime: self.runtime,
             Dataset: self.dataset,
