@@ -7,8 +7,8 @@ from syft_rds.client.local_stores.dataset import DatasetLocalStore
 from syft_rds.client.local_stores.job import JobLocalStore
 from syft_rds.client.local_stores.runtime import RuntimeLocalStore
 from syft_rds.client.local_stores.user_code import UserCodeLocalStore
+from syft_rds.models import Dataset, Job, Runtime, UserCode
 from syft_rds.models.base import ItemBase, ItemBaseCreate, ItemBaseUpdate
-from syft_rds.models.models import Dataset, Job, Runtime, UserCode
 
 if TYPE_CHECKING:
     from syft_rds.client.rds_client import RDSClientConfig

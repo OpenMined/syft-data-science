@@ -19,8 +19,8 @@ from syft_rds.client.rds_clients.job import JobRDSClient
 from syft_rds.client.rds_clients.user_code import UserCodeRDSClient
 from syft_rds.client.rpc import RPCClient
 from syft_rds.client.utils import PathLike, deprecation_warning
+from syft_rds.models import Dataset, Job, JobStatus, UserCode
 from syft_rds.models.base import ItemBase
-from syft_rds.models.models import Dataset, Job, JobStatus, UserCode
 from syft_rds.syft_runtime.main import (
     DockerRunner,
     FileOutputHandler,
@@ -112,7 +112,7 @@ class RDSClient(RDSClientBase):
         # self.runtime = RuntimeRDSClient(self.config, self.rpc, self.local_store)
         GlobalClientRegistry.register_client(self)
 
-        self._type_map = {
+        self._type_map: dict[Type[T], RDSClientModule[T]] = {
             Job: self.job,
             Dataset: self.dataset,
             # Runtime: self.runtime,

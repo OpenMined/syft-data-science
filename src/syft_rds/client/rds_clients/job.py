@@ -6,7 +6,7 @@ from loguru import logger
 from syft_rds.client.exceptions import RDSValidationError
 from syft_rds.client.rds_clients.base import RDSClientModule
 from syft_rds.client.utils import PathLike
-from syft_rds.models.models import (
+from syft_rds.models import (
     Job,
     JobCreate,
     JobStatus,

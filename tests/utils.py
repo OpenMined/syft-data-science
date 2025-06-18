@@ -1,5 +1,5 @@
 from syft_rds.client.rds_client import RDSClient
-from syft_rds.models.models import Dataset
+from syft_rds.models import Dataset
 from syft_rds.syft_runtime.main import CodeRuntime
 from tests.conftest import (
     MOCK_CODE_PATH,
