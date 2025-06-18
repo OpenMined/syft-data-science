@@ -69,7 +69,7 @@ class JobRDSClient(RDSClientModule[Job]):
             user_code_id=user_code_id,
             dataset_name=dataset_name,
         )
-        job = self.rpc.jobs.create(job_create)
+        job = self.rpc.job.create(job_create)
 
         return job
 
@@ -77,8 +77,8 @@ class JobRDSClient(RDSClientModule[Job]):
         if not self.is_admin:
             raise RDSValidationError("Only admins can share results")
         job_output_folder = self.config.runner_config.job_output_folder / job.uid.hex
-        output_path = self.local_store.jobs.share_result_files(job, job_output_folder)
-        updated_job = self.rpc.jobs.update(
+        output_path = self.local_store.job.share_result_files(job, job_output_folder)
+        updated_job = self.rpc.job.update(
             JobUpdate(
                 uid=job.uid,
                 status=JobStatus.shared,
@@ -92,6 +92,6 @@ class JobRDSClient(RDSClientModule[Job]):
         if not self.is_admin:
             raise RDSValidationError("Only admins can reject jobs")
         job_update = job.get_update_for_reject(reason)
-        updated_job = self.rpc.jobs.update(job_update)
+        updated_job = self.rpc.job.update(job_update)
         job.apply_update(updated_job)
         return job

@@ -1,6 +1,7 @@
 import pandas as pd
 import pytest
 from syft_core import SyftClientConfig
+
 from syft_rds.client.rds_client import RDSClient, init_session
 from tests.conftest import MOCK_DATA_PATH, PRIVATE_DATA_PATH, README_PATH
 from tests.utils import create_dataset
@@ -49,7 +50,7 @@ def test_get_all_datasets(do_syftbox_config: SyftClientConfig) -> None:
     assert do_rds_client.is_admin
 
     dataset_1 = create_dataset(do_rds_client, "Test")
-    datasets = do_rds_client.datasets
+    datasets = do_rds_client.dataset.get_all()
     assert len(datasets) == 1
 
     dataset_2 = create_dataset(do_rds_client, "Test 2")

@@ -18,7 +18,7 @@ from syft_rds.client.rds_clients.dataset import DatasetRDSClient
 from syft_rds.client.rds_clients.jobs import JobRDSClient
 from syft_rds.client.rds_clients.user_code import UserCodeRDSClient
 from syft_rds.client.rpc import RPCClient
-from syft_rds.client.utils import PathLike
+from syft_rds.client.utils import PathLike, deprecation_warning
 from syft_rds.models.base import ItemBase
 from syft_rds.models.models import Dataset, Job, JobStatus, UserCode
 from syft_rds.syft_runtime.main import (
@@ -100,7 +100,7 @@ class RDSClient(RDSClientBase):
         self, config: RDSClientConfig, rpc_client: RPCClient, local_store: LocalStore
     ) -> None:
         super().__init__(config, rpc_client, local_store)
-        self.jobs = JobRDSClient(self.config, self.rpc, self.local_store, parent=self)
+        self.job = JobRDSClient(self.config, self.rpc, self.local_store, parent=self)
         self.dataset = DatasetRDSClient(
             self.config, self.rpc, self.local_store, parent=self
         )
@@ -113,7 +113,7 @@ class RDSClient(RDSClientBase):
         GlobalClientRegistry.register_client(self)
 
         self._type_map = {
-            Job: self.jobs,
+            Job: self.job,
             Dataset: self.dataset,
             # Runtime: self.runtime,
             UserCode: self.user_code,
@@ -128,6 +128,12 @@ class RDSClient(RDSClientBase):
     def uid(self) -> UUID:
         return self.config.uid
 
+    @deprecation_warning(reason="client.jobs has been renamed to client.job")
+    @property
+    def jobs(self) -> JobRDSClient:
+        return self.job
+
+    @deprecation_warning(reason="Use client.dataset.get_all() instead.")
     @property
     def datasets(self) -> list[Dataset]:
         """Returns all available datasets.
@@ -177,7 +183,7 @@ class RDSClient(RDSClientBase):
             show_stderr=show_stderr,
         )
         job_update = job.get_update_for_return_code(return_code)
-        new_job = self.rpc.jobs.update(job_update)
+        new_job = self.rpc.job.update(job_update)
         return job.apply_update(new_job)
 
     def run_mock(

@@ -2,14 +2,13 @@ import asyncio
 
 import pytest
 from loguru import logger
-
 from syft_event import SyftEvents
+
 from syft_rds.client.rds_client import RDSClient, init_session
 from syft_rds.server.app import create_app
-
-from tests.utils import create_dataset
 from tests.conftest import DS_PATH
 from tests.e2e.conftest import Client, E2EContext, Server
+from tests.utils import create_dataset
 
 
 def deployment_config():
@@ -73,19 +72,19 @@ async def test_e2e_full_flow(e2e_context: E2EContext):
         dataset.get_private_path()
         logger.error(f"DS tries to access the private data raised {excinfo}")
 
-    job = ds_rds_client.jobs.submit(
+    job = ds_rds_client.job.submit(
         user_code_path=DS_PATH / "ds.py", dataset_name=dataset.name
     )
     await asyncio.sleep(3)
 
-    jobs = ds_rds_client.jobs.get_all()
+    jobs = ds_rds_client.job.get_all()
     assert len(jobs) == 1
 
     res_job = do_rds_client.run_private(job)
-    res_path, _ = do_rds_client.jobs.share_results(res_job)
+    res_path, _ = do_rds_client.job.share_results(res_job)
     assert res_path.exists()
 
-    job = ds_rds_client.jobs.get_all()[-1]
+    job = ds_rds_client.job.get_all()[-1]
     assert job.output_url == res_job.output_url
     assert job._client.email == data_scientist.email
 

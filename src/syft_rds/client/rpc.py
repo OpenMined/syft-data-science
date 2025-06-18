@@ -124,14 +124,14 @@ class RPCClient(RPCClientModule):
     def __init__(self, config: "RDSClientConfig", connection: BlockingRPCConnection):
         super().__init__(config, connection)
 
-        self.jobs = JobRPCClient(self.config, self.connection)
+        self.job = JobRPCClient(self.config, self.connection)
         self.user_code = UserCodeRPCClient(self.config, self.connection)
         self.runtime = RuntimeRPCClient(self.config, self.connection)
         self.dataset = DatasetRPCClient(self.config, self.connection)
 
         # Create lookup table for type-based access
         self._type_map = {
-            Job: self.jobs,
+            Job: self.job,
             UserCode: self.user_code,
             Runtime: self.runtime,
             Dataset: self.dataset,
