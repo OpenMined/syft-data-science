@@ -128,13 +128,13 @@ class RDSClient(RDSClientBase):
     def uid(self) -> UUID:
         return self.config.uid
 
-    @deprecation_warning(reason="client.jobs has been renamed to client.job")
     @property
+    @deprecation_warning(reason="client.jobs has been renamed to client.job")
     def jobs(self) -> JobRDSClient:
         return self.job
 
-    @deprecation_warning(reason="Use client.dataset.get_all() instead.")
     @property
+    @deprecation_warning(reason="Use client.dataset.get_all() instead.")
     def datasets(self) -> list[Dataset]:
         """Returns all available datasets.
 
