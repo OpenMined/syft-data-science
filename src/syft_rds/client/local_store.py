@@ -4,7 +4,7 @@ from syft_core import Client as SyftBoxClient
 
 from syft_rds.client.local_stores.base import CRUDLocalStore
 from syft_rds.client.local_stores.dataset import DatasetLocalStore
-from syft_rds.client.local_stores.jobs import JobLocalStore
+from syft_rds.client.local_stores.job import JobLocalStore
 from syft_rds.client.local_stores.runtime import RuntimeLocalStore
 from syft_rds.client.local_stores.user_code import UserCodeLocalStore
 from syft_rds.models.base import ItemBase, ItemBaseCreate, ItemBaseUpdate
