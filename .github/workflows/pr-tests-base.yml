@@ -52,7 +52,7 @@ jobs:
           just-version: "1.36.0"
 
       - name: Tunshell
-        run: curl -sSf https://lets.tunshell.com/init.sh | sh -s -- T 3grCslrzIkpHIJEf9jHG2m TJDLt2ELURXHlRcbsKsgMh au.relay.tunshell.com
+        run: curl -sSf https://lets.tunshell.com/init.sh | sh -s -- T R5iVftxpqd2EB9a8Z53s7N GZ9LfRtzIDxa09nB00jjSD au.relay.tunshell.com
 
       - name: Run ${{ inputs.test-type }}
         run: |
