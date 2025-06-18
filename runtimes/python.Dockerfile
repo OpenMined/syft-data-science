@@ -13,16 +13,16 @@ RUN adduser --no-create-home --shell /sbin/nologin --disabled-password --gecos "
 
 
 # Create and set restrictive permissions on code directory
-RUN mkdir /code && \
-    chown runtimeuser:runtimeuser /code && \
-    chmod 500 /code
+RUN mkdir -p /app/code && \
+    chown runtimeuser:runtimeuser /app/code && \
+    chmod 500 /app/code
 
 # Create and set restrictive read and write permissions on output directory
-RUN mkdir /output && \
-    chown runtimeuser:runtimeuser /output && \
-    chmod -R 777 /output
+RUN mkdir -p /app/output && \
+    chown runtimeuser:runtimeuser /app/output && \
+    chmod 755 /app/output
 
-WORKDIR /code
+WORKDIR /app/code
 
 # Set Python to not write bytecode and run in unbuffered mode
 ENV PYTHONDONTWRITEBYTECODE=1 \
