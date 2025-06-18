@@ -31,13 +31,16 @@ for sub_type, sub_params in [
     ("folder", folder_submission),
 ]:
     for rt_name, rt_params in runtime_configs.items():
-        test_cases.append(
-            {
-                "id": f"{sub_type}_{rt_name}",
-                "submission_params": {**sub_params, **rt_params},
-                "expected_num_runtimes": 1,
-            }
-        )
+        for blocking_mode in [True, False]:
+            blocking_str = "blocking" if blocking_mode else "non_blocking"
+            test_cases.append(
+                {
+                    "id": f"{sub_type}_{rt_name}_{blocking_str}",
+                    "submission_params": {**sub_params, **rt_params},
+                    "expected_num_runtimes": 1,
+                    "blocking": blocking_mode,
+                }
+            )
 
 
 @pytest.mark.parametrize(
@@ -49,8 +52,11 @@ def test_job_execution(
     ds_rds_client: RDSClient,
     do_rds_client: RDSClient,
     test_case: dict,
+    monkeypatch,
 ):
     """Test job execution with a file or a folder, for various configurations."""
+    blocking_mode = test_case["blocking"]
+    monkeypatch.setenv("SYFT_RDS_BLOCKING_EXECUTION", str(blocking_mode).lower())
     submit_kwargs = {
         "dataset_name": "dummy",
         **test_case["submission_params"],
@@ -65,10 +71,10 @@ def test_job_execution(
     assert len(do_rds_client.runtime.get_all()) == test_case["expected_num_runtimes"]
 
     # DO reviews, runs, and shares job
-    _run_and_verify_job(do_rds_client)
+    _run_and_verify_job(do_rds_client, blocking=blocking_mode)
 
 
-def _run_and_verify_job(do_rds_client: RDSClient):
+def _run_and_verify_job(do_rds_client: RDSClient, blocking: bool):
     """Helper function to run a job and verify its execution."""
     # Server side: Get the job from the server.
     # We assume there is only one job in the queue.
@@ -76,10 +82,15 @@ def _run_and_verify_job(do_rds_client: RDSClient):
 
     # Runner side: Execute the job
     do_rds_client.run_private(job)
-    time.sleep(2)
+
+    if not blocking:
+        assert job.status == JobStatus.job_in_progress
+
     if job.status == JobStatus.job_run_failed:
         logger.info(f"Job failed: {job.error_message}")
         raise Exception(f"Job failed: {job.error_message}")
+
+    time.sleep(2)
     assert job.status == JobStatus.job_run_finished
 
     # DO shares results with DS

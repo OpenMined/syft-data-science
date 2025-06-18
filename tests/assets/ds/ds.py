@@ -12,6 +12,9 @@ with open(os.path.join(OUTPUT_DIR, "my_result.csv"), "w") as f:
 
 
 def main():
+    import time
+
+    time.sleep(1)
     print("Hello from test job!")
 
 
