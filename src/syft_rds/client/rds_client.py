@@ -123,6 +123,11 @@ class RDSClient(RDSClientBase):
             UserCode: self.user_code,
         }
 
+        self._start_job_polling()
+
+    def _start_job_polling(self) -> None:
+        """Starts the job polling mechanism."""
+        logger.debug("Starting thread to poll jobs.")
         self._non_blocking_jobs: dict[UUID, tuple[Job, subprocess.Popen]] = {}
         self._jobs_lock = threading.Lock()
         self._polling_stop_event = threading.Event()
