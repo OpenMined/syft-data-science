@@ -1,4 +1,3 @@
-from loguru import logger
 from syft_event import SyftEvents
 from syft_rds.models.models import (
     GetAllRequest,
@@ -29,8 +28,7 @@ def get_runtime(request: GetOneRequest, app: SyftEvents) -> Runtime | None:
         filters["uid"] = request.uid
     item = runtime_store.get_one(**filters)
     if item is None:
-        # raise ValueError(f"No runtime found with filters {filters}")
-        logger.warning(f"No runtime found with filters {filters}")
+        raise ValueError(f"No runtime found with filters {filters}")
     return item
 
 

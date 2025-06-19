@@ -11,7 +11,6 @@ from syft_rds.models.models import (
     PythonRuntimeConfig,
     DockerRuntimeConfig,
     KubernetesRuntimeConfig,
-    GetOneRequest,
 )
 
 DEFAULT_RUNTIME_KIND = os.getenv("SYFT_RDS_DEFAULT_RUNTIME_KIND", "python")
@@ -50,8 +49,7 @@ class RuntimeRDSClient(RDSClientModule[Runtime]):
 
     def get_runtime_by_name(self, name: str) -> Runtime | None:
         try:
-            get_req = GetOneRequest(filters={"name": name})
-            return self.rpc.runtime.get_one(get_req)
+            return self.get(filters={"name": name})
         except Exception as e:
             logger.debug(f"Error getting runtime by name: {e}")
             return None
@@ -79,13 +77,14 @@ class RuntimeRDSClient(RDSClientModule[Runtime]):
 
     def _get_or_create(self, runtime_create: RuntimeCreate) -> Runtime:
         fetched_runtime = self.get_runtime_by_name(runtime_create.name)
+
         if fetched_runtime:
             logger.debug(f"Runtime '{fetched_runtime.name}' already exists")
             return fetched_runtime
 
         runtime = self.rpc.runtime.create(runtime_create)
-
         logger.debug(f"Runtime created: {runtime}")
+
         return runtime
 
     def _get_or_create_default(self) -> Runtime:
