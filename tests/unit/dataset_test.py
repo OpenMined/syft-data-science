@@ -39,7 +39,7 @@ def test_get_all_datasets(do_rds_client: RDSClient) -> None:
     assert do_rds_client.is_admin
 
     dataset_1 = create_dataset(do_rds_client, "Test")
-    datasets = do_rds_client.datasets
+    datasets = do_rds_client.dataset.get_all()
     assert len(datasets) == 1
 
     dataset_2 = create_dataset(do_rds_client, "Test 2")

@@ -6,7 +6,7 @@ from syft_core import Client
 from syft_event import SyftEvents
 
 from syft_rds import __version__
-from syft_rds.models.models import Job, Runtime, UserCode
+from syft_rds.models import Job, Runtime, UserCode
 from syft_rds.server.router import RPCRouter
 from syft_rds.server.routers.job_router import job_router
 from syft_rds.server.routers.runtime_router import runtime_router

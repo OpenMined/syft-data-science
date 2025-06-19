@@ -2,8 +2,9 @@ from datetime import datetime
 from uuid import UUID, uuid4
 
 import pytest
+
 from syft_rds.client.rds_client import RDSClient
-from syft_rds.models.models import (
+from syft_rds.models import (
     GetAllRequest,
     GetOneRequest,
     Job,
@@ -32,12 +33,12 @@ def test_job_crud_file_rpc(do_rds_client: RDSClient):
         user_code_id=uuid4(),
         tags=["test"],
     )
-    job = do_rds_client.rpc.jobs.create(job_create)
+    job = do_rds_client.rpc.job.create(job_create)
     assert job.name == "Test Job"
 
     # Get One
     get_req = GetOneRequest(uid=job.uid)
-    fetched_job = do_rds_client.rpc.jobs.get_one(get_req)
+    fetched_job = do_rds_client.rpc.job.get_one(get_req)
     assert fetched_job == job
 
     # Insert second, get all
@@ -48,10 +49,10 @@ def test_job_crud_file_rpc(do_rds_client: RDSClient):
         runtime_id=runtime.uid,
         tags=["test"],
     )
-    job2 = do_rds_client.rpc.jobs.create(job2_create)
+    job2 = do_rds_client.rpc.job.create(job2_create)
 
     all_req = GetAllRequest()
-    all_jobs = do_rds_client.rpc.jobs.get_all(all_req)
+    all_jobs = do_rds_client.rpc.job.get_all(all_req)
     assert len(all_jobs) == 2
 
     for job in all_jobs:
@@ -62,7 +63,7 @@ def test_job_crud_file_rpc(do_rds_client: RDSClient):
 
     # partial update
     job_update = JobUpdate(uid=job.uid, status=JobStatus.rejected)
-    job = do_rds_client.rpc.jobs.update(job_update)
+    job = do_rds_client.rpc.job.update(job_update)
     assert job.status == JobStatus.rejected
 
 
@@ -78,12 +79,12 @@ def test_job_crud(ds_rds_client: RDSClient, do_rds_client: RDSClient):
         runtime_id=runtime.uid,
         tags=["test"],
     )
-    job = ds_rds_client.rpc.jobs.create(job_create)
+    job = ds_rds_client.rpc.job.create(job_create)
     assert job.name == "Test Job"
 
     # Get One
     get_req = GetOneRequest(uid=job.uid)
-    fetched_job = ds_rds_client.rpc.jobs.get_one(get_req)
+    fetched_job = ds_rds_client.rpc.job.get_one(get_req)
     assert fetched_job == job
 
     # Insert second, get all
@@ -94,10 +95,10 @@ def test_job_crud(ds_rds_client: RDSClient, do_rds_client: RDSClient):
         runtime_id=runtime.uid,
         tags=["test"],
     )
-    job2 = ds_rds_client.rpc.jobs.create(job2_create)
+    job2 = ds_rds_client.rpc.job.create(job2_create)
 
     all_req = GetAllRequest()
-    all_jobs = ds_rds_client.rpc.jobs.get_all(all_req)
+    all_jobs = ds_rds_client.rpc.job.get_all(all_req)
     assert len(all_jobs) == 2
     assert job in all_jobs
     assert job2 in all_jobs
@@ -107,7 +108,7 @@ def test_job_crud(ds_rds_client: RDSClient, do_rds_client: RDSClient):
 
     # partial update
     job_update = JobUpdate(uid=job.uid, status=JobStatus.rejected)
-    job = do_rds_client.rpc.jobs.update(job_update)
+    job = do_rds_client.rpc.job.update(job_update)
     assert job.status == JobStatus.rejected
 
 
@@ -269,11 +270,11 @@ def test_search_with_filters(do_rds_client):
             user_code_id=uuid4(),
             runtime_id=runtime.uid,
         )
-        do_rds_client.rpc.jobs.create(job_create)
+        do_rds_client.rpc.job.create(job_create)
 
     # Test successful coercion cases
     test_uuid = uuid4()
-    coerced_filters = do_rds_client.local_store.jobs.store._coerce_field_types(
+    coerced_filters = do_rds_client.local_store.job.store._coerce_field_types(
         {
             "status": "pending_code_review",
             "created_at": "2025-03-07T15:10:40.146495+00:00",
@@ -289,7 +290,7 @@ def test_search_with_filters(do_rds_client):
     assert coerced_filters["uid"] == test_uuid
 
     # Test failed coercion cases - should return original values
-    invalid_filters = do_rds_client.local_store.jobs.store._coerce_field_types(
+    invalid_filters = do_rds_client.local_store.job.store._coerce_field_types(
         {
             "status": 1234,  # Not a valid enum string
             "created_at": "invalid-date",  # Not a valid date string
@@ -305,10 +306,10 @@ def test_search_with_filters(do_rds_client):
     assert invalid_filters["unknown_field"] == "some value"
 
     # Test search using coerced enum works
-    jobs = do_rds_client.jobs.get_all(status="pending_code_review")
+    jobs = do_rds_client.job.get_all(status="pending_code_review")
     assert all(job.status == JobStatus.pending_code_review for job in jobs)
 
     # Test search with non-coercible value
     # This should work fine since store is schemaless
-    jobs_with_invalid = do_rds_client.jobs.get_all(status=1234)
+    jobs_with_invalid = do_rds_client.job.get_all(status=1234)
     assert len(jobs_with_invalid) == 0  # Assuming no job has status=1234

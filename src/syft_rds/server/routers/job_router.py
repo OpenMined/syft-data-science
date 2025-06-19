@@ -1,7 +1,8 @@
 from syft_core import SyftBoxURL
 from syft_event import SyftEvents
 from syft_event.types import Request
-from syft_rds.models.models import (
+
+from syft_rds.models import (
     GetAllRequest,
     GetOneRequest,
     ItemList,

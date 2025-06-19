@@ -1,5 +1,6 @@
 from syft_event import SyftEvents
-from syft_rds.models.models import (
+
+from syft_rds.models import (
     GetAllRequest,
     GetOneRequest,
     ItemList,
@@ -21,7 +22,7 @@ def create_runtime(create_request: RuntimeCreate, app: SyftEvents) -> Runtime:
 
 
 @runtime_router.on_request("/get_one")
-def get_runtime(request: GetOneRequest, app: SyftEvents) -> Runtime | None:
+def get_runtime(request: GetOneRequest, app: SyftEvents) -> Runtime:
     runtime_store: YAMLStore[Runtime] = app.state["runtime_store"]
     filters = request.filters
     if request.uid is not None:

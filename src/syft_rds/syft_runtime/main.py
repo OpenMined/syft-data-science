@@ -10,7 +10,7 @@ from rich.live import Live
 from rich.panel import Panel
 from rich.spinner import Spinner
 
-from syft_rds.models.models import DockerMount, Job, JobConfig, JobUpdate, RuntimeKind
+from syft_rds.models import DockerMount, Job, JobConfig, JobUpdate, RuntimeKind
 from syft_rds.syft_runtime.mounts import get_mount_provider
 
 DEFAULT_WORKDIR = "/app"

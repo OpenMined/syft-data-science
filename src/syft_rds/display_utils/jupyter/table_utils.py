@@ -6,7 +6,7 @@ from uuid import UUID
 
 from loguru import logger
 
-from syft_rds.jupyter_utils.icons import Icon
+from syft_rds.display_utils.jupyter.icons import Icon
 from syft_rds.utils.sanitize import sanitize_html
 
 TABLE_INDEX_KEY = "_table_repr_index"

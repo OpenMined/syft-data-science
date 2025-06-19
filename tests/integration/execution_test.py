@@ -1,6 +1,7 @@
 import pytest
+
 from syft_rds.client.rds_client import RDSClient
-from syft_rds.models.models import GetAllRequest, Job, JobStatus
+from syft_rds.models import GetAllRequest, Job, JobStatus
 from syft_rds.client.rds_clients.runtime import (
     DEFAULT_DOCKERFILE_FILE_PATH,
 )
@@ -78,7 +79,7 @@ def _run_and_verify_job(do_rds_client: RDSClient, blocking: bool):
     """Helper function to run a job and verify its execution."""
     # Server side: Get the job from the server.
     # We assume there is only one job in the queue.
-    job: Job = do_rds_client.rpc.jobs.get_all(GetAllRequest())[0]
+    job: Job = do_rds_client.rpc.job.get_all(GetAllRequest())[0]
 
     # Runner side: Execute the job
     do_rds_client.run_private(job)

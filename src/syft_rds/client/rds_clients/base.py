@@ -7,12 +7,7 @@ from syft_core import Client as SyftBoxClient
 
 from syft_rds.client.local_store import LocalStore
 from syft_rds.client.rpc import RPCClient, T
-from syft_rds.models.models import (
-    GetAllRequest,
-    GetOneRequest,
-    Job,
-    Runtime,
-)
+from syft_rds.models import GetAllRequest, GetOneRequest, Job, Runtime
 
 if TYPE_CHECKING:
     from syft_rds.client.rds_client import RDSClient
@@ -78,7 +73,7 @@ class RDSClientModule(RDSClientBase, Generic[T]):
     def rds(self) -> "RDSClient":
         """
         Returns the parent RDSClient, raises an error if not set.
-        Used for accessing other client modules from this module, e.g. JobRDSClient().rds.datasets.get_all() -> DatasetRDSClient
+        Used for accessing other client modules from this module, e.g. JobRDSClient().rds.dataset.get_all() -> DatasetRDSClient
         """
         if self.parent is None:
             raise ValueError("Parent client not set")
