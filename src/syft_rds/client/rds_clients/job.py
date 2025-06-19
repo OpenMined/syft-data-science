@@ -13,6 +13,7 @@ from syft_rds.models import (
     JobUpdate,
     UserCode,
 )
+from syft_rds.models.job_models import JobErrorKind, JobResults
 
 
 class JobRDSClient(RDSClientModule[Job]):
@@ -73,7 +74,47 @@ class JobRDSClient(RDSClientModule[Job]):
 
         return job
 
-    def share_results(self, job: Job) -> tuple[Path, Job]:
+    def _get_results_from_dir(
+        self,
+        job: Job,
+        results_dir: PathLike,
+    ) -> JobResults:
+        """Get the job results from the specified directory, and format it into a JobResults object."""
+        results_dir = Path(results_dir)
+        if not results_dir.exists():
+            raise ValueError(
+                f"Results directory {results_dir} does not exist for job {job.uid}"
+            )
+
+        output_dir = results_dir / "output"
+        logs_dir = results_dir / "logs"
+        expected_layout_msg = (
+            f"{results_dir} should contain 'output' and 'logs' directories."
+        )
+        if not output_dir.exists():
+            raise ValueError(
+                f"Output directory {output_dir.name} does not exist for job {job.uid}. "
+                + expected_layout_msg
+            )
+        if not logs_dir.exists():
+            raise ValueError(
+                f"Logs directory {logs_dir.name} does not exist for job {job.uid}. "
+                + expected_layout_msg
+            )
+
+        return JobResults(
+            job=job,
+            results_dir=results_dir,
+        )
+
+    def review_results(
+        self, job: Job, output_dir: PathLike | None = None
+    ) -> JobResults:
+        if output_dir is None:
+            output_dir = self.config.runner_config.job_output_folder / job.uid.hex
+        return self._get_results_from_dir(job, output_dir)
+
+    def share_results(self, job: Job) -> None:
         if not self.is_admin:
             raise RDSValidationError("Only admins can share results")
         job_output_folder = self.config.runner_config.job_output_folder / job.uid.hex
@@ -85,13 +126,41 @@ class JobRDSClient(RDSClientModule[Job]):
                 error=job.error,
             )
         )
+        job.apply_update(updated_job, in_place=True)
         logger.info(f"Shared results for job {job.uid} at {output_path}")
-        return output_path, job.apply_update(updated_job)
 
-    def reject(self, job: Job, reason: str = "Unspecified") -> Job:
+    def get_results(self, job: Job) -> JobResults:
+        """Get the shared job results."""
+        if job.status != JobStatus.shared:
+            raise RDSValidationError(
+                f"Job {job.uid} is not shared. Current status: {job.status}"
+            )
+        return self._get_results_from_dir(job, job.output_path)
+
+    def reject(self, job: Job, reason: str = "Unspecified") -> None:
         if not self.is_admin:
             raise RDSValidationError("Only admins can reject jobs")
-        job_update = job.get_update_for_reject(reason)
+
+        allowed_statuses = (
+            JobStatus.pending_code_review,
+            JobStatus.job_run_finished,
+            JobStatus.job_run_failed,
+        )
+        if self.status not in allowed_statuses:
+            raise ValueError(f"Cannot reject job with status: {self.status}")
+
+        error = (
+            JobErrorKind.failed_code_review
+            if job.status == JobStatus.pending_code_review
+            else JobErrorKind.failed_output_review
+        )
+
+        job_update = JobUpdate(
+            uid=job.uid,
+            status=JobStatus.rejected,
+            error=error,
+            error_message=reason,
+        )
+
         updated_job = self.rpc.job.update(job_update)
-        job.apply_update(updated_job)
-        return job
+        job.apply_update(updated_job, in_place=True)
