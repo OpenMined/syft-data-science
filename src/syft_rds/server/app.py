@@ -7,11 +7,13 @@ from syft_event import SyftEvents
 
 from syft_rds import __version__
 from syft_rds.models import Job, Runtime, UserCode
+from syft_rds.models.custom_function_models import CustomFunction
 from syft_rds.server.router import RPCRouter
 from syft_rds.server.routers.job_router import job_router
 from syft_rds.server.routers.runtime_router import runtime_router
 from syft_rds.server.routers.user_code_router import user_code_router
-from syft_rds.server.user_file_service import UserFileService
+from syft_rds.server.services.public_file_service import PublicFileService
+from syft_rds.server.services.user_file_service import UserFileService
 from syft_rds.store.store import YAMLStore
 
 APP_NAME = "RDS"
@@ -34,8 +36,14 @@ def _init_services(app: SyftEvents) -> None:
     app.state["runtime_store"] = YAMLStore[Runtime](
         item_type=Runtime, store_dir=store_dir
     )
+    app.state["custom_function_store"] = YAMLStore[CustomFunction](
+        item_type=CustomFunction, store_dir=store_dir
+    )
 
+    # UserFileService handles files on syftbox only visible to one user
     app.state["user_file_service"] = UserFileService(app_dir=app.app_dir)
+    # PublicFileService handles files on syftbox that are readable by everyone
+    app.state["public_file_service"] = PublicFileService(app_dir=app.app_dir)
 
 
 def _write_app_info(app: SyftEvents) -> None:
