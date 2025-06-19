@@ -96,6 +96,7 @@ class Runtime(ItemBase):
     kind: RuntimeKind
     config: RuntimeConfig = Field(default_factory=dict)
     tags: list[str] = Field(default_factory=list)
+    description: str | None = Field(default=None)
 
     @model_validator(mode="after")
     def set_name_with_prefix(self):
@@ -119,6 +120,7 @@ class RuntimeCreate(ItemBaseCreate[Runtime]):
     kind: RuntimeKind
     config: RuntimeConfig = Field(default_factory=dict)
     tags: list[str] = Field(default_factory=list)
+    description: str | None = Field(default=None)
 
     @model_validator(mode="after")
     def set_name_with_prefix(self):

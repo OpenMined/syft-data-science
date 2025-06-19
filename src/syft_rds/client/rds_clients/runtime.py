@@ -29,6 +29,7 @@ class RuntimeRDSClient(RDSClientModule[Runtime]):
         runtime_name: str | None = None,
         runtime_kind: str | None = None,
         config: dict | None = None,
+        description: str | None = None,
     ) -> Runtime:
         """
         Create a runtime.
@@ -42,7 +43,10 @@ class RuntimeRDSClient(RDSClientModule[Runtime]):
             runtime_kind, config
         )
         runtime_create: RuntimeCreate = RuntimeCreate(
-            name=runtime_name, kind=RuntimeKind(runtime_kind), config=runtime_config
+            name=runtime_name,
+            kind=RuntimeKind(runtime_kind),
+            config=runtime_config,
+            description=description,
         )
 
         return self._get_or_create(runtime_create)
@@ -100,6 +104,7 @@ class RuntimeRDSClient(RDSClientModule[Runtime]):
                 config=PythonRuntimeConfig(
                     version="3.12",
                 ),
+                description="Default Python runtime for Syft RDS",
             )
             return self._get_or_create(default_runtime_create)
         except Exception as e:

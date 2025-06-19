@@ -23,7 +23,7 @@ class Dataset(ItemBase):
     readme: SyftBoxURL | None = Field(description="REAMD.md Syft URL of the dataset.")
     tags: list[str] = Field(description="Tags for the dataset.")
     runtime_id: UUID | None = Field(
-        default=None, description="Default runtime for the dataset."
+        default=None, description="ID of the default runtime for the dataset."
     )
 
     @property
@@ -117,5 +117,5 @@ class DatasetCreate(ItemBaseCreate[Dataset]):
     )
     tags: list[str] | None = Field(description="Tags for the dataset.")
     runtime_id: UUID | None = Field(
-        description="Runtime for the dataset.", default=None
+        default=None, description="ID of the default runtime for the dataset."
     )
