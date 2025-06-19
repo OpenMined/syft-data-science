@@ -359,21 +359,21 @@ class DockerRunner(JobRunner):
             text=True,
         )
         if result.returncode == 0:
-            logger.debug(f"Docker image '{image_name}' already exists.")
+            logger.info(f"Docker image '{image_name}' already exists.")
             return
 
+        logger.info(f"Docker image '{image_name}' not found. Building it now...")
         self._build_docker_image(job_config)
 
     def _build_docker_image(self, job_config: JobConfig) -> None:
         """Build the Docker image."""
         image_name = self._get_image_name(job_config)
-        dockerfile_path = (
-            Path(job_config.runtime.config.dockerfile).expanduser().resolve()
+        dockerfile_content: str = job_config.runtime.config.dockerfile_content
+        logger.debug(
+            f"Building image '{image_name}' with Dockerfile content: {dockerfile_content}"
         )
-        if not dockerfile_path.exists():
-            raise FileNotFoundError(f"Dockerfile not found at {dockerfile_path}")
-        logger.info(f"Docker image '{image_name}' not found. Building it now...")
-        build_context = dockerfile_path.parent
+
+        build_context = "."
         try:
             build_cmd = [
                 "docker",
@@ -381,12 +381,16 @@ class DockerRunner(JobRunner):
                 "-t",
                 image_name,
                 "-f",
-                str(dockerfile_path),
+                "-",  # Use stdin for Dockerfile content
                 str(build_context),
             ]
             logger.debug(f"Running docker build command: {' '.join(build_cmd)}")
             process = subprocess.run(
-                build_cmd, capture_output=True, check=True, text=True
+                build_cmd,
+                input=dockerfile_content,
+                capture_output=True,
+                check=True,
+                text=True,
             )
 
             logger.debug(process.stdout)

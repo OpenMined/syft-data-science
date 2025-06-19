@@ -91,7 +91,7 @@ def _run_and_verify_job(do_rds_client: RDSClient, blocking: bool):
         logger.info(f"Job failed: {job.error_message}")
         raise Exception(f"Job failed: {job.error_message}")
 
-    time.sleep(2)
+    time.sleep(2.5)
     assert job.status == JobStatus.job_run_finished
 
     # DO shares results with DS

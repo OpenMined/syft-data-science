@@ -3,6 +3,7 @@ from pathlib import Path
 from typing import Literal
 import json
 import hashlib
+from typing import Any
 
 from loguru import logger
 from pydantic import (
@@ -61,18 +62,47 @@ class DockerMount(BaseModel):
 
 
 class DockerRuntimeConfig(BaseRuntimeConfig):
-    dockerfile: PathLike
+    dockerfile: PathLike | None = Field(default=None, exclude=True)
+    entrypoint_script: PathLike | None = Field(default=None, exclude=True)
+    dockerfile_content: str
     image_name: str | None = None
     cmd: list[str] = ["python"]
     app_name: str | None = None
     extra_mounts: list[DockerMount] = Field(default_factory=list)
 
-    @field_validator("dockerfile")
-    def validate_dockerfile(cls, value: PathLike) -> PathLike:
-        dockerfile_path = Path(value).expanduser().resolve()
-        if not dockerfile_path.exists():
-            raise FileNotFoundError(f"Dockerfile '{value}' does not exist")
-        return value
+    @model_validator(mode="before")
+    @classmethod
+    def load_content_from_path(cls, values: dict[str, Any]) -> dict[str, Any]:
+        """
+        If a 'dockerfile' path is provided, read its content into 'dockerfile_content'.
+        This validator runs before any other field validation.
+        """
+        if "dockerfile" in values and values["dockerfile"] is not None:
+            dockerfile_path = Path(values["dockerfile"]).expanduser().resolve()
+            if not dockerfile_path.exists():
+                raise FileNotFoundError(
+                    f"The specified Dockerfile does not exist at: {dockerfile_path}"
+                )
+            values["dockerfile_content"] = dockerfile_path.read_text()
+        elif "dockerfile_content" not in values:
+            raise ValueError(
+                "You must provide a path to a Dockerfile via the 'dockerfile' argument."
+            )
+        return values
+
+    @field_validator("dockerfile_content")
+    def validate_dockerfile_content(cls, dockerfile_content: str) -> str:
+        if not dockerfile_content:
+            raise ValueError("Dockerfile cannot be empty")
+        return dockerfile_content.strip()
+
+    def __hash__(self) -> int:
+        return hash(self.dockerfile_content)
+
+    def __eq__(self, __value: object) -> bool:
+        if not isinstance(__value, DockerRuntimeConfig):
+            return False
+        return self.dockerfile_content == __value.dockerfile_content
 
 
 class KubernetesRuntimeConfig(BaseRuntimeConfig):
