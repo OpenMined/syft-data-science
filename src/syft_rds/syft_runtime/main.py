@@ -219,7 +219,13 @@ class JobRunner:
         job_config: JobConfig,
         job: Job,
         env: dict | None = None,
-    ) -> int | subprocess.Popen:
+    ) -> tuple[int, str | None] | subprocess.Popen:
+        """
+        Returns:
+            tuple[int, str | None]: (blocking mode) The return code and error message
+                if the job failed, otherwise None.
+            subprocess.Popen: (non-blocking mode) The process object.
+        """
         job_update = job.get_update_for_in_progress()
         self.client.update_job_status(job_update, job)
 
@@ -245,11 +251,15 @@ class JobRunner:
         self,
         process: subprocess.Popen,
         job: Job,
-    ) -> int:
+    ) -> tuple[int, str | None]:
+        stderr_logs = []
+
         # Stream logs
         while True:
             stdout_line = process.stdout.readline()
             stderr_line = process.stderr.readline()
+            if stderr_line:
+                stderr_logs.append(stderr_line)
             if stdout_line or stderr_line:
                 for handler in self.handlers:
                     handler.on_job_progress(stdout_line, stderr_line)
@@ -265,19 +275,23 @@ class JobRunner:
             for handler in self.handlers:
                 handler.on_job_progress(line, "")
         for line in process.stderr:
+            stderr_logs.append(line)
             for handler in self.handlers:
                 handler.on_job_progress("", line)
 
         return_code = process.returncode
 
-        # Handle job completion results. TODO: make this also works for non-blocking jobs
-        job_update = job.get_update_for_return_code(return_code)
-        self.client.update_job_status(job_update, job)
+        logger.debug(f"Return code: {return_code}")
+        error_message = None
+        if stderr_logs:
+            logger.debug(f"Stderr logs: {stderr_logs}")
+            error_message = "\n".join(stderr_logs)
 
+        # Handle job completion results
         for handler in self.handlers:
             handler.on_job_completion(process.returncode)
 
-        return process.returncode
+        return return_code, error_message
 
 
 class PythonRunner(JobRunner):

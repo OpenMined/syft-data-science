@@ -231,10 +231,15 @@ class RDSClient(RDSClientBase):
         )
         return self._handle_result(result, job)
 
-    def _handle_result(self, result: int | subprocess.Popen, job: Job) -> Job:
-        if isinstance(result, int):
+    def _handle_result(
+        self, result: tuple[int, str | None] | subprocess.Popen, job: Job
+    ) -> Job:
+        if isinstance(result, tuple):
             # blocking job
-            job_update = job.get_update_for_return_code(result)
+            return_code, error_message = result
+            job_update = job.get_update_for_return_code(
+                return_code=return_code, error_message=error_message
+            )
             return self.update_job_status(job_update, job)
         else:
             # non-blocking job
@@ -252,7 +257,10 @@ class RDSClient(RDSClientBase):
                         finished_jobs.append(job_uid)
                         try:
                             return_code = process.returncode
-                            job_update = job.get_update_for_return_code(return_code)
+                            stderr = process.stderr.read() if process.stderr else None
+                            job_update = job.get_update_for_return_code(
+                                return_code=return_code, error_message=stderr
+                            )
                             self.update_job_status(job_update, job)
                             logger.debug(
                                 f"Non-blocking job '{job.name}' (PID: {process.pid}) "

@@ -125,10 +125,8 @@ class Job(ItemBase):
         else:
             self.status = JobStatus.job_run_failed
             self.error = JobErrorKind.execution_failed
-            self.error_message = (
-                error_message
-                or "Job execution failed. Please check the logs for details."
-            )
+            self.error_message = error_message
+
         return JobUpdate(
             uid=self.uid,
             status=self.status,
