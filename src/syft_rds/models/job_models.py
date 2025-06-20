@@ -6,8 +6,8 @@ from typing import TYPE_CHECKING, Any, Optional
 from uuid import UUID
 from datetime import datetime
 
-import rich
 from IPython.display import HTML, display
+from loguru import logger
 from pydantic import BaseModel, Field, model_validator
 from syft_core import SyftBoxURL
 
@@ -106,33 +106,6 @@ class Job(ItemBase):
     def show_user_code(self) -> None:
         user_code = self.user_code
         user_code.describe()
-
-    def get_update_for_reject(self, reason: str = "unknown reason") -> "JobUpdate":
-        """
-        Create a JobUpdate object with the rejected status
-        based on the current status
-        """
-        allowed_statuses = (
-            JobStatus.pending_code_review,
-            JobStatus.job_run_finished,
-            JobStatus.job_run_failed,
-        )
-        if self.status not in allowed_statuses:
-            raise ValueError(f"Cannot reject job in status: {self.status}")
-
-        self.error_message = reason
-        self.status = JobStatus.rejected
-        self.error = (
-            JobErrorKind.failed_code_review
-            if self.status == JobStatus.pending_code_review
-            else JobErrorKind.failed_output_review
-        )
-        return JobUpdate(
-            uid=self.uid,
-            status=self.status,
-            error=self.error,
-            error_message=self.error_message,
-        )
 
     def get_update_for_in_progress(self) -> "JobUpdate":
         return JobUpdate(
@@ -252,17 +225,19 @@ class JobConfig(BaseModel):
         }
 
 
-class JobOutput(BaseModel):
+class JobResults(BaseModel):
+    _MAX_LOADED_FILE_SIZE: int = 10 * 1024 * 1024  # 10 MB
+
     job: Job
-    execution_output_dir: Path
+    results_dir: Path
 
     @property
     def logs_dir(self) -> Path:
-        return self.execution_output_dir / "logs"
+        return self.results_dir / "logs"
 
     @property
     def output_dir(self) -> Path:
-        return self.execution_output_dir / "output"
+        return self.results_dir / "output"
 
     @property
     def stderr_file(self) -> Path:
@@ -294,27 +269,18 @@ class JobOutput(BaseModel):
 
     @property
     def outputs(self) -> dict[str, Any]:
-        output_files = list(self.output_dir.glob("*.json"))
         outputs = {}
-        for file in output_files:
-            if file.name.endswith(".json"):
-                with open(file, "r") as f:
-                    outputs[file.name] = json.load(f)
-            elif file.name.endswith(".parquet"):
-                import pandas as pd
-
-                outputs[file.name] = pd.read_parquet(file)
-            elif file.name.endswith(".csv"):
-                import pandas as pd
-
-                outputs[file.name] = pd.read_csv(file)
-            elif file.name.endswith(".txt"):
-                with open(file, "r") as f:
-                    outputs[file.name] = f.read()
-            else:
-                rich.print(
-                    f":warning: Unsupported file type {file.name}. Please check this file manually."
+        for file in self.output_dir.glob("*"):
+            try:
+                contents = load_output_file(
+                    filepath=file, max_size=self._MAX_LOADED_FILE_SIZE
                 )
+                outputs[file.name] = contents
+            except ValueError as e:
+                logger.warning(
+                    f"Skipping output {file.name}: {e}. Please load this file manually."
+                )
+                continue
         return outputs
 
     def describe(self):
@@ -333,7 +299,33 @@ class JobOutput(BaseModel):
         display(HTML(html_repr))
 
 
-class JobArtifactKind(str, enum.Enum):
-    computation_result = "computation_result"
-    error_log = "error_log"
-    execution_log = "execution_log"
+def load_output_file(filepath: Path, max_size: int) -> Any:
+    if not filepath.exists():
+        raise ValueError(f"File {filepath} does not exist.")
+
+    file_size = filepath.stat().st_size
+    if file_size > max_size:
+        raise ValueError(
+            f"File the maximum size of {int(max_size / (1024 * 1024))} MB."
+        )
+
+    if filepath.suffix == ".json":
+        with open(filepath, "r") as f:
+            return json.load(f)
+
+    elif filepath.suffix == ".parquet":
+        import pandas as pd
+
+        return pd.read_parquet(filepath)
+
+    elif filepath.suffix == ".csv":
+        import pandas as pd
+
+        return pd.read_csv(filepath)
+
+    elif filepath.suffix in {".txt", ".log", ".md", ".html"}:
+        with open(filepath, "r") as f:
+            return f.read()
+
+    else:
+        raise ValueError("Unsupported file type.")
