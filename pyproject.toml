@@ -17,6 +17,7 @@ dependencies = [
   "nh3>=0.2.21",
   "jinja2>=3.1.6",
   "ipython>=8.18.1",
+  "fastsyftbox>=0.1.7",
 ]
 
 [tool.uv]
@@ -27,7 +28,6 @@ dev-dependencies = [
   "jupyter>=1.1.1",
   "pandas>=1.4.0",
   "httpx>=0.28.1",
-  "syftbox==0.4.0",
 ]
 
 [build-system]
@@ -40,7 +40,9 @@ exclude = ["src/**/__pycache__"]
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/syft_rds"]
-only-include = ["src/syft_rds"]  # no need for pyproject.toml and README.md for wheel
+only-include = [
+  "src/syft_rds",
+] # no need for pyproject.toml and README.md for wheel
 exclude = ["src/syft_rds/**/__pycache__"]
 
 [project.scripts]
