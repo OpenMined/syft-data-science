@@ -2,31 +2,28 @@ from pathlib import Path
 from typing import Optional, Type, TypeVar
 from uuid import UUID
 
-from loguru import logger
 from syft_core import Client as SyftBoxClient
 from syft_event import SyftEvents
 
 from syft_rds.client.client_registry import GlobalClientRegistry
 from syft_rds.client.connection import get_connection
+from syft_rds.client.job_runner import JobRunner
 from syft_rds.client.local_store import LocalStore
 from syft_rds.client.rds_clients.base import (
     RDSClientBase,
     RDSClientConfig,
     RDSClientModule,
 )
+from syft_rds.client.rds_clients.custom_function import CustomFunctionRDSClient
 from syft_rds.client.rds_clients.dataset import DatasetRDSClient
 from syft_rds.client.rds_clients.job import JobRDSClient
 from syft_rds.client.rds_clients.user_code import UserCodeRDSClient
 from syft_rds.client.rpc import RPCClient
 from syft_rds.client.utils import PathLike, deprecation_warning
-from syft_rds.models import Dataset, Job, JobStatus, UserCode
+from syft_rds.models import CustomFunction, Dataset, Job, UserCode
 from syft_rds.models.base import ItemBase
 from syft_rds.syft_runtime.main import (
-    DockerRunner,
-    FileOutputHandler,
     JobConfig,
-    RichConsoleUI,
-    TextUI,
 )
 
 T = TypeVar("T", bound=ItemBase)
@@ -100,11 +97,16 @@ class RDSClient(RDSClientBase):
         self, config: RDSClientConfig, rpc_client: RPCClient, local_store: LocalStore
     ) -> None:
         super().__init__(config, rpc_client, local_store)
+        self.job_runner = JobRunner(self)
+
         self.job = JobRDSClient(self.config, self.rpc, self.local_store, parent=self)
         self.dataset = DatasetRDSClient(
             self.config, self.rpc, self.local_store, parent=self
         )
         self.user_code = UserCodeRDSClient(
+            self.config, self.rpc, self.local_store, parent=self
+        )
+        self.custom_function = CustomFunctionRDSClient(
             self.config, self.rpc, self.local_store, parent=self
         )
 
@@ -117,6 +119,7 @@ class RDSClient(RDSClientBase):
             Dataset: self.dataset,
             # Runtime: self.runtime,
             UserCode: self.user_code,
+            CustomFunction: self.custom_function,
         }
 
     def for_type(self, type_: Type[T]) -> RDSClientModule[T]:
@@ -143,21 +146,6 @@ class RDSClient(RDSClientBase):
         """
         return self.dataset.get_all()
 
-    def get_default_config_for_job(self, job: Job) -> JobConfig:
-        user_code = self.user_code.get(job.user_code_id)
-        dataset = self.dataset.get(name=job.dataset_name)
-        runtime = dataset.runtime or self.config.runner_config.runtime
-        runner_config = self.config.runner_config
-        return JobConfig(
-            function_folder=user_code.local_dir,
-            args=[user_code.entrypoint],
-            data_path=dataset.get_private_path(),
-            runtime=runtime,
-            job_folder=runner_config.job_output_folder / job.uid.hex,
-            timeout=runner_config.timeout,
-            use_docker=runner_config.use_docker,
-        )
-
     def run_private(
         self,
         job: Job,
@@ -166,25 +154,13 @@ class RDSClient(RDSClientBase):
         show_stdout: bool = True,
         show_stderr: bool = True,
     ) -> Job:
-        if job.status == JobStatus.rejected:
-            raise ValueError(
-                "Cannot run rejected job, "
-                "if you want to override this, "
-                "set job.status to something else"
-            )
-
-        config = config or self.get_default_config_for_job(job)
-
-        logger.warning("Running job without docker is not secure")
-        return_code = self._run(
+        return self.job_runner.run_private(
+            job=job,
             config=config,
             display_type=display_type,
             show_stdout=show_stdout,
             show_stderr=show_stderr,
         )
-        job_update = job.get_update_for_return_code(return_code)
-        new_job = self.rpc.job.update(job_update)
-        return job.apply_update(new_job)
 
     def run_mock(
         self,
@@ -194,42 +170,10 @@ class RDSClient(RDSClientBase):
         show_stdout: bool = True,
         show_stderr: bool = True,
     ) -> Job:
-        config = config or self.get_default_config_for_job(job)
-        config.data_path = self.dataset.get(name=job.dataset_name).get_mock_path()
-        self._run(
+        return self.job_runner.run_mock(
+            job=job,
             config=config,
             display_type=display_type,
             show_stdout=show_stdout,
             show_stderr=show_stderr,
         )
-        return job
-
-    def _run(
-        self,
-        config: JobConfig,
-        display_type: str = "text",
-        show_stdout: bool = True,
-        show_stderr: bool = True,
-    ) -> int:
-        """Runs a job.
-
-        Args:
-            job (Job): The job to run
-        """
-
-        if display_type == "rich":
-            display_handler = RichConsoleUI(
-                show_stdout=show_stdout,
-                show_stderr=show_stderr,
-            )
-        elif display_type == "text":
-            display_handler = TextUI(
-                show_stdout=show_stdout,
-                show_stderr=show_stderr,
-            )
-        else:
-            raise ValueError(f"Unknown display type: {display_type}")
-
-        runner = DockerRunner(handlers=[FileOutputHandler(), display_handler])
-        return_code = runner.run(config)
-        return return_code

@@ -53,6 +53,7 @@ class Job(ItemBase):
     name: str = Field(default_factory=generate_name)
     description: str | None = None
     user_code_id: UUID
+    custom_function_id: Optional[UUID] = None
     tags: list[str] = Field(default_factory=list)
     user_metadata: dict = {}
     status: JobStatus = JobStatus.pending_code_review
@@ -141,6 +142,7 @@ class JobCreate(ItemBaseCreate[Job]):
     user_code_id: UUID
     tags: list[str] = Field(default_factory=list)
     dataset_name: str
+    custom_function_id: Optional[UUID] = None
 
 
 class JobResults(BaseModel):

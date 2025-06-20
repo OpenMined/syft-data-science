@@ -1,3 +1,4 @@
+import shutil
 from pathlib import Path
 from uuid import UUID
 
@@ -13,6 +14,7 @@ from syft_rds.models import (
     JobUpdate,
     UserCode,
 )
+from syft_rds.models.custom_function_models import CustomFunction
 from syft_rds.models.job_models import JobErrorKind, JobResults
 
 
@@ -27,6 +29,7 @@ class JobRDSClient(RDSClientModule[Job]):
         name: str | None = None,
         description: str | None = None,
         tags: list[str] | None = None,
+        custom_function: CustomFunction | UUID | None = None,
     ) -> Job:
         """`submit` is a convenience method to create both a UserCode and a Job in one call."""
         user_code = self.rds.user_code.create(
@@ -38,9 +41,24 @@ class JobRDSClient(RDSClientModule[Job]):
             user_code=user_code,
             dataset_name=dataset_name,
             tags=tags,
+            custom_function=custom_function,
         )
 
         return job
+
+    def _resolve_custom_func_id(
+        self, custom_function: CustomFunction | UUID | None
+    ) -> UUID | None:
+        if custom_function is None:
+            return None
+        if isinstance(custom_function, UUID):
+            return custom_function
+        elif isinstance(custom_function, CustomFunction):
+            return custom_function.uid
+        else:
+            raise RDSValidationError(
+                f"Invalid custom_function type {type(custom_function)}. Must be CustomFunction, UUID, or None"
+            )
 
     def _resolve_usercode_id(self, user_code: UserCode | UUID) -> UUID:
         if isinstance(user_code, UUID):
@@ -59,9 +77,11 @@ class JobRDSClient(RDSClientModule[Job]):
         name: str | None = None,
         description: str | None = None,
         tags: list[str] | None = None,
+        custom_function: CustomFunction | UUID | None = None,
     ) -> Job:
         # TODO ref dataset by UID instead of name
         user_code_id = self._resolve_usercode_id(user_code)
+        custom_function_id = self._resolve_custom_func_id(custom_function)
 
         job_create = JobCreate(
             name=name,
@@ -69,6 +89,7 @@ class JobRDSClient(RDSClientModule[Job]):
             tags=tags if tags is not None else [],
             user_code_id=user_code_id,
             dataset_name=dataset_name,
+            custom_function_id=custom_function_id,
         )
         job = self.rpc.job.create(job_create)
 
@@ -117,8 +138,8 @@ class JobRDSClient(RDSClientModule[Job]):
     def share_results(self, job: Job) -> None:
         if not self.is_admin:
             raise RDSValidationError("Only admins can share results")
-        job_output_folder = self.config.runner_config.job_output_folder / job.uid.hex
-        output_path = self.local_store.job.share_result_files(job, job_output_folder)
+        job_results_folder = self.config.runner_config.job_output_folder / job.uid.hex
+        output_path = self._share_result_files(job, job_results_folder)
         updated_job = self.rpc.job.update(
             JobUpdate(
                 uid=job.uid,
@@ -128,6 +149,26 @@ class JobRDSClient(RDSClientModule[Job]):
         )
         job.apply_update(updated_job, in_place=True)
         logger.info(f"Shared results for job {job.uid} at {output_path}")
+
+    def _share_result_files(self, job: Job, job_results_folder: Path) -> Path:
+        syftbox_output_path = job.output_url.to_local_path(
+            self.rds._syftbox_client.datasites
+        )
+        if not syftbox_output_path.exists():
+            syftbox_output_path.mkdir(parents=True)
+
+        # Copy all contents from job_output_folder to the output path
+        for item in job_results_folder.iterdir():
+            if item.is_file():
+                shutil.copy2(item, syftbox_output_path)
+            elif item.is_dir():
+                shutil.copytree(
+                    item,
+                    syftbox_output_path / item.name,
+                    dirs_exist_ok=True,
+                )
+
+        return syftbox_output_path
 
     def get_results(self, job: Job) -> JobResults:
         """Get the shared job results."""

@@ -33,7 +33,7 @@ def test_job_execution(
     job = do_rds_client.rpc.job.get_all(GetAllRequest())[0]
 
     # Runner side
-    config = do_rds_client.get_default_config_for_job(job)
+    config = do_rds_client.job_runner.get_default_config_for_job(job)
     config.use_docker = use_docker
     do_rds_client.run_private(job, config)
     assert job.status == JobStatus.job_run_finished
@@ -76,7 +76,7 @@ def test_job_folder_execution(
     job = do_rds_client.rpc.job.get_all(GetAllRequest())[0]
 
     # Runner side
-    config = do_rds_client.get_default_config_for_job(job)
+    config = do_rds_client.job_runner.get_default_config_for_job(job)
     config.use_docker = use_docker
     do_rds_client.run_private(job, config)
     assert job.status == JobStatus.job_run_finished
@@ -124,7 +124,7 @@ def test_job_execution_with_custom_runtime(
     assert job.status == JobStatus.job_run_failed, "Need to set`SECRET_KEY`"
 
     os.environ["PYDEVD_DISABLE_FILE_VALIDATION"] = "1"
-    config = do_rds_client.get_default_config_for_job(job)
+    config = do_rds_client.job_runner.get_default_config_for_job(job)
     config.use_docker = use_docker
     if use_docker:
         config.runtime.mount_dir = PRIVATE_CODE_PATH
