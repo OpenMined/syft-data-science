@@ -6,6 +6,8 @@ from syft_core import Client as SyftBoxClient
 
 from syft_rds import __version__
 from syft_rds.models import Job, Runtime, UserCode
+from syft_rds.server_fsb.routers.job_router import job_router
+from syft_rds.server_fsb.routers.runtime_router import runtime_router
 from syft_rds.server_fsb.routers.user_code_router import user_code_router
 from syft_rds.server_fsb.user_file_service import UserFileService
 from syft_rds.store.store import YAMLStore
@@ -49,9 +51,9 @@ def create_app(client: SyftBoxClient | None = None) -> FastSyftBox:
     def health() -> dict:  # pragma: no cover
         return {"app_name": APP_NAME, "version": __version__}
 
-    # rds_app.include_router(job_router, prefix="/job")
+    rds_app.include_router(job_router, prefix="/job")
     rds_app.include_router(user_code_router, prefix="/user_code")
-    # rds_app.include_router(runtime_router, prefix="/runtime")
+    rds_app.include_router(runtime_router, prefix="/runtime")
 
     return rds_app
 
