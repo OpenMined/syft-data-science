@@ -19,7 +19,7 @@ if TYPE_CHECKING:
 
 
 class JobRunner:
-    def __init__(self, rds_client: RDSClient):
+    def __init__(self, rds_client: "RDSClient"):
         self.rds_client = rds_client
 
     @property
