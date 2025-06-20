@@ -10,6 +10,7 @@ from tests.conftest import DS_PATH
 from tests.utils import create_dataset
 from loguru import logger
 import time
+from syft_rds.utils.constants import JOB_STATUS_POLLING_INTERVAL
 
 
 single_file_submission = {"user_code_path": DS_PATH / "ds.py"}
@@ -91,7 +92,7 @@ def _run_and_verify_job(do_rds_client: RDSClient, blocking: bool):
         logger.info(f"Job failed: {job.error_message}")
         raise Exception(f"Job failed: {job.error_message}")
 
-    time.sleep(2.5)
+    time.sleep(JOB_STATUS_POLLING_INTERVAL + 0.5)
     assert job.status == JobStatus.job_run_finished
 
     # DO shares results with DS

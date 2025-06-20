@@ -53,7 +53,7 @@ class RuntimeRDSClient(RDSClientModule[Runtime]):
 
     def get_runtime_by_name(self, name: str) -> Runtime | None:
         try:
-            return self.get(filters={"name": name})
+            return self.get(name=name)
         except Exception as e:
             logger.debug(f"Error getting runtime by name: {e}")
             return None

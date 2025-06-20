@@ -2,7 +2,7 @@ import os
 import subprocess
 import time
 from pathlib import Path
-from typing import Callable, Protocol
+from typing import TYPE_CHECKING, Protocol
 
 from loguru import logger
 from rich.console import Console
@@ -10,8 +10,19 @@ from rich.live import Live
 from rich.panel import Panel
 from rich.spinner import Spinner
 
-from syft_rds.models import DockerMount, Job, JobConfig, JobUpdate, RuntimeKind
+from syft_rds.models import (
+    DockerMount,
+    Job,
+    JobConfig,
+    JobUpdate,
+    JobErrorKind,
+    RuntimeKind,
+    JobStatus,
+)
 from syft_rds.syft_runtime.mounts import get_mount_provider
+
+if TYPE_CHECKING:
+    from syft_rds.client.rds_client import RDSClient
 
 DEFAULT_WORKDIR = "/app"
 DEFAULT_OUTPUT_DIR = DEFAULT_WORKDIR + "/output"
@@ -174,14 +185,14 @@ class TextUI(JobOutputHandler):
 class JobRunner:
     """Base class for running jobs."""
 
-    def __init__(self, handlers: list[JobOutputHandler]):
+    def __init__(self, handlers: list[JobOutputHandler], client: "RDSClient"):
         self.handlers = handlers
+        self.client = client
 
     def run(
         self,
         job_config: JobConfig,
         job: Job,
-        update_job_status: Callable[[JobUpdate, Job], Job],
     ) -> int | None:
         """Run a job"""
         raise NotImplementedError
@@ -207,11 +218,10 @@ class JobRunner:
         cmd: list[str],
         job_config: JobConfig,
         job: Job,
-        update_job_status: Callable[[JobUpdate, Job], Job],
         env: dict | None = None,
     ) -> int | subprocess.Popen:
         job_update = job.get_update_for_in_progress()
-        update_job_status(job_update, job)
+        self.client.update_job_status(job_update, job)
 
         for handler in self.handlers:
             handler.on_job_start(job_config)
@@ -226,7 +236,7 @@ class JobRunner:
 
         if os.getenv(SYFT_RDS_BLOCKING_EXECUTION, "true").lower() == "true":
             logger.info("Running job in blocking mode")
-            return self._run_blocking(process, job, update_job_status)
+            return self._run_blocking(process, job)
         else:
             logger.info("Running job in non-blocking mode")
             return process
@@ -235,7 +245,6 @@ class JobRunner:
         self,
         process: subprocess.Popen,
         job: Job,
-        update_job_status: Callable[[JobUpdate, Job], Job],
     ) -> int:
         # Stream logs
         while True:
@@ -261,9 +270,9 @@ class JobRunner:
 
         return_code = process.returncode
 
-        # Update job status
+        # Handle job completion results. TODO: make this also works for non-blocking jobs
         job_update = job.get_update_for_return_code(return_code)
-        update_job_status(job_update, job)
+        self.client.update_job_status(job_update, job)
 
         for handler in self.handlers:
             handler.on_job_completion(process.returncode)
@@ -272,19 +281,14 @@ class JobRunner:
 
 
 class PythonRunner(JobRunner):
-    """Handles running jobs directly as Python subprocesses"""
+    """Runs a Python job in a local subprocess."""
 
     def run(
         self,
         job_config: JobConfig,
         job: Job,
-        update_job_status: Callable[[JobUpdate, Job], Job],
     ) -> int | subprocess.Popen:
-        """Run a job as a Python subprocess"""
-        logger.debug(
-            f"Running code in '{job_config.function_folder}' on dataset '{job_config.data_path}' with runtime '{job_config.runtime.kind.value}'"
-        )
-
+        """Run a job"""
         self._validate_paths(job_config)
         self._prepare_job_folders(job_config)
 
@@ -294,7 +298,7 @@ class PythonRunner(JobRunner):
         env.update(job_config.get_env())
         env.update(job_config.extra_env)
 
-        return self._run_subprocess(cmd, job_config, job, update_job_status, env=env)
+        return self._run_subprocess(cmd, job_config, job, env=env)
 
     def _prepare_run_command(self, job_config: JobConfig) -> list[str]:
         return [
@@ -305,13 +309,12 @@ class PythonRunner(JobRunner):
 
 
 class DockerRunner(JobRunner):
-    """Handles running jobs in Docker containers with security constraints"""
+    """Runs a job in a Docker container."""
 
     def run(
         self,
         job_config: JobConfig,
         job: Job,
-        update_job_status: Callable[[JobUpdate, Job], Job],
     ) -> int | subprocess.Popen:
         """Run a job in a Docker container"""
         logger.debug(
@@ -321,26 +324,30 @@ class DockerRunner(JobRunner):
         self._validate_paths(job_config)
         self._prepare_job_folders(job_config)
 
-        self._validate_docker(job_config)
+        self._check_docker_daemon(job)
+        self._check_or_build_image(job_config, job)
 
         cmd = self._prepare_run_command(job_config)
 
-        return self._run_subprocess(cmd, job_config, job, update_job_status)
+        return self._run_subprocess(cmd, job_config, job)
 
-    def _validate_docker(self, job_config: JobConfig) -> None:
-        """Validate Docker is available and the required image exists."""
-        self._check_docker_daemon()
-        self._check_or_build_image(job_config)
-
-    def _check_docker_daemon(self) -> None:
+    def _check_docker_daemon(self, job: Job) -> None:
         """Check if the Docker daemon is running."""
         try:
-            subprocess.run(["docker", "info"], check=True, capture_output=True)
-            logger.debug("Docker daemon is available")
-        except FileNotFoundError:
-            raise RuntimeError("Docker not installed or not in PATH.")
-        except subprocess.CalledProcessError:
-            raise RuntimeError("Docker daemon is not running.")
+            subprocess.run(
+                ["docker", "info"],
+                check=True,
+                capture_output=True,
+            )
+        except Exception as e:
+            job_update = JobUpdate(
+                uid=job.uid,
+                status=JobStatus.job_run_failed,
+                error=JobErrorKind.execution_failed,
+                error_message="Docker daemon is not running with error: " + str(e),
+            )
+            self.client.update_job_status(job_update, job)
+            raise RuntimeError("Docker daemon is not running with error: " + str(e))
 
     def _get_image_name(self, job_config: JobConfig) -> str:
         """Get the Docker image name from the config or use the default."""
@@ -349,8 +356,8 @@ class DockerRunner(JobRunner):
             return job_config.runtime.name
         return runtime_config.image_name
 
-    def _check_or_build_image(self, job_config: JobConfig) -> None:
-        """Check if a required Docker image exists."""
+    def _check_or_build_image(self, job_config: JobConfig, job: Job) -> None:
+        """Check if the Docker image exists, otherwise build it."""
         image_name = self._get_image_name(job_config)
         result = subprocess.run(
             ["docker", "image", "inspect", image_name],
@@ -363,16 +370,13 @@ class DockerRunner(JobRunner):
             return
 
         logger.info(f"Docker image '{image_name}' not found. Building it now...")
-        self._build_docker_image(job_config)
+        self._build_docker_image(job_config, job)
 
-    def _build_docker_image(self, job_config: JobConfig) -> None:
+    def _build_docker_image(self, job_config: JobConfig, job: Job) -> None:
         """Build the Docker image."""
         image_name = self._get_image_name(job_config)
         dockerfile_content: str = job_config.runtime.config.dockerfile_content
-        logger.debug(
-            f"Building image '{image_name}' with Dockerfile content: {dockerfile_content}"
-        )
-
+        error_for_job: str | None = None
         build_context = "."
         try:
             build_cmd = [
@@ -384,7 +388,9 @@ class DockerRunner(JobRunner):
                 "-",  # Use stdin for Dockerfile content
                 str(build_context),
             ]
-            logger.debug(f"Running docker build command: {' '.join(build_cmd)}")
+            logger.debug(
+                f"Running docker build command: {' '.join(build_cmd)}\nDockerfile content:\n{dockerfile_content}"
+            )
             process = subprocess.run(
                 build_cmd,
                 input=dockerfile_content,
@@ -395,14 +401,24 @@ class DockerRunner(JobRunner):
 
             logger.debug(process.stdout)
             logger.info(f"Successfully built Docker image '{image_name}'.")
-
         except FileNotFoundError:
             raise RuntimeError("Docker not installed or not in PATH.")
         except subprocess.CalledProcessError as e:
-            logger.error(f"Docker build failed. stderr: {e.stderr}")
+            error_message = f"Failed to build Docker image '{image_name}'."
+            logger.error(f"{error_message} stderr: {e.stderr}")
+            error_for_job = f"{error_message}\n{e.stderr}"
             raise RuntimeError(f"Failed to build Docker image '{image_name}'.")
         except Exception as e:
             raise RuntimeError(f"An error occurred during Docker image build: {e}")
+        finally:
+            if error_for_job:
+                job_update = JobUpdate(
+                    uid=job.uid,
+                    status=JobStatus.job_run_failed,
+                    error=JobErrorKind.execution_failed,
+                    error_message=error_for_job,
+                )
+                self.client.update_job_status(job_update, job)
 
     def _get_extra_mounts(self, job_config: JobConfig) -> list[DockerMount]:
         """Get extra mounts for a job"""
@@ -492,25 +508,22 @@ class DockerRunner(JobRunner):
 
 
 class SyftRunner:
-    """A factory class to select and run the appropriate job runner."""
+    """Entrypoint for running jobs"""
 
-    def __init__(self, handlers: list[JobOutputHandler]):
-        self.handlers = handlers
+    def __init__(self, handlers: list[JobOutputHandler], client: "RDSClient"):
         self._runners = {
-            RuntimeKind.PYTHON: PythonRunner(handlers),
-            RuntimeKind.DOCKER: DockerRunner(handlers),
+            RuntimeKind.PYTHON: PythonRunner(handlers, client),
+            RuntimeKind.DOCKER: DockerRunner(handlers, client),
         }
 
     def run(
         self,
         job_config: JobConfig,
         job: Job,
-        update_job_status: Callable[[JobUpdate, Job], Job],
     ) -> int | None:
-        """Selects the appropriate runner based on runtime kind and runs the job."""
         runner = self._runners.get(job_config.runtime.kind)
         if not runner:
             raise NotImplementedError(
                 f"Unsupported runtime kind: {job_config.runtime.kind}"
             )
-        return runner.run(job_config, job, update_job_status)
+        return runner.run(job_config, job)

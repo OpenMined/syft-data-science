@@ -17,7 +17,8 @@ INTERPRETER=${INTERPRETER:-"sh"}\n\
 trap "echo \"$TIMEOUT_MESSAGE\"" TERM\n\
 timeout -s TERM $TIMEOUT "$INTERPRETER" "$@" || {\n\
   test $? -eq 124 && echo "$TIMEOUT_MESSAGE" >&2 && exit 124\n\
-}' > /entrypoint.sh && chmod +x /entrypoint.sh
+}' > /entrypoint.sh
+RUN chmod +x /entrypoint.sh
 
 # Create a restricted user with no home directory and no shell
 RUN adduser --no-create-home --shell /sbin/nologin --disabled-password --gecos "" runtimeuser

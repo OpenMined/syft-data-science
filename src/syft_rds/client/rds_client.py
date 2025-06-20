@@ -2,7 +2,7 @@ from pathlib import Path
 import subprocess
 import threading
 import time
-from typing import Callable, Optional, Type, TypeVar
+from typing import Optional, Type, TypeVar
 from uuid import UUID
 
 from loguru import logger
@@ -23,6 +23,7 @@ from syft_rds.client.rds_clients.job import JobRDSClient
 from syft_rds.client.rds_clients.user_code import UserCodeRDSClient
 from syft_rds.client.rpc import RPCClient
 from syft_rds.client.utils import PathLike, deprecation_warning
+from syft_rds.utils.constants import JOB_STATUS_POLLING_INTERVAL
 from syft_rds.models import Dataset, Job, JobStatus, JobUpdate, UserCode, Runtime
 from syft_rds.models.base import ItemBase
 from syft_rds.syft_runtime.main import (
@@ -184,7 +185,7 @@ class RDSClient(RDSClientBase):
         )
         return job_config
 
-    def _update_job_status(self, job_update: JobUpdate, job: Job) -> Job:
+    def update_job_status(self, job_update: JobUpdate, job: Job) -> Job:
         new_job = self.rpc.job.update(job_update)
         return job.apply_update(new_job)
 
@@ -205,7 +206,6 @@ class RDSClient(RDSClientBase):
         result = self._run(
             job_config,
             job,
-            self._update_job_status,
             display_type,
             show_stdout,
             show_stderr,
@@ -225,7 +225,6 @@ class RDSClient(RDSClientBase):
         result = self._run(
             job_config,
             job,
-            self._update_job_status,
             display_type,
             show_stdout,
             show_stderr,
@@ -236,7 +235,7 @@ class RDSClient(RDSClientBase):
         if isinstance(result, int):
             # blocking job
             job_update = job.get_update_for_return_code(result)
-            return self._update_job_status(job_update, job)
+            return self.update_job_status(job_update, job)
         else:
             # non-blocking job
             with self._jobs_lock:
@@ -254,7 +253,7 @@ class RDSClient(RDSClientBase):
                         try:
                             return_code = process.returncode
                             job_update = job.get_update_for_return_code(return_code)
-                            self._update_job_status(job_update, job)
+                            self.update_job_status(job_update, job)
                             logger.debug(
                                 f"Non-blocking job '{job.name}' (PID: {process.pid}) "
                                 f"finished with code {return_code}."
@@ -267,13 +266,12 @@ class RDSClient(RDSClientBase):
                 for job_uid in finished_jobs:
                     del self._non_blocking_jobs[job_uid]
 
-            time.sleep(2)  # polling interval
+            time.sleep(JOB_STATUS_POLLING_INTERVAL)
 
     def _run(
         self,
         config: JobConfig,
         job: Job,
-        update_job_status: Callable[[JobUpdate, Job], Job],
         display_type: str = "text",
         show_stdout: bool = True,
         show_stderr: bool = True,
@@ -291,5 +289,7 @@ class RDSClient(RDSClientBase):
         else:
             raise ValueError(f"Unknown display type: {display_type}")
 
-        runner = SyftRunner(handlers=[FileOutputHandler(), display_handler])
-        return runner.run(config, job, update_job_status)
+        runner = SyftRunner(
+            handlers=[FileOutputHandler(), display_handler], client=self
+        )
+        return runner.run(config, job)

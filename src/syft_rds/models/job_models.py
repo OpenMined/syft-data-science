@@ -17,7 +17,7 @@ from syft_rds.models.runtime_models import Runtime
 from syft_rds.utils.name_generator import generate_name
 
 if TYPE_CHECKING:
-    from syft_rds.models.user_code_models import UserCode
+    from syft_rds.models import UserCode, Runtime
 
 
 class JobStatus(str, enum.Enum):
@@ -49,9 +49,9 @@ class Job(ItemBase):
         "created_by",
         "name",
         "dataset_name",
+        "runtime_name",
         "status",
         "error",
-        "error_message",
     ]
 
     name: str = Field(default_factory=generate_name)
@@ -70,6 +70,17 @@ class Job(ItemBase):
     def user_code(self) -> "UserCode":
         client = self._client
         return client.user_code.get(self.user_code_id)
+
+    @property
+    def runtime(self) -> "Runtime":
+        """Get the runtime of the job"""
+        client = self._client
+        return client.runtime.get(self.runtime_id)
+
+    @property
+    def runtime_name(self) -> str:
+        """Get the name of the runtime of the job"""
+        return self.runtime.name
 
     def describe(self) -> None:
         html_description = create_html_repr(
@@ -130,17 +141,20 @@ class Job(ItemBase):
         )
 
     def get_update_for_return_code(
-        self, return_code: int | subprocess.Popen
+        self, return_code: int | subprocess.Popen, error_message: str | None = None
     ) -> "JobUpdate":
         if not isinstance(return_code, int):
             return self.get_update_for_in_progress()
         if return_code == 0:
             self.status = JobStatus.job_run_finished
+            self.error = JobErrorKind.no_error
+            self.error_message = None
         else:
             self.status = JobStatus.job_run_failed
             self.error = JobErrorKind.execution_failed
             self.error_message = (
-                "Job execution failed. Please check the logs for details."
+                error_message
+                or "Job execution failed. Please check the logs for details."
             )
         return JobUpdate(
             uid=self.uid,
