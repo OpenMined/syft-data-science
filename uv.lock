@@ -2842,7 +2842,7 @@ wheels = [
 
 [[package]]
 name = "syft-core"
-version = "0.2.3"
+version = "0.2.4"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "pydantic", extra = ["email"] },
@@ -2850,14 +2850,14 @@ dependencies = [
     { name = "typing-extensions" },
     { name = "wcmatch" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/6a/15/29ae1dadc1743a0c80ce4d1d6f19f4fa4a303b5d7dfaabff3560e9d0dc76/syft_core-0.2.3.tar.gz", hash = "sha256:da98633b20c764ef53c39f1ac4295b2abfd43d8b59d9ff27d9af413b309e02c1", size = 11236, upload-time = "2025-04-08T14:57:39.645Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/7f/49/cca0dd8ccfb27f6ee31195ddea244beb29ed6248921c28cb21181530ff3d/syft_core-0.2.4.tar.gz", hash = "sha256:f0613725ca4317a506b0482ea88ca7c30ab409f97b35bb3948b424b89d5a3b8f", size = 11330, upload-time = "2025-06-16T10:28:36.982Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/c6/e7/aed389cc5a2f69f9235a65c969d4b15458e7faf400ae8f7ca6250527009c/syft_core-0.2.3-py3-none-any.whl", hash = "sha256:7f37ba0e7b6e1019951bf55e52d8d21642359e15f882b9af1c45e1c29ab5f94e", size = 12758, upload-time = "2025-04-08T14:57:38.468Z" },
+    { url = "https://files.pythonhosted.org/packages/cc/81/bdc40a07ed0d2b2ba6b3018baed70bc2f25d6a08a7f218a3c36062af985c/syft_core-0.2.4-py3-none-any.whl", hash = "sha256:02d40d89cd3eba7ba1d138b948650895c8271e09550fa65264da5fd8052760eb", size = 12842, upload-time = "2025-06-16T10:28:35.642Z" },
 ]
 
 [[package]]
 name = "syft-event"
-version = "0.2.3"
+version = "0.2.4"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "loguru" },
@@ -2866,9 +2866,9 @@ dependencies = [
     { name = "syft-rpc" },
     { name = "watchdog" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/e9/cd/e42ef55e5489b34f5ce0147d3e2970ef04872e960c0bab238f3e085881ca/syft_event-0.2.3.tar.gz", hash = "sha256:ed0bf35f90550e30ce6a61a7003d460a4d96826033f9954828033dfaf724e80e", size = 6858, upload-time = "2025-06-04T03:11:55.483Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/fd/97/cc03ba004bdd56d6ff02fa026a0f5ceb440c882632eb71732957c9099201/syft_event-0.2.4.tar.gz", hash = "sha256:e9fbf2726ff3322ad54d625ecc44eafe0b6d51a01170a7ceb7dfb1b94eb5dc6b", size = 6869, upload-time = "2025-06-16T10:56:55.022Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/c6/ef/688cac823fc5497bdc958d2d92edbc54a5d735fb5a5f43e5d4cbb0791d2a/syft_event-0.2.3-py3-none-any.whl", hash = "sha256:91632e17aceb29a11c3f80dda5108918da0354fe433b9d2d50a4153b17155c2d", size = 7702, upload-time = "2025-06-04T03:11:54.083Z" },
+    { url = "https://files.pythonhosted.org/packages/1c/93/6358881b68d144eef55d8d2e9fba36d3b328d0425bf31569569464fe0b48/syft_event-0.2.4-py3-none-any.whl", hash = "sha256:834079e630625fb2ce500fa8baf0de974bc53f7afeb0ef705f3e5fd24de316b1", size = 7723, upload-time = "2025-06-16T10:56:53.781Z" },
 ]
 
 [[package]]
@@ -2912,9 +2912,9 @@ requires-dist = [
     { name = "pydantic", extras = ["email"], specifier = ">=2.10.4" },
     { name = "pyyaml", specifier = ">=6.0.2" },
     { name = "rich", specifier = ">=13.9.4" },
-    { name = "syft-core", specifier = "==0.2.3" },
-    { name = "syft-event", specifier = "==0.2.3" },
-    { name = "syft-rpc", specifier = "==0.2.2" },
+    { name = "syft-core", specifier = "==0.2.4" },
+    { name = "syft-event", specifier = "==0.2.4" },
+    { name = "syft-rpc", specifier = "==0.2.3" },
     { name = "typer", specifier = ">=0.12.5" },
     { name = "typing-extensions", specifier = ">=4.12.2" },
 ]
@@ -2932,16 +2932,16 @@ dev = [
 
 [[package]]
 name = "syft-rpc"
-version = "0.2.2"
+version = "0.2.3"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "pydantic" },
     { name = "syft-core" },
     { name = "typing-extensions" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/38/b4/2471500aabad8add92ed220578d77f7baae5009a19436e92d0d9f8f52198/syft_rpc-0.2.2.tar.gz", hash = "sha256:95a23ad28a737008dc8eb1e27d34a7233e2fc019a53577958cff0bf8dfb2b592", size = 10662, upload-time = "2025-06-04T03:02:59.171Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/5f/d7/55f0ed64da8be5b8293d536e51b72aa3da68da2f59105b3b4082738fa485/syft_rpc-0.2.3.tar.gz", hash = "sha256:7591c66da7571ca06d171ae567666795cbdbe68807cb49b6815d97c11291cb51", size = 10662, upload-time = "2025-06-16T10:53:43.887Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/30/15/1f357d1af6938920e4c8c16dc5646fbd2da5d566d438f38faca7cc9ae3b0/syft_rpc-0.2.2-py3-none-any.whl", hash = "sha256:7292267de825b8054fa049e52f65b224a0fd4424c048f2d448c6e15764a0f1fd", size = 11072, upload-time = "2025-06-04T03:02:57.743Z" },
+    { url = "https://files.pythonhosted.org/packages/f5/01/84deb4af0740947552205426b4f2a73643d53dcd5f7ab08a486fcb34c0ce/syft_rpc-0.2.3-py3-none-any.whl", hash = "sha256:d908fdab03c34c964dd1add6213c189660de67d32176fb4054e250da40b346bf", size = 11072, upload-time = "2025-06-16T10:53:42.877Z" },
 ]
 
 [[package]]
