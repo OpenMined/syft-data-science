@@ -5,6 +5,7 @@ from uuid import UUID
 from loguru import logger
 
 from syft_rds.client.rds_clients.base import ClientRunnerConfig
+from syft_rds.client.utils import copy_dir_contents
 from syft_rds.models import Job, JobStatus
 from syft_rds.syft_runtime.main import (
     DockerRunner,
@@ -42,20 +43,30 @@ class JobRunner:
             use_docker=runner_config.use_docker,
         )
 
+    def _prepare_job(self, job: Job, config: JobConfig) -> None:
+        if job.custom_function_id is not None:
+            self._prepare_custom_function(
+                code_dir=job.user_code.local_dir,
+                custom_function_id=job.custom_function_id,
+            )
+
     def _prepare_custom_function(
         self,
         code_dir: Path,
         custom_function_id: UUID,
     ) -> None:
         custom_function = self.rds_client.custom_function.get(uid=custom_function_id)
-        # Copy all files from the custom function to the code directory
-        import shutil
 
-        for file in custom_function.local_dir.glob("*"):
-            if file.is_file():
-                shutil.copy2(file, code_dir / file.name)
-            elif file.is_dir():
-                shutil.copytree(file, code_dir / file.name, dirs_exist_ok=True)
+        try:
+            copy_dir_contents(
+                src=custom_function.local_dir,
+                dst=code_dir,
+                exists_ok=False,
+            )
+        except FileExistsError as e:
+            raise FileExistsError(
+                f"Cannot copy custom function files to {code_dir}: {e}"
+            ) from e
 
     def _get_display_handler(
         self, display_type: str, show_stdout: bool, show_stderr: bool
@@ -76,6 +87,7 @@ class JobRunner:
 
     def _run(
         self,
+        job: Job,
         config: JobConfig,
         display_type: str = "text",
         show_stdout: bool = True,
@@ -87,6 +99,7 @@ class JobRunner:
             job (Job): The job to run
         """
 
+        self._prepare_job(job, config)
         display_handler = self._get_display_handler(
             display_type=display_type,
             show_stdout=show_stdout,
@@ -116,6 +129,7 @@ class JobRunner:
 
         logger.warning("Running job without docker is not secure")
         return_code = self._run(
+            job=job,
             config=config,
             display_type=display_type,
             show_stdout=show_stdout,
@@ -138,6 +152,7 @@ class JobRunner:
             name=job.dataset_name
         ).get_mock_path()
         self._run(
+            job=job,
             config=config,
             display_type=display_type,
             show_stdout=show_stdout,
