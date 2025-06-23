@@ -53,9 +53,15 @@ class CustomFunction(ItemBase):
                 "code_type",
                 "entrypoint",
             ],
-            display_paths=["local_dir"],
+            display_paths=["local_dir", "entrypoint_path"],
         )
         display(HTML(html_description))
+
+    @property
+    def entrypoint_path(self) -> Path:
+        if not self.entrypoint:
+            raise ValueError("Entrypoint is not set")
+        return self.local_dir / self.entrypoint
 
 
 class CustomFunctionCreate(ItemBaseCreate[CustomFunction]):

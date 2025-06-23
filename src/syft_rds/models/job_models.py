@@ -11,6 +11,7 @@ from syft_core import SyftBoxURL
 
 from syft_rds.display_utils.html_format import create_html_repr
 from syft_rds.models.base import ItemBase, ItemBaseCreate, ItemBaseUpdate
+from syft_rds.models.custom_function_models import CustomFunction
 from syft_rds.utils.name_generator import generate_name
 
 if TYPE_CHECKING:
@@ -62,11 +63,6 @@ class Job(ItemBase):
     output_url: SyftBoxURL | None = None
     dataset_name: str
 
-    @property
-    def user_code(self) -> "UserCode":
-        client = self._client
-        return client.user_code.get(self.user_code_id)
-
     def describe(self) -> None:
         html_description = create_html_repr(
             obj=self,
@@ -82,11 +78,34 @@ class Job(ItemBase):
                 "error_message",
                 "output_path",
                 "dataset_name",
-                "user_code_id",
+                "user_code_name",
+                "custom_function_name",
             ],
             display_paths=["output_path"],
         )
         display(HTML(html_description))
+
+    @property
+    def user_code(self) -> "UserCode":
+        client = self._client
+        return client.user_code.get(self.user_code_id)
+
+    @property
+    def user_code_name(self) -> str:
+        return self.user_code.name
+
+    @property
+    def custom_function(self) -> Optional[CustomFunction]:
+        if self.custom_function_id is None:
+            return None
+        client = self._client
+        return client.custom_function.get(self.custom_function_id)
+
+    @property
+    def custom_function_name(self) -> Optional[str]:
+        if self.custom_function is None:
+            return None
+        return self.custom_function.name
 
     def show_user_code(self) -> None:
         user_code = self.user_code

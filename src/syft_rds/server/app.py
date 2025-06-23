@@ -9,6 +9,7 @@ from syft_rds import __version__
 from syft_rds.models import Job, Runtime, UserCode
 from syft_rds.models.custom_function_models import CustomFunction
 from syft_rds.server.router import RPCRouter
+from syft_rds.server.routers.custom_function_router import custom_function_router
 from syft_rds.server.routers.job_router import job_router
 from syft_rds.server.routers.runtime_router import runtime_router
 from syft_rds.server.routers.user_code_router import user_code_router
@@ -86,6 +87,7 @@ def create_app(client: Client | None = None) -> SyftEvents:
     rds_app.include_router(job_router, prefix="/job")
     rds_app.include_router(user_code_router, prefix="/user_code")
     rds_app.include_router(runtime_router, prefix="/runtime")
+    rds_app.include_router(custom_function_router, prefix="/custom_function")
 
     _init_services(rds_app)
     _write_app_info(rds_app)

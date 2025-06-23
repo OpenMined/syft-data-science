@@ -32,6 +32,19 @@ class JobRDSClient(RDSClientModule[Job]):
         custom_function: CustomFunction | UUID | None = None,
     ) -> Job:
         """`submit` is a convenience method to create both a UserCode and a Job in one call."""
+        if custom_function is not None:
+            custom_function_id = self._resolve_custom_func_id(custom_function)
+            custom_function = (
+                self.rds.custom_function.get(uid=custom_function_id)
+                if custom_function_id
+                else None
+            )
+            if entrypoint is not None:
+                raise RDSValidationError(
+                    "Cannot specify entrypoint when using a custom function."
+                )
+            entrypoint = custom_function.entrypoint
+
         user_code = self.rds.user_code.create(
             code_path=user_code_path, entrypoint=entrypoint
         )

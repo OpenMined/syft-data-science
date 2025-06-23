@@ -40,7 +40,7 @@ class UserCodeRDSClient(RDSClientModule[UserCode]):
             code_type = UserCodeType.FILE
 
             # For file-type code, the entrypoint is the file name
-            entrypoint = code_path.name
+            entrypoint = entrypoint or code_path.name
 
             files_zipped = zip_to_bytes(files_or_dirs=code_path)
 
