@@ -14,10 +14,7 @@ from syft_rds.models import (
     DockerMount,
     Job,
     JobConfig,
-    JobUpdate,
-    JobErrorKind,
     RuntimeKind,
-    JobStatus,
 )
 from syft_rds.syft_runtime.mounts import get_mount_provider
 
@@ -280,12 +277,16 @@ class JobRunner:
                 handler.on_job_progress("", line)
 
         return_code = process.returncode
-
         logger.debug(f"Return code: {return_code}")
         error_message = None
         if stderr_logs:
             logger.debug(f"Stderr logs: {stderr_logs}")
             error_message = "\n".join(stderr_logs)
+
+            # TODO: remove this once we have a better way to handle errors
+            if return_code == 0 and error_message and "| ERROR" in error_message:
+                logger.debug("Error detected in logs, even with return code 0.")
+                return_code = 1
 
         # Handle job completion results
         for handler in self.handlers:
@@ -348,16 +349,14 @@ class DockerRunner(JobRunner):
     def _check_docker_daemon(self, job: Job) -> None:
         """Check if the Docker daemon is running."""
         try:
-            subprocess.run(
+            process = subprocess.run(
                 ["docker", "info"],
                 check=True,
                 capture_output=True,
             )
         except Exception as e:
-            job_update = JobUpdate(
-                uid=job.uid,
-                status=JobStatus.job_run_failed,
-                error=JobErrorKind.execution_failed,
+            job_update = job.get_update_for_return_code(
+                return_code=process.returncode,
                 error_message="Docker daemon is not running with error: " + str(e),
             )
             self.client.update_job_status(job_update, job)
@@ -426,13 +425,11 @@ class DockerRunner(JobRunner):
             raise RuntimeError(f"An error occurred during Docker image build: {e}")
         finally:
             if error_for_job:
-                job_update = JobUpdate(
-                    uid=job.uid,
-                    status=JobStatus.job_run_failed,
-                    error=JobErrorKind.execution_failed,
+                job_failed = job.get_update_for_return_code(
+                    return_code=process.returncode,
                     error_message=error_for_job,
                 )
-                self.client.update_job_status(job_update, job)
+                self.client.update_job_status(job_failed, job)
 
     def _get_extra_mounts(self, job_config: JobConfig) -> list[DockerMount]:
         """Get extra mounts for a job"""

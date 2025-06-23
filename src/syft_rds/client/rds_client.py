@@ -258,6 +258,14 @@ class RDSClient(RDSClientBase):
                         try:
                             return_code = process.returncode
                             stderr = process.stderr.read() if process.stderr else None
+
+                            # TODO: remove this once we have a better way to handle errors
+                            if return_code == 0 and stderr and "| ERROR" in stderr:
+                                logger.debug(
+                                    "Error detected in logs, even with return code 0."
+                                )
+                                return_code = 1
+
                             job_update = job.get_update_for_return_code(
                                 return_code=return_code, error_message=stderr
                             )
