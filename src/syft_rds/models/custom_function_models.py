@@ -1,6 +1,9 @@
 import base64
 import enum
+import json
+import tempfile
 from pathlib import Path
+from typing import Any
 
 from IPython.display import HTML, display
 from pydantic import (
@@ -11,6 +14,7 @@ from syft_core import SyftBoxURL
 
 from syft_rds.display_utils.html_format import create_html_repr
 from syft_rds.models.base import ItemBase, ItemBaseCreate, ItemBaseUpdate
+from syft_rds.models.job_models import Job
 
 MAX_USERCODE_ZIP_SIZE = 1  # MB
 
@@ -30,6 +34,9 @@ class CustomFunction(ItemBase):
     dir_url: SyftBoxURL | None = None
     code_type: CustomFunctionType
     entrypoint: str
+    input_params_filename: str = "input_params.json"
+    summary: str | None = None
+    readme: SyftBoxURL | None = None
 
     @property
     def local_dir(self) -> Path:
@@ -62,6 +69,31 @@ class CustomFunction(ItemBase):
         if not self.entrypoint:
             raise ValueError("Entrypoint is not set")
         return self.local_dir / self.entrypoint
+
+    def submit_job(self, dataset_name: str, **kwargs: Any) -> "Job":
+        with tempfile.TemporaryDirectory() as tmpdir:
+            # Write the input parameters to a temporary JSON file
+            tmp_dir_path = Path(tmpdir)
+            user_params_path = tmp_dir_path / self.input_params_filename
+            if not user_params_path.suffix == ".json":
+                raise ValueError(
+                    f"Input params file must be a JSON file, got {user_params_path.suffix}. Please contact the administrator."
+                )
+
+            try:
+                kwargs_json = json.dumps(kwargs)
+            except Exception as e:
+                raise ValueError(f"Failed to serialize kwargs to JSON: {e}.") from e
+
+            user_params_path.write_text(kwargs_json)
+
+            # Submit the job with the user code and input parameters
+            job = self._client.job.submit(
+                user_code_path=user_params_path,
+                dataset_name=dataset_name,
+                custom_function=self,
+            )
+        return job
 
 
 class CustomFunctionCreate(ItemBaseCreate[CustomFunction]):
