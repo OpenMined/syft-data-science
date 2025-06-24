@@ -103,6 +103,21 @@ def test_job_crud(ds_rds_client: RDSClient, do_rds_client: RDSClient):
     job = do_rds_client.rpc.job.update(job_update)
     assert job.status == JobStatus.rejected
 
+    # delete
+    do_rds_client.job.delete(job)
+    all_jobs = do_rds_client.job.get_all()
+    assert len(all_jobs) == 1
+    assert job.uid not in [j.uid for j in all_jobs]
+
+    # ds can't delete jobs
+    with pytest.raises(PermissionError):
+        ds_rds_client.job.delete(job)
+
+    # delete all
+    do_rds_client.job.delete_all()
+    all_jobs = do_rds_client.job.get_all()
+    assert len(all_jobs) == 0
+
 
 def test_user_code_crud(ds_rds_client: RDSClient):
     user_code_create = UserCodeCreate(
