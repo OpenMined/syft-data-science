@@ -78,3 +78,13 @@ class UserFileService:
         item_dir = type_dir / str(item.uid)
         item_dir.mkdir(exist_ok=True)
         return item_dir
+
+    def get_dir_for_user(self, user: str) -> Path:
+        """Get the directory for a specific user"""
+        return self.user_files_dir / user
+
+    def get_dir_for_item(self, user: str, item: ItemBase) -> Path:
+        """Get the directory for a specific item instance"""
+        user_dir = self.get_dir_for_user(user)
+        item_dir = user_dir / type(item).__name__ / str(item.uid)
+        return item_dir

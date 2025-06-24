@@ -5,6 +5,7 @@ from loguru import logger
 
 from syft_rds.client.exceptions import RDSValidationError
 from syft_rds.client.rds_clients.base import RDSClientModule
+from syft_rds.client.rds_clients.utils import ensure_is_admin
 from syft_rds.client.utils import PathLike
 from syft_rds.models import (
     Job,
@@ -14,6 +15,7 @@ from syft_rds.models import (
     UserCode,
 )
 from syft_rds.models.job_models import JobErrorKind, JobResults
+from syft_rds.server.user_file_service import UserFileService
 
 
 class JobRDSClient(RDSClientModule[Job]):
@@ -164,3 +166,27 @@ class JobRDSClient(RDSClientModule[Job]):
 
         updated_job = self.rpc.job.update(job_update)
         job.apply_update(updated_job, in_place=True)
+
+    @ensure_is_admin
+    def delete(self, job: Job) -> None:
+        # delete the job from the local yaml store
+        result = self.local_store.job.delete(job.uid)
+        if not result:
+            raise RDSValidationError(f"Failed to delete job {job.uid}")
+
+        # delete the job from syftbox
+        try:
+            app_dir: Path = self._syftbox_client.app_data(self.config.app_name)
+            user_file_service = UserFileService(app_dir)
+            job_item_dir: Path = user_file_service.get_dir_for_item(job.created_by, job)
+            job_item_dir.rmdir()
+        except Exception as e:
+            logger.error(f"Failed to delete job {job.uid}: {e}")
+            raise RDSValidationError(f"Failed to delete job {job.uid}")
+
+        logger.info(f"Deleted job {job.uid} from local store")
+
+    @ensure_is_admin
+    def delete_all(self) -> None:
+        for job in self.get_all():
+            self.delete(job)

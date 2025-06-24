@@ -1,5 +1,6 @@
 import shutil
 from pathlib import Path
+from uuid import UUID
 from typing import Final, Type
 
 from syft_rds.client.local_stores.base import CRUDLocalStore
@@ -33,3 +34,6 @@ class JobLocalStore(CRUDLocalStore[Job, JobCreate, JobUpdate]):
                 )
 
         return syftbox_output_path
+
+    def delete(self, job_uid: UUID) -> bool:
+        return self.store.delete(job_uid)
