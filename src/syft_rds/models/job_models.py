@@ -1,8 +1,10 @@
 import enum
 import json
+import subprocess
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Optional
 from uuid import UUID
+from datetime import datetime
 
 from IPython.display import HTML, display
 from loguru import logger
@@ -11,16 +13,18 @@ from syft_core import SyftBoxURL
 
 from syft_rds.display_utils.html_format import create_html_repr
 from syft_rds.models.base import ItemBase, ItemBaseCreate, ItemBaseUpdate
+from syft_rds.models.runtime_models import Runtime
 from syft_rds.utils.name_generator import generate_name
 
 if TYPE_CHECKING:
-    from syft_rds.models.user_code_models import UserCode
+    from syft_rds.models import UserCode, Runtime
 
 
 class JobStatus(str, enum.Enum):
     pending_code_review = "pending_code_review"
     job_run_failed = "job_run_failed"
     job_run_finished = "job_run_finished"
+    job_in_progress = "job_in_progress"
 
     # end states
     rejected = "rejected"  # failed to pass the review
@@ -45,26 +49,38 @@ class Job(ItemBase):
         "created_by",
         "name",
         "dataset_name",
+        "runtime_name",
         "status",
         "error",
-        "error_message",
     ]
 
     name: str = Field(default_factory=generate_name)
-    description: str | None = None
+    dataset_name: str
+    runtime_id: UUID
     user_code_id: UUID
+    description: str | None = None
     tags: list[str] = Field(default_factory=list)
     user_metadata: dict = {}
     status: JobStatus = JobStatus.pending_code_review
     error: JobErrorKind = JobErrorKind.no_error
     error_message: str | None = None
     output_url: SyftBoxURL | None = None
-    dataset_name: str
 
     @property
     def user_code(self) -> "UserCode":
         client = self._client
         return client.user_code.get(self.user_code_id)
+
+    @property
+    def runtime(self) -> "Runtime":
+        """Get the runtime of the job"""
+        client = self._client
+        return client.runtime.get(self.runtime_id)
+
+    @property
+    def runtime_name(self) -> str:
+        """Get the name of the runtime of the job"""
+        return self.runtime.name
 
     def describe(self) -> None:
         html_description = create_html_repr(
@@ -91,15 +107,26 @@ class Job(ItemBase):
         user_code = self.user_code
         user_code.describe()
 
-    def get_update_for_return_code(self, return_code: int) -> "JobUpdate":
+    def get_update_for_in_progress(self) -> "JobUpdate":
+        return JobUpdate(
+            uid=self.uid,
+            status=JobStatus.job_in_progress,
+        )
+
+    def get_update_for_return_code(
+        self, return_code: int | subprocess.Popen, error_message: str | None = None
+    ) -> "JobUpdate":
+        if not isinstance(return_code, int):
+            return self.get_update_for_in_progress()
         if return_code == 0:
             self.status = JobStatus.job_run_finished
+            self.error = JobErrorKind.no_error
+            self.error_message = None
         else:
             self.status = JobStatus.job_run_failed
             self.error = JobErrorKind.execution_failed
-            self.error_message = (
-                "Job execution failed. Please check the logs for details."
-            )
+            self.error_message = error_message
+
         return JobUpdate(
             uid=self.uid,
             status=self.status,
@@ -136,11 +163,65 @@ class JobUpdate(ItemBaseUpdate[Job]):
 
 
 class JobCreate(ItemBaseCreate[Job]):
+    dataset_name: str
+    user_code_id: UUID
+    runtime_id: UUID
     name: str | None = None
     description: str | None = None
-    user_code_id: UUID
     tags: list[str] = Field(default_factory=list)
-    dataset_name: str
+
+
+class JobConfig(BaseModel):
+    """Configuration for a job run"""
+
+    function_folder: Path
+    args: list[str]
+    data_path: Path
+    runtime: Runtime
+    job_folder: Optional[Path] = Field(
+        default_factory=lambda: Path("jobs") / datetime.now().strftime("%Y%m%d_%H%M%S")
+    )
+    timeout: int = 60
+    data_mount_dir: str = "/app/data"
+    extra_env: dict[str, str] = {}
+    blocking: bool = Field(default=True)
+
+    @property
+    def job_path(self) -> Path:
+        """Derived path for job folder"""
+        return Path(self.job_folder)
+
+    @property
+    def logs_dir(self) -> Path:
+        """Derived path for logs directory"""
+        return self.job_path / "logs"
+
+    @property
+    def output_dir(self) -> Path:
+        """Derived path for output directory"""
+        return self.job_path / "output"
+
+    def get_env(self) -> dict[str, str]:
+        return self.extra_env | self._base_env
+
+    def get_env_as_docker_args(self) -> list[str]:
+        return [f"-e {k}={v}" for k, v in self.get_env().items()]
+
+    def get_extra_env_as_docker_args(self) -> list[str]:
+        return [f"-e {k}={v}" for k, v in self.extra_env.items()]
+
+    @property
+    def _base_env(self) -> dict[str, str]:
+        interpreter = " ".join(self.runtime.cmd)
+        # interpreter_str = f"'{interpreter}'" if " " in interpreter else interpreter
+        return {
+            "OUTPUT_DIR": str(self.output_dir.absolute()),
+            "DATA_DIR": str(self.data_path.absolute()),
+            "CODE_DIR": str(self.function_folder.absolute()),
+            "TIMEOUT": str(self.timeout),
+            "INPUT_FILE": str(self.function_folder / self.args[0]),
+            "INTERPRETER": interpreter,
+        }
 
 
 class JobResults(BaseModel):

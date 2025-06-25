@@ -1,4 +1,7 @@
 from pathlib import Path
+import subprocess
+import threading
+import time
 from typing import Optional, Type, TypeVar
 from uuid import UUID
 
@@ -15,18 +18,20 @@ from syft_rds.client.rds_clients.base import (
     RDSClientModule,
 )
 from syft_rds.client.rds_clients.dataset import DatasetRDSClient
+from syft_rds.client.rds_clients.runtime import RuntimeRDSClient
 from syft_rds.client.rds_clients.job import JobRDSClient
 from syft_rds.client.rds_clients.user_code import UserCodeRDSClient
 from syft_rds.client.rpc import RPCClient
 from syft_rds.client.utils import PathLike, deprecation_warning
-from syft_rds.models import Dataset, Job, JobStatus, UserCode
+from syft_rds.utils.constants import JOB_STATUS_POLLING_INTERVAL
+from syft_rds.models import Dataset, Job, JobStatus, UserCode, Runtime
 from syft_rds.models.base import ItemBase
 from syft_rds.syft_runtime.main import (
-    DockerRunner,
     FileOutputHandler,
     JobConfig,
     RichConsoleUI,
     TextUI,
+    get_runner_cls,
 )
 
 T = TypeVar("T", bound=ItemBase)
@@ -107,17 +112,29 @@ class RDSClient(RDSClientBase):
         self.user_code = UserCodeRDSClient(
             self.config, self.rpc, self.local_store, parent=self
         )
-
-        # TODO implement and enable runtime client
-        # self.runtime = RuntimeRDSClient(self.config, self.rpc, self.local_store)
+        self.runtime = RuntimeRDSClient(
+            self.config, self.rpc, self.local_store, parent=self
+        )
         GlobalClientRegistry.register_client(self)
 
         self._type_map: dict[Type[T], RDSClientModule[T]] = {
             Job: self.job,
             Dataset: self.dataset,
-            # Runtime: self.runtime,
+            Runtime: self.runtime,
             UserCode: self.user_code,
         }
+
+        self._start_job_polling()
+
+    def __del__(self) -> None:
+        self.close()
+
+    def close(self) -> None:
+        if self._polling_stop_event.is_set():
+            return
+        logger.debug("Stopping job polling thread.")
+        self._polling_stop_event.set()
+        self._polling_thread.join(timeout=2)
 
     def for_type(self, type_: Type[T]) -> RDSClientModule[T]:
         if type_ not in self._type_map:
@@ -143,80 +160,83 @@ class RDSClient(RDSClientBase):
         """
         return self.dataset.get_all()
 
-    def get_default_config_for_job(self, job: Job) -> JobConfig:
-        user_code = self.user_code.get(job.user_code_id)
-        dataset = self.dataset.get(name=job.dataset_name)
-        runtime = dataset.runtime or self.config.runner_config.runtime
-        runner_config = self.config.runner_config
-        return JobConfig(
-            function_folder=user_code.local_dir,
-            args=[user_code.entrypoint],
-            data_path=dataset.get_private_path(),
-            runtime=runtime,
-            job_folder=runner_config.job_output_folder / job.uid.hex,
-            timeout=runner_config.timeout,
-            use_docker=runner_config.use_docker,
-        )
-
     def run_private(
         self,
         job: Job,
-        config: Optional[JobConfig] = None,
         display_type: str = "text",
         show_stdout: bool = True,
         show_stderr: bool = True,
+        blocking: bool = True,
     ) -> Job:
         if job.status == JobStatus.rejected:
             raise ValueError(
-                "Cannot run rejected job, "
-                "if you want to override this, "
-                "set job.status to something else"
+                "Cannot run rejected job. "
+                "If you want to override this, set `job.status` to something else."
             )
-
-        config = config or self.get_default_config_for_job(job)
-
-        logger.warning("Running job without docker is not secure")
-        return_code = self._run(
-            config=config,
-            display_type=display_type,
-            show_stdout=show_stdout,
-            show_stderr=show_stderr,
+        logger.debug(f"Running job '{job.name}' on private data")
+        job_config: JobConfig = self._get_config_for_job(job, blocking=blocking)
+        result = self._run(
+            job,
+            job_config,
+            display_type,
+            show_stdout,
+            show_stderr,
         )
-        job_update = job.get_update_for_return_code(return_code)
-        new_job = self.rpc.job.update(job_update)
-        return job.apply_update(new_job)
+
+        if isinstance(result, tuple):  # result from a blocking job
+            return_code, error_message = result
+            job_update = job.get_update_for_return_code(
+                return_code=return_code, error_message=error_message
+            )
+            return self.job.update_job_status(job_update, job)
+        else:  # non-blocking job
+            return self._register_nonblocking_job(result, job)
 
     def run_mock(
         self,
         job: Job,
-        config: Optional[JobConfig] = None,
         display_type: str = "text",
         show_stdout: bool = True,
         show_stderr: bool = True,
+        blocking: bool = True,
     ) -> Job:
-        config = config or self.get_default_config_for_job(job)
-        config.data_path = self.dataset.get(name=job.dataset_name).get_mock_path()
-        self._run(
-            config=config,
-            display_type=display_type,
-            show_stdout=show_stdout,
-            show_stderr=show_stderr,
+        logger.debug(f"Running job '{job.name}' on mock data")
+        job_config: JobConfig = self._get_config_for_job(job, blocking=blocking)
+        job_config.data_path = self.dataset.get(name=job.dataset_name).get_mock_path()
+        result = self._run(
+            job,
+            job_config,
+            display_type,
+            show_stdout,
+            show_stderr,
         )
+        logger.info(f"Result from running job '{job.name}' on mock data: {result}")
         return job
+
+    def _get_config_for_job(self, job: Job, blocking: bool = True) -> JobConfig:
+        user_code = self.user_code.get(job.user_code_id)
+        dataset = self.dataset.get(name=job.dataset_name)
+        runtime = self.runtime.get(job.runtime_id)
+        runner_config = self.config.runner_config
+        job_config = JobConfig(
+            data_path=dataset.get_private_path(),
+            function_folder=user_code.local_dir,
+            runtime=runtime,
+            args=[user_code.entrypoint],
+            job_folder=runner_config.job_output_folder / job.uid.hex,
+            timeout=runner_config.timeout,
+            blocking=blocking,
+        )
+        return job_config
 
     def _run(
         self,
-        config: JobConfig,
+        job: Job,
+        job_config: JobConfig,
         display_type: str = "text",
         show_stdout: bool = True,
         show_stderr: bool = True,
-    ) -> int:
-        """Runs a job.
-
-        Args:
-            job (Job): The job to run
-        """
-
+    ) -> int | subprocess.Popen:
         if display_type == "rich":
             display_handler = RichConsoleUI(
                 show_stdout=show_stdout,
@@ -230,6 +250,67 @@ class RDSClient(RDSClientBase):
         else:
             raise ValueError(f"Unknown display type: {display_type}")
 
-        runner = DockerRunner(handlers=[FileOutputHandler(), display_handler])
-        return_code = runner.run(config)
-        return return_code
+        runner_cls = get_runner_cls(job_config)
+        runner = runner_cls(
+            handlers=[FileOutputHandler(), display_handler],
+            update_job_status_callback=self.job.update_job_status,
+        )
+        return runner.run(job, job_config)
+
+    def _start_job_polling(self) -> None:
+        """Starts the job polling mechanism."""
+        logger.debug("Starting thread to poll jobs.")
+        self._non_blocking_jobs: dict[UUID, tuple[Job, subprocess.Popen]] = {}
+        self._jobs_lock = threading.Lock()
+        self._polling_stop_event = threading.Event()
+        self._polling_thread = threading.Thread(
+            target=self._poll_update_nonblocking_jobs
+        )
+        self._polling_thread.daemon = True
+        self._polling_thread.start()
+
+    def _register_nonblocking_job(self, result: subprocess.Popen, job: Job) -> Job:
+        with self._jobs_lock:
+            self._non_blocking_jobs[job.uid] = (job, result)
+        logger.debug(f"Non-blocking job '{job.name}' started with PID {result.pid}")
+        return job
+
+    def _poll_update_nonblocking_jobs(self) -> None:
+        """
+        Polls for non-blocking jobs and updates the job status accordingly.
+        If a job is finished, it is removed from the list of non-blocking jobs.
+        """
+        while not self._polling_stop_event.is_set():
+            with self._jobs_lock:
+                finished_jobs = []
+                for job_uid, (job, process) in self._non_blocking_jobs.items():
+                    if process.poll() is not None:
+                        finished_jobs.append(job_uid)
+                        try:
+                            return_code = process.returncode
+                            stderr = process.stderr.read() if process.stderr else None
+
+                            # TODO: remove this once we have a better way to handle errors
+                            if return_code == 0 and stderr and "| ERROR" in stderr:
+                                logger.debug(
+                                    "Error detected in logs, even with return code 0."
+                                )
+                                return_code = 1
+
+                            job_update = job.get_update_for_return_code(
+                                return_code=return_code, error_message=stderr
+                            )
+                            self.job.update_job_status(job_update, job)
+                            logger.debug(
+                                f"Non-blocking job '{job.name}' (PID: {process.pid}) "
+                                f"finished with code {return_code}."
+                            )
+                        except Exception as e:
+                            logger.error(
+                                f"Error updating status for job {job.name}: {e}"
+                            )
+
+                for job_uid in finished_jobs:
+                    del self._non_blocking_jobs[job_uid]
+
+            time.sleep(JOB_STATUS_POLLING_INTERVAL)

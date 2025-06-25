@@ -1,4 +1,5 @@
 from pathlib import Path
+from uuid import UUID
 
 from IPython.display import HTML, display
 from pydantic import Field
@@ -6,7 +7,6 @@ from syft_core import SyftBoxURL
 
 from syft_rds.display_utils.html_format import create_html_repr
 from syft_rds.models.base import ItemBase, ItemBaseCreate, ItemBaseUpdate
-from syft_rds.syft_runtime.main import CodeRuntime
 
 
 class Dataset(ItemBase):
@@ -22,7 +22,9 @@ class Dataset(ItemBase):
     summary: str | None = Field(description="Summary string of the dataset.")
     readme: SyftBoxURL | None = Field(description="REAMD.md Syft URL of the dataset.")
     tags: list[str] = Field(description="Tags for the dataset.")
-    runtime: CodeRuntime = Field(default_factory=CodeRuntime.default)
+    runtime_id: UUID | None = Field(
+        default=None, description="ID of the default runtime for the dataset."
+    )
 
     @property
     def mock_path(self) -> Path:
@@ -114,4 +116,6 @@ class DatasetCreate(ItemBaseCreate[Dataset]):
         description="Path to the detailed REAMD.md of the dataset."
     )
     tags: list[str] | None = Field(description="Tags for the dataset.")
-    runtime: CodeRuntime | None = Field(description="Runtime for the dataset.")
+    runtime_id: UUID | None = Field(
+        default=None, description="ID of the default runtime for the dataset."
+    )

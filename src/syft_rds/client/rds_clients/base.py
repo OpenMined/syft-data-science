@@ -7,28 +7,26 @@ from syft_core import Client as SyftBoxClient
 
 from syft_rds.client.local_store import LocalStore
 from syft_rds.client.rpc import RPCClient, T
-from syft_rds.models import GetAllRequest, GetOneRequest, Job
-from syft_rds.syft_runtime.main import CodeRuntime
+from syft_rds.models import GetAllRequest, GetOneRequest, Job, Runtime
 
 if TYPE_CHECKING:
     from syft_rds.client.rds_client import RDSClient
 
 
 class ClientRunnerConfig(BaseModel):
-    runtime: CodeRuntime = CodeRuntime(cmd=["python"])
+    runtime: Runtime | None = None
     timeout: int = 60
-    use_docker: bool = False
     job_output_folder: Path = Field(
         default_factory=lambda: Path(".server/syft-rds-jobs")
     )
 
 
 class RDSClientConfig(BaseModel):
-    # UUID is used to register the client to reference it from other objects
-    uid: UUID = Field(default_factory=uuid4)
+    uid: UUID = Field(
+        default_factory=uuid4
+    )  # used to register the client & reference it from other objects
     host: str
     app_name: str = "RDS"
-
     rpc_expiry: str = "5m"
     runner_config: ClientRunnerConfig = Field(default_factory=ClientRunnerConfig)
 

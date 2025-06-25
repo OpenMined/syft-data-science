@@ -12,6 +12,7 @@ from syft_rds.models import (
     JobStatus,
     JobUpdate,
     UserCode,
+    Runtime,
 )
 from syft_rds.models.job_models import JobErrorKind, JobResults
 
@@ -27,17 +28,28 @@ class JobRDSClient(RDSClientModule[Job]):
         name: str | None = None,
         description: str | None = None,
         tags: list[str] | None = None,
+        runtime_name: str | None = None,
+        runtime_kind: str | None = None,
+        runtime_config: dict | None = None,
     ) -> Job:
         """`submit` is a convenience method to create both a UserCode and a Job in one call."""
         user_code = self.rds.user_code.create(
             code_path=user_code_path, entrypoint=entrypoint
         )
+
+        runtime = self.rds.runtime.create(
+            runtime_name=runtime_name,
+            runtime_kind=runtime_kind,
+            config=runtime_config,
+        )
+
         job = self.create(
             name=name,
             description=description,
             user_code=user_code,
             dataset_name=dataset_name,
             tags=tags,
+            runtime=runtime,
         )
 
         return job
@@ -56,6 +68,7 @@ class JobRDSClient(RDSClientModule[Job]):
         self,
         user_code: UserCode | UUID,
         dataset_name: str,
+        runtime: Runtime,
         name: str | None = None,
         description: str | None = None,
         tags: list[str] | None = None,
@@ -68,6 +81,7 @@ class JobRDSClient(RDSClientModule[Job]):
             description=description,
             tags=tags if tags is not None else [],
             user_code_id=user_code_id,
+            runtime_id=runtime.uid,
             dataset_name=dataset_name,
         )
         job = self.rpc.job.create(job_create)
@@ -164,3 +178,7 @@ class JobRDSClient(RDSClientModule[Job]):
 
         updated_job = self.rpc.job.update(job_update)
         job.apply_update(updated_job, in_place=True)
+
+    def update_job_status(self, job_update: JobUpdate, job: Job) -> Job:
+        new_job = self.rpc.job.update(job_update)
+        return job.apply_update(new_job)
