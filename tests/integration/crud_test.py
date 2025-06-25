@@ -16,9 +16,11 @@ from syft_rds.models import (
     RuntimeUpdate,
     UserCodeCreate,
     UserCodeType,
+    DockerRuntimeConfig,
 )
-
-from tests.conftest import DS_PATH
+from syft_rds.client.rds_clients.runtime import (
+    DEFAULT_DOCKERFILE_FILE_PATH,
+)
 
 
 def test_job_crud_file_rpc(do_rds_client: RDSClient):
@@ -182,9 +184,9 @@ def test_runtime_crud(ds_rds_client: RDSClient):
     # Insert third (docker runtime)
     runtime3_create = RuntimeCreate(
         kind="docker",
-        config={
-            "dockerfile": str(DS_PATH / "Dockerfile"),
-        },
+        config=DockerRuntimeConfig(
+            dockerfile=DEFAULT_DOCKERFILE_FILE_PATH,
+        ),
         description="Docker Runtime",
         tags=["docker", "test"],
     )
