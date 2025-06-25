@@ -2,7 +2,7 @@ import os
 import subprocess
 import time
 from pathlib import Path
-from typing import TYPE_CHECKING, Protocol, Type
+from typing import Callable, Protocol, Type
 
 from loguru import logger
 from rich.console import Console
@@ -14,12 +14,10 @@ from syft_rds.models import (
     DockerMount,
     Job,
     JobConfig,
+    JobUpdate,
     RuntimeKind,
 )
 from syft_rds.syft_runtime.mounts import get_mount_provider
-
-if TYPE_CHECKING:
-    from syft_rds.client.rds_client import RDSClient
 
 DEFAULT_WORKDIR = "/app"
 DEFAULT_OUTPUT_DIR = DEFAULT_WORKDIR + "/output"
@@ -182,9 +180,13 @@ class TextUI(JobOutputHandler):
 class JobRunner:
     """Base class for running jobs."""
 
-    def __init__(self, handlers: list[JobOutputHandler], client: "RDSClient"):
+    def __init__(
+        self,
+        handlers: list[JobOutputHandler],
+        update_job_status_callback: Callable[[JobUpdate, Job], Job | None],
+    ):
         self.handlers = handlers
-        self.client = client
+        self.update_job_status_callback = update_job_status_callback
 
     def run(
         self,
@@ -228,8 +230,9 @@ class JobRunner:
                 if the job failed, otherwise None.
             subprocess.Popen: (non-blocking mode) The process object.
         """
-        job_update = job.get_update_for_in_progress()
-        self.client.job.update_job_status(job_update, job)
+        if self.update_job_status_callback:
+            job_update = job.get_update_for_in_progress()
+            self.update_job_status_callback(job_update, job)
 
         for handler in self.handlers:
             handler.on_job_start(job_config)
@@ -360,11 +363,12 @@ class DockerRunner(JobRunner):
                 capture_output=True,
             )
         except Exception as e:
-            job_update = job.get_update_for_return_code(
-                return_code=process.returncode,
-                error_message="Docker daemon is not running with error: " + str(e),
-            )
-            self.client.job.update_job_status(job_update, job)
+            if self.update_job_status_callback:
+                job_update = job.get_update_for_return_code(
+                    return_code=process.returncode,
+                    error_message="Docker daemon is not running with error: " + str(e),
+                )
+                self.update_job_status_callback(job_update, job)
             raise RuntimeError("Docker daemon is not running with error: " + str(e))
 
     def _get_image_name(self, job_config: JobConfig) -> str:
@@ -429,12 +433,12 @@ class DockerRunner(JobRunner):
         except Exception as e:
             raise RuntimeError(f"An error occurred during Docker image build: {e}")
         finally:
-            if error_for_job:
+            if error_for_job and self.update_job_status_callback:
                 job_failed = job.get_update_for_return_code(
                     return_code=process.returncode,
                     error_message=error_for_job,
                 )
-                self.client.job.update_job_status(job_failed, job)
+                self.update_job_status_callback(job_failed, job)
 
     def _get_extra_mounts(self, job_config: JobConfig) -> list[DockerMount]:
         """Get extra mounts for a job"""

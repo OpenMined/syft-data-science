@@ -307,6 +307,7 @@ class RDSClient(RDSClientBase):
 
         runner_cls = get_runner_cls(config)
         runner = runner_cls(
-            handlers=[FileOutputHandler(), display_handler], client=self
+            handlers=[FileOutputHandler(), display_handler],
+            update_job_status_callback=self.job.update_job_status,
         )
         return runner.run(config, job)
