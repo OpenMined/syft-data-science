@@ -21,7 +21,6 @@ from syft_rds.syft_runtime.mounts import get_mount_provider
 
 DEFAULT_WORKDIR = "/app"
 DEFAULT_OUTPUT_DIR = DEFAULT_WORKDIR + "/output"
-SYFT_RDS_BLOCKING_EXECUTION = "SYFT_RDS_BLOCKING_EXECUTION"
 
 
 class JobOutputHandler(Protocol):
@@ -190,8 +189,8 @@ class JobRunner:
 
     def run(
         self,
-        job_config: JobConfig,
         job: Job,
+        job_config: JobConfig,
     ) -> tuple[int, str | None] | subprocess.Popen:
         """Run a job
         Returns:
@@ -223,6 +222,7 @@ class JobRunner:
         job_config: JobConfig,
         job: Job,
         env: dict | None = None,
+        blocking: bool = True,
     ) -> tuple[int, str | None] | subprocess.Popen:
         """
         Returns:
@@ -245,7 +245,7 @@ class JobRunner:
             env=env,
         )
 
-        if os.getenv(SYFT_RDS_BLOCKING_EXECUTION, "true").lower() == "true":
+        if blocking:
             logger.info("Running job in blocking mode")
             return self._run_blocking(process, job)
         else:
@@ -308,8 +308,8 @@ class PythonRunner(JobRunner):
 
     def run(
         self,
-        job_config: JobConfig,
         job: Job,
+        job_config: JobConfig,
     ) -> tuple[int, str | None] | subprocess.Popen:
         """Run a job"""
         self._validate_paths(job_config)
@@ -321,7 +321,9 @@ class PythonRunner(JobRunner):
         env.update(job_config.get_env())
         env.update(job_config.extra_env)
 
-        return self._run_subprocess(cmd, job_config, job, env=env)
+        return self._run_subprocess(
+            cmd, job_config, job, env=env, blocking=job_config.blocking
+        )
 
     def _prepare_run_command(self, job_config: JobConfig) -> list[str]:
         return [
@@ -336,8 +338,8 @@ class DockerRunner(JobRunner):
 
     def run(
         self,
-        job_config: JobConfig,
         job: Job,
+        job_config: JobConfig,
     ) -> tuple[int, str | None] | subprocess.Popen:
         """Run a job in a Docker container"""
         logger.debug(
@@ -352,7 +354,7 @@ class DockerRunner(JobRunner):
 
         cmd = self._prepare_run_command(job_config)
 
-        return self._run_subprocess(cmd, job_config, job)
+        return self._run_subprocess(cmd, job_config, job, blocking=job_config.blocking)
 
     def _check_docker_daemon(self, job: Job) -> None:
         """Check if the Docker daemon is running."""

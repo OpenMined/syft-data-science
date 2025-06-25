@@ -58,7 +58,6 @@ def test_job_execution(
 ):
     """Test job execution with a file or a folder, for various configurations."""
     blocking_mode = test_case["blocking"]
-    monkeypatch.setenv("SYFT_RDS_BLOCKING_EXECUTION", str(blocking_mode).lower())
     submit_kwargs = {
         "dataset_name": "dummy",
         **test_case["submission_params"],
@@ -81,7 +80,7 @@ def _run_and_verify_job(do_rds_client: RDSClient, blocking: bool):
     job: Job = do_rds_client.job.get_all()[0]
 
     # Runner side: Execute the job
-    do_rds_client.run_private(job)
+    do_rds_client.run_private(job, blocking=blocking)
 
     if not blocking:
         assert job.status == JobStatus.job_in_progress

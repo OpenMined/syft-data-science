@@ -184,6 +184,7 @@ class JobConfig(BaseModel):
     timeout: int = 60
     data_mount_dir: str = "/app/data"
     extra_env: dict[str, str] = {}
+    blocking: bool = Field(default=True)
 
     @property
     def job_path(self) -> Path:

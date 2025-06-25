@@ -166,6 +166,7 @@ class RDSClient(RDSClientBase):
         display_type: str = "text",
         show_stdout: bool = True,
         show_stderr: bool = True,
+        blocking: bool = True,
     ) -> Job:
         if job.status == JobStatus.rejected:
             raise ValueError(
@@ -173,7 +174,7 @@ class RDSClient(RDSClientBase):
                 "If you want to override this, set `job.status` to something else."
             )
         logger.debug(f"Running job '{job.name}' on private data")
-        job_config: JobConfig = self._get_config_for_job(job)
+        job_config: JobConfig = self._get_config_for_job(job, blocking=blocking)
         result = self._run(
             job,
             job_config,
@@ -197,9 +198,10 @@ class RDSClient(RDSClientBase):
         display_type: str = "text",
         show_stdout: bool = True,
         show_stderr: bool = True,
+        blocking: bool = True,
     ) -> Job:
         logger.debug(f"Running job '{job.name}' on mock data")
-        job_config: JobConfig = self._get_config_for_job(job)
+        job_config: JobConfig = self._get_config_for_job(job, blocking=blocking)
         job_config.data_path = self.dataset.get(name=job.dataset_name).get_mock_path()
         result = self._run(
             job,
@@ -211,7 +213,7 @@ class RDSClient(RDSClientBase):
         logger.info(f"Result from running job '{job.name}' on mock data: {result}")
         return job
 
-    def _get_config_for_job(self, job: Job) -> JobConfig:
+    def _get_config_for_job(self, job: Job, blocking: bool = True) -> JobConfig:
         user_code = self.user_code.get(job.user_code_id)
         dataset = self.dataset.get(name=job.dataset_name)
         runtime = self.runtime.get(job.runtime_id)
@@ -223,8 +225,37 @@ class RDSClient(RDSClientBase):
             args=[user_code.entrypoint],
             job_folder=runner_config.job_output_folder / job.uid.hex,
             timeout=runner_config.timeout,
+            blocking=blocking,
         )
         return job_config
+
+    def _run(
+        self,
+        job: Job,
+        job_config: JobConfig,
+        display_type: str = "text",
+        show_stdout: bool = True,
+        show_stderr: bool = True,
+    ) -> int | subprocess.Popen:
+        if display_type == "rich":
+            display_handler = RichConsoleUI(
+                show_stdout=show_stdout,
+                show_stderr=show_stderr,
+            )
+        elif display_type == "text":
+            display_handler = TextUI(
+                show_stdout=show_stdout,
+                show_stderr=show_stderr,
+            )
+        else:
+            raise ValueError(f"Unknown display type: {display_type}")
+
+        runner_cls = get_runner_cls(job_config)
+        runner = runner_cls(
+            handlers=[FileOutputHandler(), display_handler],
+            update_job_status_callback=self.job.update_job_status,
+        )
+        return runner.run(job, job_config)
 
     def _start_job_polling(self) -> None:
         """Starts the job polling mechanism."""
@@ -283,31 +314,3 @@ class RDSClient(RDSClientBase):
                     del self._non_blocking_jobs[job_uid]
 
             time.sleep(JOB_STATUS_POLLING_INTERVAL)
-
-    def _run(
-        self,
-        job: Job,
-        config: JobConfig,
-        display_type: str = "text",
-        show_stdout: bool = True,
-        show_stderr: bool = True,
-    ) -> int | subprocess.Popen:
-        if display_type == "rich":
-            display_handler = RichConsoleUI(
-                show_stdout=show_stdout,
-                show_stderr=show_stderr,
-            )
-        elif display_type == "text":
-            display_handler = TextUI(
-                show_stdout=show_stdout,
-                show_stderr=show_stderr,
-            )
-        else:
-            raise ValueError(f"Unknown display type: {display_type}")
-
-        runner_cls = get_runner_cls(config)
-        runner = runner_cls(
-            handlers=[FileOutputHandler(), display_handler],
-            update_job_status_callback=self.job.update_job_status,
-        )
-        return runner.run(config, job)
