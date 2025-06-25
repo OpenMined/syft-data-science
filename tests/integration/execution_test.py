@@ -1,7 +1,7 @@
 import pytest
 
 from syft_rds.client.rds_client import RDSClient
-from syft_rds.models import GetAllRequest, Job, JobStatus
+from syft_rds.models import Job, JobStatus
 from syft_rds.client.rds_clients.runtime import (
     DEFAULT_DOCKERFILE_FILE_PATH,
 )
@@ -67,7 +67,7 @@ def test_job_execution(
     create_dataset(do_rds_client, "dummy")
 
     # DS submits job
-    job = ds_rds_client.jobs.submit(**submit_kwargs)
+    job = ds_rds_client.job.submit(**submit_kwargs)
     assert job.status == JobStatus.pending_code_review
 
     assert len(do_rds_client.runtime.get_all()) == test_case["expected_num_runtimes"]
@@ -78,9 +78,7 @@ def test_job_execution(
 
 def _run_and_verify_job(do_rds_client: RDSClient, blocking: bool):
     """Helper function to run a job and verify its execution."""
-    # Server side: Get the job from the server.
-    # We assume there is only one job in the queue.
-    job: Job = do_rds_client.rpc.job.get_all(GetAllRequest())[0]
+    job: Job = do_rds_client.job.get_all()[0]
 
     # Runner side: Execute the job
     do_rds_client.run_private(job)
@@ -96,7 +94,7 @@ def _run_and_verify_job(do_rds_client: RDSClient, blocking: bool):
     assert job.status == JobStatus.job_run_finished
 
     # DO shares results with DS
-    do_rds_client.jobs.share_results(job)
+    do_rds_client.job.share_results(job)
     assert job.status == JobStatus.shared
 
     # DS checks for output

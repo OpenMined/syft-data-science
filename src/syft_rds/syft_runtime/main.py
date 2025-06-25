@@ -2,7 +2,7 @@ import os
 import subprocess
 import time
 from pathlib import Path
-from typing import TYPE_CHECKING, Protocol
+from typing import TYPE_CHECKING, Protocol, Type
 
 from loguru import logger
 from rich.console import Console
@@ -523,23 +523,12 @@ class DockerRunner(JobRunner):
         return docker_run_cmd
 
 
-class SyftRunner:
-    """Entrypoint for running jobs"""
-
-    def __init__(self, handlers: list[JobOutputHandler], client: "RDSClient"):
-        self._runners = {
-            RuntimeKind.PYTHON: PythonRunner(handlers, client),
-            RuntimeKind.DOCKER: DockerRunner(handlers, client),
-        }
-
-    def run(
-        self,
-        job_config: JobConfig,
-        job: Job,
-    ) -> tuple[int, str | None] | subprocess.Popen:
-        runner = self._runners.get(job_config.runtime.kind)
-        if not runner:
-            raise NotImplementedError(
-                f"Unsupported runtime kind: {job_config.runtime.kind}"
-            )
-        return runner.run(job_config, job)
+def get_runner_cls(job_config: JobConfig) -> Type[JobRunner]:
+    """Factory to get the appropriate runner class for a job config."""
+    runtime_kind = job_config.runtime.kind
+    if runtime_kind == RuntimeKind.PYTHON:
+        return PythonRunner
+    elif runtime_kind == RuntimeKind.DOCKER:
+        return DockerRunner
+    else:
+        raise NotImplementedError(f"Unsupported runtime kind: {runtime_kind}")

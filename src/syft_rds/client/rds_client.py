@@ -31,7 +31,7 @@ from syft_rds.syft_runtime.main import (
     JobConfig,
     RichConsoleUI,
     TextUI,
-    SyftRunner,
+    get_runner_cls,
 )
 
 T = TypeVar("T", bound=ItemBase)
@@ -305,7 +305,8 @@ class RDSClient(RDSClientBase):
         else:
             raise ValueError(f"Unknown display type: {display_type}")
 
-        runner = SyftRunner(
+        runner_cls = get_runner_cls(config)
+        runner = runner_cls(
             handlers=[FileOutputHandler(), display_handler], client=self
         )
         return runner.run(config, job)
