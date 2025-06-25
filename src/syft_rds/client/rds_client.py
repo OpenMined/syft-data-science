@@ -204,12 +204,13 @@ class RDSClient(RDSClientBase):
         logger.debug(f"Running job '{job.name}' on private data")
         job_config: JobConfig = self._get_config_for_job(job)
         result = self._run(
-            job_config,
             job,
+            job_config,
             display_type,
             show_stdout,
             show_stderr,
         )
+
         return self._handle_result(result, job)
 
     def run_mock(
@@ -223,8 +224,8 @@ class RDSClient(RDSClientBase):
         job_config: JobConfig = self._get_config_for_job(job)
         job_config.data_path = self.dataset.get(name=job.dataset_name).get_mock_path()
         result = self._run(
-            job_config,
             job,
+            job_config,
             display_type,
             show_stdout,
             show_stderr,
@@ -286,8 +287,8 @@ class RDSClient(RDSClientBase):
 
     def _run(
         self,
-        config: JobConfig,
         job: Job,
+        config: JobConfig,
         display_type: str = "text",
         show_stdout: bool = True,
         show_stderr: bool = True,
