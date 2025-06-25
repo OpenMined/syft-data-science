@@ -5,6 +5,7 @@ import pytest
 
 from syft_rds.client.rds_client import RDSClient
 from syft_rds.models import (
+    CustomFunctionCreate,
     GetAllRequest,
     GetOneRequest,
     Job,
@@ -17,6 +18,8 @@ from syft_rds.models import (
     UserCodeType,
 )
 from syft_rds.orchestra import RDSStack
+from syft_rds.utils.zip_utils import zip_to_bytes
+from tests.conftest import ASSET_PATH
 
 
 def test_job_crud_file_rpc(rds_no_sync_stack: RDSStack):
@@ -160,6 +163,28 @@ def test_runtime_crud(ds_rds_client: RDSClient):
     assert len(all_runtimes) == 2
     assert runtime in all_runtimes
     assert runtime2 in all_runtimes
+
+
+def test_custom_function_crud(do_rds_client: RDSClient):
+    code_file = ASSET_PATH / "custom_function" / "echo_function.py"
+    readme_file = ASSET_PATH / "custom_function" / "README.md"
+
+    files_zipped = zip_to_bytes([code_file, readme_file])
+
+    custom_function_create = CustomFunctionCreate(
+        name="Echo",
+        files_zipped=files_zipped,
+        entrypoint="echo_function.py",
+        readme_filename="README.md",
+    )
+
+    custom_function = do_rds_client.rpc.custom_function.create(custom_function_create)
+
+    print(custom_function.local_dir)
+    print(custom_function.readme_path)
+    print(custom_function.entrypoint_path)
+    assert custom_function.readme_path.exists()
+    assert custom_function.entrypoint_path.exists()
 
 
 def test_apply_update(ds_rds_client: RDSClient):

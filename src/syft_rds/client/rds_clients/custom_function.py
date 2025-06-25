@@ -1,3 +1,5 @@
+import tempfile
+import zipfile
 from pathlib import Path
 
 from syft_rds.client.rds_clients.base import RDSClientModule
@@ -6,8 +8,16 @@ from syft_rds.models import (
     CustomFunction,
     CustomFunctionCreate,
 )
-from syft_rds.models.custom_function_models import CustomFunctionType
 from syft_rds.utils.zip_utils import zip_to_bytes
+
+
+def create_zip(directory):
+    zip_path = Path(tempfile.mktemp(suffix=".zip"))
+    with zipfile.ZipFile(zip_path, "w") as zipf:
+        for file_path in Path(directory).rglob("*"):
+            if file_path.is_file():
+                zipf.write(file_path, file_path.relative_to(directory))
+    return zip_path
 
 
 class CustomFunctionRDSClient(RDSClientModule[CustomFunction]):
@@ -17,33 +27,37 @@ class CustomFunctionRDSClient(RDSClientModule[CustomFunction]):
         self,
         name: str,
         code_path: PathLike,
+        readme_path: PathLike | None = None,
         entrypoint: str | None = None,
     ) -> CustomFunction:
         code_path = Path(code_path)
+        readme_path = Path(readme_path) if readme_path else None
         if not code_path.exists():
             raise FileNotFoundError(f"Path {code_path} does not exist.")
+        if readme_path and not readme_path.exists():
+            raise FileNotFoundError(f"Readme file {readme_path} does not exist.")
 
         if code_path.is_dir():
-            code_type = CustomFunctionType.FOLDER
-            # Entrypoint is required for folder-type code
-            if not entrypoint:
-                raise ValueError("Entrypoint should be provided for folder code.")
+            # TODO handle directories. scenarios:
+            # 1. code is file, readme is file
+            # 2. code is dir, readme is file somewhere else
+            # 3. code is dir, readme is in the dir
+            # For simplicity, we only support 1 for now.
+            raise NotImplementedError("Only single files are supported.")
 
-            if not (code_path / entrypoint).exists():
-                raise FileNotFoundError(
-                    f"Entrypoint {entrypoint} does not exist in {code_path}."
-                )
-            files_zipped = zip_to_bytes(files_or_dirs=[code_path], base_dir=code_path)
-        else:
-            code_type = CustomFunctionType.FILE
-            entrypoint = code_path.name
-            files_zipped = zip_to_bytes(files_or_dirs=code_path)
+        entrypoint = code_path.name
+        files_to_zip = [code_path]
+        if readme_path:
+            files_to_zip.append(readme_path)
+        files_zipped = zip_to_bytes(
+            files_or_dirs=files_to_zip,
+        )
 
         custom_function_create = CustomFunctionCreate(
             name=name,
             files_zipped=files_zipped,
-            code_type=code_type,
             entrypoint=entrypoint,
+            readme_filename=readme_path.name if readme_path else None,
         )
 
         custom_function = self.rpc.custom_function.create(custom_function_create)
