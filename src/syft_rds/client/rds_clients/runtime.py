@@ -39,8 +39,9 @@ class RuntimeRDSClient(RDSClientModule[Runtime]):
 
         self._validate_runtime_args(runtime_name, runtime_kind, config)
 
-        if self.get_runtime_by_name(runtime_name):
-            raise ValueError(f"Runtime with name '{runtime_name}' already exists.")
+        # TODO: Uncomment this
+        # if self.get_runtime_by_name(runtime_name):
+        #     raise ValueError(f"Runtime with name '{runtime_name}' already exists.")
 
         runtime_config: RuntimeConfig = self._create_runtime_config(
             runtime_kind, config
