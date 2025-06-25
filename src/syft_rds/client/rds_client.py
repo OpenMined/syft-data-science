@@ -126,16 +126,6 @@ class RDSClient(RDSClientBase):
 
         self._start_job_polling()
 
-    def _start_job_polling(self) -> None:
-        """Starts the job polling mechanism."""
-        logger.debug("Starting thread to poll jobs.")
-        self._non_blocking_jobs: dict[UUID, tuple[Job, subprocess.Popen]] = {}
-        self._jobs_lock = threading.Lock()
-        self._polling_stop_event = threading.Event()
-        self._polling_thread = threading.Thread(target=self._poll_jobs_periodically)
-        self._polling_thread.daemon = True
-        self._polling_thread.start()
-
     def __del__(self) -> None:
         self.close()
 
@@ -170,21 +160,6 @@ class RDSClient(RDSClientBase):
         """
         return self.dataset.get_all()
 
-    def _get_config_for_job(self, job: Job) -> JobConfig:
-        user_code = self.user_code.get(job.user_code_id)
-        dataset = self.dataset.get(name=job.dataset_name)
-        runtime = self.runtime.get(job.runtime_id)
-        runner_config = self.config.runner_config
-        job_config = JobConfig(
-            data_path=dataset.get_private_path(),
-            function_folder=user_code.local_dir,
-            runtime=runtime,
-            args=[user_code.entrypoint],
-            job_folder=runner_config.job_output_folder / job.uid.hex,
-            timeout=runner_config.timeout,
-        )
-        return job_config
-
     def update_job_status(self, job_update: JobUpdate, job: Job) -> Job:
         new_job = self.rpc.job.update(job_update)
         return job.apply_update(new_job)
@@ -211,7 +186,14 @@ class RDSClient(RDSClientBase):
             show_stderr,
         )
 
-        return self._handle_result(result, job)
+        if isinstance(result, tuple):  # result from a blocking job
+            return_code, error_message = result
+            job_update = job.get_update_for_return_code(
+                return_code=return_code, error_message=error_message
+            )
+            return self.update_job_status(job_update, job)
+        else:  # non-blocking job
+            return self._register_nonblocking_job(result, job)
 
     def run_mock(
         self,
@@ -230,26 +212,53 @@ class RDSClient(RDSClientBase):
             show_stdout,
             show_stderr,
         )
-        return self._handle_result(result, job)
-
-    def _handle_result(
-        self, result: tuple[int, str | None] | subprocess.Popen, job: Job
-    ) -> Job:
-        if isinstance(result, tuple):
-            # blocking job
+        if isinstance(result, tuple):  # result from a blocking job
             return_code, error_message = result
             job_update = job.get_update_for_return_code(
                 return_code=return_code, error_message=error_message
             )
             return self.update_job_status(job_update, job)
-        else:
-            # non-blocking job
-            with self._jobs_lock:
-                self._non_blocking_jobs[job.uid] = (job, result)
-            logger.debug(f"Non-blocking job '{job.name}' started with PID {result.pid}")
-            return job
+        else:  # non-blocking job
+            return self._register_nonblocking_job(result, job)
 
-    def _poll_jobs_periodically(self) -> None:
+    def _get_config_for_job(self, job: Job) -> JobConfig:
+        user_code = self.user_code.get(job.user_code_id)
+        dataset = self.dataset.get(name=job.dataset_name)
+        runtime = self.runtime.get(job.runtime_id)
+        runner_config = self.config.runner_config
+        job_config = JobConfig(
+            data_path=dataset.get_private_path(),
+            function_folder=user_code.local_dir,
+            runtime=runtime,
+            args=[user_code.entrypoint],
+            job_folder=runner_config.job_output_folder / job.uid.hex,
+            timeout=runner_config.timeout,
+        )
+        return job_config
+
+    def _start_job_polling(self) -> None:
+        """Starts the job polling mechanism."""
+        logger.debug("Starting thread to poll jobs.")
+        self._non_blocking_jobs: dict[UUID, tuple[Job, subprocess.Popen]] = {}
+        self._jobs_lock = threading.Lock()
+        self._polling_stop_event = threading.Event()
+        self._polling_thread = threading.Thread(
+            target=self._poll_update_nonblocking_jobs
+        )
+        self._polling_thread.daemon = True
+        self._polling_thread.start()
+
+    def _register_nonblocking_job(self, result: subprocess.Popen, job: Job) -> Job:
+        with self._jobs_lock:
+            self._non_blocking_jobs[job.uid] = (job, result)
+        logger.debug(f"Non-blocking job '{job.name}' started with PID {result.pid}")
+        return job
+
+    def _poll_update_nonblocking_jobs(self) -> None:
+        """
+        Polls for non-blocking jobs and updates the job status accordingly.
+        If a job is finished, it is removed from the list of non-blocking jobs.
+        """
         while not self._polling_stop_event.is_set():
             with self._jobs_lock:
                 finished_jobs = []

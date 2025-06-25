@@ -190,8 +190,13 @@ class JobRunner:
         self,
         job_config: JobConfig,
         job: Job,
-    ) -> int | None:
-        """Run a job"""
+    ) -> tuple[int, str | None] | subprocess.Popen:
+        """Run a job
+        Returns:
+            tuple[int, str | None]: (blocking mode) The return code and error message
+                if the job failed, otherwise None.
+            subprocess.Popen: (non-blocking mode) The process object.
+        """
         raise NotImplementedError
 
     def _prepare_job_folders(self, job_config: JobConfig) -> None:
@@ -302,7 +307,7 @@ class PythonRunner(JobRunner):
         self,
         job_config: JobConfig,
         job: Job,
-    ) -> int | subprocess.Popen:
+    ) -> tuple[int, str | None] | subprocess.Popen:
         """Run a job"""
         self._validate_paths(job_config)
         self._prepare_job_folders(job_config)
@@ -330,7 +335,7 @@ class DockerRunner(JobRunner):
         self,
         job_config: JobConfig,
         job: Job,
-    ) -> int | subprocess.Popen:
+    ) -> tuple[int, str | None] | subprocess.Popen:
         """Run a job in a Docker container"""
         logger.debug(
             f"Running code in '{job_config.function_folder}' on dataset '{job_config.data_path}' with runtime '{job_config.runtime.kind.value}'"
@@ -531,7 +536,7 @@ class SyftRunner:
         self,
         job_config: JobConfig,
         job: Job,
-    ) -> int | None:
+    ) -> tuple[int, str | None] | subprocess.Popen:
         runner = self._runners.get(job_config.runtime.kind)
         if not runner:
             raise NotImplementedError(
