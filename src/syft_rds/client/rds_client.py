@@ -208,14 +208,8 @@ class RDSClient(RDSClientBase):
             show_stdout,
             show_stderr,
         )
-        if isinstance(result, tuple):  # result from a blocking job
-            return_code, error_message = result
-            job_update = job.get_update_for_return_code(
-                return_code=return_code, error_message=error_message
-            )
-            return self.job.update_job_status(job_update, job)
-        else:  # non-blocking job
-            return self._register_nonblocking_job(result, job)
+        logger.info(f"Result from running job '{job.name}' on mock data: {result}")
+        return job
 
     def _get_config_for_job(self, job: Job) -> JobConfig:
         user_code = self.user_code.get(job.user_code_id)
