@@ -39,6 +39,9 @@ class RuntimeRDSClient(RDSClientModule[Runtime]):
 
         self._validate_runtime_args(runtime_name, runtime_kind, config)
 
+        if self.get_runtime_by_name(runtime_name):
+            raise ValueError(f"Runtime with name '{runtime_name}' already exists.")
+
         runtime_config: RuntimeConfig = self._create_runtime_config(
             runtime_kind, config
         )
@@ -49,7 +52,7 @@ class RuntimeRDSClient(RDSClientModule[Runtime]):
             description=description,
         )
 
-        return self._get_or_create(runtime_create)
+        return self.get_or_create(runtime_create)
 
     def get_runtime_by_name(self, name: str) -> Runtime | None:
         try:
@@ -57,6 +60,20 @@ class RuntimeRDSClient(RDSClientModule[Runtime]):
         except Exception as e:
             logger.debug(f"Error getting runtime by name: {e}")
             return None
+
+    def get_or_create(self, runtime_create: RuntimeCreate) -> Runtime:
+        fetched_runtime = self.get_runtime_by_name(runtime_create.name)
+
+        if fetched_runtime:
+            logger.debug(
+                f"Runtime '{fetched_runtime.name}' already exists. Returning existing runtime."
+            )
+            return fetched_runtime
+
+        runtime = self.rpc.runtime.create(runtime_create)
+        logger.debug(f"Runtime created: {runtime}")
+
+        return runtime
 
     def _create_runtime_config(
         self, runtime_kind: str, config: dict | None = None
@@ -79,25 +96,12 @@ class RuntimeRDSClient(RDSClientModule[Runtime]):
         else:
             raise ValueError(f"Unsupported runtime type: {runtime_kind}")
 
-    def _get_or_create(self, runtime_create: RuntimeCreate) -> Runtime:
-        fetched_runtime = self.get_runtime_by_name(runtime_create.name)
-
-        if fetched_runtime:
-            logger.debug(f"Runtime '{fetched_runtime.name}' already exists")
-            return fetched_runtime
-
-        runtime = self.rpc.runtime.create(runtime_create)
-        logger.debug(f"Runtime created: {runtime}")
-
-        return runtime
-
     def _get_or_create_default(self) -> Runtime:
         """
         Get the default runtime if it exists, otherwise create it.
         The default runtime is a python runtime with the python 3.12.
         """
         try:
-            logger.debug(f"Getting or creating default runtime: {DEFAULT_RUNTIME_NAME}")
             default_runtime_create = RuntimeCreate(
                 kind=DEFAULT_RUNTIME_KIND,
                 name=DEFAULT_RUNTIME_NAME,
@@ -106,7 +110,7 @@ class RuntimeRDSClient(RDSClientModule[Runtime]):
                 ),
                 description="Default Python runtime for Syft RDS",
             )
-            return self._get_or_create(default_runtime_create)
+            return self.get_or_create(default_runtime_create)
         except Exception as e:
             logger.error(f"Error getting or creating default runtime: {e}")
             raise e
