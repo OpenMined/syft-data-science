@@ -178,3 +178,7 @@ class JobRDSClient(RDSClientModule[Job]):
 
         updated_job = self.rpc.job.update(job_update)
         job.apply_update(updated_job, in_place=True)
+
+    def update_job_status(self, job_update: JobUpdate, job: Job) -> Job:
+        new_job = self.rpc.job.update(job_update)
+        return job.apply_update(new_job)

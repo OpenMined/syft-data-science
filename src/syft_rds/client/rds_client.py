@@ -24,7 +24,7 @@ from syft_rds.client.rds_clients.user_code import UserCodeRDSClient
 from syft_rds.client.rpc import RPCClient
 from syft_rds.client.utils import PathLike, deprecation_warning
 from syft_rds.utils.constants import JOB_STATUS_POLLING_INTERVAL
-from syft_rds.models import Dataset, Job, JobStatus, JobUpdate, UserCode, Runtime
+from syft_rds.models import Dataset, Job, JobStatus, UserCode, Runtime
 from syft_rds.models.base import ItemBase
 from syft_rds.syft_runtime.main import (
     FileOutputHandler,
@@ -160,10 +160,6 @@ class RDSClient(RDSClientBase):
         """
         return self.dataset.get_all()
 
-    def update_job_status(self, job_update: JobUpdate, job: Job) -> Job:
-        new_job = self.rpc.job.update(job_update)
-        return job.apply_update(new_job)
-
     def run_private(
         self,
         job: Job,
@@ -191,7 +187,7 @@ class RDSClient(RDSClientBase):
             job_update = job.get_update_for_return_code(
                 return_code=return_code, error_message=error_message
             )
-            return self.update_job_status(job_update, job)
+            return self.job.update_job_status(job_update, job)
         else:  # non-blocking job
             return self._register_nonblocking_job(result, job)
 
@@ -217,7 +213,7 @@ class RDSClient(RDSClientBase):
             job_update = job.get_update_for_return_code(
                 return_code=return_code, error_message=error_message
             )
-            return self.update_job_status(job_update, job)
+            return self.job.update_job_status(job_update, job)
         else:  # non-blocking job
             return self._register_nonblocking_job(result, job)
 
@@ -279,7 +275,7 @@ class RDSClient(RDSClientBase):
                             job_update = job.get_update_for_return_code(
                                 return_code=return_code, error_message=stderr
                             )
-                            self.update_job_status(job_update, job)
+                            self.job.update_job_status(job_update, job)
                             logger.debug(
                                 f"Non-blocking job '{job.name}' (PID: {process.pid}) "
                                 f"finished with code {return_code}."

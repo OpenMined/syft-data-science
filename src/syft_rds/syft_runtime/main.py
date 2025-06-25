@@ -229,7 +229,7 @@ class JobRunner:
             subprocess.Popen: (non-blocking mode) The process object.
         """
         job_update = job.get_update_for_in_progress()
-        self.client.update_job_status(job_update, job)
+        self.client.job.update_job_status(job_update, job)
 
         for handler in self.handlers:
             handler.on_job_start(job_config)
@@ -364,7 +364,7 @@ class DockerRunner(JobRunner):
                 return_code=process.returncode,
                 error_message="Docker daemon is not running with error: " + str(e),
             )
-            self.client.update_job_status(job_update, job)
+            self.client.job.update_job_status(job_update, job)
             raise RuntimeError("Docker daemon is not running with error: " + str(e))
 
     def _get_image_name(self, job_config: JobConfig) -> str:
@@ -434,7 +434,7 @@ class DockerRunner(JobRunner):
                     return_code=process.returncode,
                     error_message=error_for_job,
                 )
-                self.client.update_job_status(job_failed, job)
+                self.client.job.update_job_status(job_failed, job)
 
     def _get_extra_mounts(self, job_config: JobConfig) -> list[DockerMount]:
         """Get extra mounts for a job"""
