@@ -1,5 +1,3 @@
-import tempfile
-import zipfile
 from pathlib import Path
 
 from syft_rds.client.rds_clients.base import RDSClientModule
@@ -9,15 +7,6 @@ from syft_rds.models import (
     CustomFunctionCreate,
 )
 from syft_rds.utils.zip_utils import zip_to_bytes
-
-
-def create_zip(directory):
-    zip_path = Path(tempfile.mktemp(suffix=".zip"))
-    with zipfile.ZipFile(zip_path, "w") as zipf:
-        for file_path in Path(directory).rglob("*"):
-            if file_path.is_file():
-                zipf.write(file_path, file_path.relative_to(directory))
-    return zip_path
 
 
 class CustomFunctionRDSClient(RDSClientModule[CustomFunction]):

@@ -1,7 +1,5 @@
 import base64
 import enum
-import json
-import tempfile
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
@@ -89,30 +87,12 @@ class CustomFunction(ItemBase):
     def entrypoint_path(self) -> Path:
         return self.local_dir / self.entrypoint
 
-    def submit_job(self, dataset_name: str, **kwargs: Any) -> "Job":
-        with tempfile.TemporaryDirectory() as tmpdir:
-            # Write the input parameters to a temporary JSON file
-            tmp_dir_path = Path(tmpdir)
-            user_params_path = tmp_dir_path / self.input_params_filename
-            if not user_params_path.suffix == ".json":
-                raise ValueError(
-                    f"Input params file must be a JSON file, got {user_params_path.suffix}. Please contact the administrator."
-                )
-
-            try:
-                kwargs_json = json.dumps(kwargs)
-            except Exception as e:
-                raise ValueError(f"Failed to serialize kwargs to JSON: {e}.") from e
-
-            user_params_path.write_text(kwargs_json)
-
-            # Submit the job with the user code and input parameters
-            job = self._client.job.submit(
-                user_code_path=user_params_path,
-                dataset_name=dataset_name,
-                custom_function=self,
-            )
-        return job
+    def submit_job(self, dataset_name: str, **params: Any) -> "Job":
+        return self._client.job.submit_with_params(
+            dataset_name=dataset_name,
+            custom_function=self,
+            **params,
+        )
 
 
 class CustomFunctionCreate(ItemBaseCreate[CustomFunction]):

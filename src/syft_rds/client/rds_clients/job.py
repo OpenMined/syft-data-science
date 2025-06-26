@@ -1,5 +1,8 @@
+import json
 import shutil
+import tempfile
 from pathlib import Path
+from typing import Any
 from uuid import UUID
 
 from loguru import logger
@@ -58,6 +61,51 @@ class JobRDSClient(RDSClientModule[Job]):
         )
 
         return job
+
+    def submit_with_params(
+        self,
+        dataset_name: str,
+        custom_function: CustomFunction | UUID,
+        **params: Any,
+    ) -> Job:
+        """
+        Utility method to a job with parameters for a custom function.
+
+        Args:
+            dataset_name (str): The name of the dataset to use.
+            custom_function (CustomFunction | UUID): The custom function to use.
+            **params: Additional parameters to pass to the custom function.
+
+        Returns:
+            Job: The created job.
+        """
+        if isinstance(custom_function, UUID):
+            custom_function = self.rds.custom_function.get(uid=custom_function)
+        elif not isinstance(custom_function, CustomFunction):
+            raise ValueError(
+                f"Invalid custom_function type {type(custom_function)}. Must be CustomFunction or UUID"
+            )
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            tmp_dir_path = Path(tmpdir)
+            user_params_path = tmp_dir_path / custom_function.input_params_filename
+            if not user_params_path.suffix == ".json":
+                raise ValueError(
+                    f"Input params file must be a JSON file, got {user_params_path.suffix}. Please contact the administrator."
+                )
+
+            try:
+                params_json = json.dumps(params)
+            except Exception as e:
+                raise ValueError(f"Failed to serialize params to JSON: {e}.") from e
+
+            user_params_path.write_text(params_json)
+
+            return self.submit(
+                user_code_path=user_params_path,
+                dataset_name=dataset_name,
+                custom_function=custom_function,
+            )
 
     def _resolve_custom_func_id(
         self, custom_function: CustomFunction | UUID | None
