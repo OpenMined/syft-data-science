@@ -1,17 +1,16 @@
+import time
+
 import pytest
+from loguru import logger
 
 from syft_rds.client.rds_client import RDSClient
-from syft_rds.models import Job, JobStatus
 from syft_rds.client.rds_clients.runtime import (
     DEFAULT_DOCKERFILE_FILE_PATH,
 )
-
+from syft_rds.models import Job, JobStatus
+from syft_rds.utils.constants import JOB_STATUS_POLLING_INTERVAL
 from tests.conftest import DS_PATH
 from tests.utils import create_dataset
-from loguru import logger
-import time
-from syft_rds.utils.constants import JOB_STATUS_POLLING_INTERVAL
-
 
 single_file_submission = {"user_code_path": DS_PATH / "ds.py"}
 folder_submission = {"user_code_path": DS_PATH / "code", "entrypoint": "main.py"}

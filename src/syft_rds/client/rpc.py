@@ -30,6 +30,11 @@ from syft_rds.models import (
     UserCodeUpdate,
 )
 from syft_rds.models.base import ItemBase, ItemBaseCreate, ItemBaseUpdate
+from syft_rds.models.custom_function_models import (
+    CustomFunction,
+    CustomFunctionCreate,
+    CustomFunctionUpdate,
+)
 
 if TYPE_CHECKING:
     from syft_rds.client.rds_client import RDSClientConfig
@@ -120,6 +125,13 @@ class UserCodeRPCClient(CRUDRPCClient[UserCode, UserCodeCreate, UserCodeUpdate])
     ITEM_TYPE = UserCode
 
 
+class CustomFunctionRPCClient(
+    CRUDRPCClient[CustomFunction, CustomFunctionCreate, CustomFunctionUpdate]
+):
+    MODULE_NAME = "custom_function"
+    ITEM_TYPE = CustomFunction
+
+
 class RPCClient(RPCClientModule):
     def __init__(self, config: "RDSClientConfig", connection: BlockingRPCConnection):
         super().__init__(config, connection)
@@ -128,6 +140,7 @@ class RPCClient(RPCClientModule):
         self.user_code = UserCodeRPCClient(self.config, self.connection)
         self.runtime = RuntimeRPCClient(self.config, self.connection)
         self.dataset = DatasetRPCClient(self.config, self.connection)
+        self.custom_function = CustomFunctionRPCClient(self.config, self.connection)
 
         # Create lookup table for type-based access
         self._type_map = {
@@ -135,6 +148,7 @@ class RPCClient(RPCClientModule):
             UserCode: self.user_code,
             Runtime: self.runtime,
             Dataset: self.dataset,
+            CustomFunction: self.custom_function,
         }
 
     def for_type(

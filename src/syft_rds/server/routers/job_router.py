@@ -11,7 +11,7 @@ from syft_rds.models import (
     JobUpdate,
 )
 from syft_rds.server.router import RPCRouter
-from syft_rds.server.user_file_service import UserFileService
+from syft_rds.server.services.user_file_service import UserFileService
 from syft_rds.store import YAMLStore
 from syft_rds.utils.name_generator import generate_name
 

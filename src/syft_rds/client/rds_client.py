@@ -1,7 +1,7 @@
-from pathlib import Path
 import subprocess
 import threading
 import time
+from pathlib import Path
 from typing import Optional, Type, TypeVar
 from uuid import UUID
 
@@ -17,14 +17,14 @@ from syft_rds.client.rds_clients.base import (
     RDSClientConfig,
     RDSClientModule,
 )
+from syft_rds.client.rds_clients.custom_function import CustomFunctionRDSClient
 from syft_rds.client.rds_clients.dataset import DatasetRDSClient
-from syft_rds.client.rds_clients.runtime import RuntimeRDSClient
 from syft_rds.client.rds_clients.job import JobRDSClient
+from syft_rds.client.rds_clients.runtime import RuntimeRDSClient
 from syft_rds.client.rds_clients.user_code import UserCodeRDSClient
 from syft_rds.client.rpc import RPCClient
-from syft_rds.client.utils import PathLike, deprecation_warning
-from syft_rds.utils.constants import JOB_STATUS_POLLING_INTERVAL
-from syft_rds.models import Dataset, Job, JobStatus, UserCode, Runtime
+from syft_rds.client.utils import PathLike, copy_dir_contents, deprecation_warning
+from syft_rds.models import CustomFunction, Dataset, Job, JobStatus, Runtime, UserCode
 from syft_rds.models.base import ItemBase
 from syft_rds.syft_runtime.main import (
     FileOutputHandler,
@@ -33,6 +33,7 @@ from syft_rds.syft_runtime.main import (
     TextUI,
     get_runner_cls,
 )
+from syft_rds.utils.constants import JOB_STATUS_POLLING_INTERVAL
 
 T = TypeVar("T", bound=ItemBase)
 
@@ -102,7 +103,10 @@ def init_session(
 
 class RDSClient(RDSClientBase):
     def __init__(
-        self, config: RDSClientConfig, rpc_client: RPCClient, local_store: LocalStore
+        self,
+        config: RDSClientConfig,
+        rpc_client: RPCClient,
+        local_store: LocalStore,
     ) -> None:
         super().__init__(config, rpc_client, local_store)
         self.job = JobRDSClient(self.config, self.rpc, self.local_store, parent=self)
@@ -112,9 +116,15 @@ class RDSClient(RDSClientBase):
         self.user_code = UserCodeRDSClient(
             self.config, self.rpc, self.local_store, parent=self
         )
+        self.custom_function = CustomFunctionRDSClient(
+            self.config, self.rpc, self.local_store, parent=self
+        )
         self.runtime = RuntimeRDSClient(
             self.config, self.rpc, self.local_store, parent=self
         )
+
+        # GlobalClientRegistry is used to register this client, to enable referencing the client from returned objects
+        # e.g. Job._client references the RDSClient instance that created it.
         GlobalClientRegistry.register_client(self)
 
         self._type_map: dict[Type[T], RDSClientModule[T]] = {
@@ -122,12 +132,16 @@ class RDSClient(RDSClientBase):
             Dataset: self.dataset,
             Runtime: self.runtime,
             UserCode: self.user_code,
+            CustomFunction: self.custom_function,
         }
 
-        self._start_job_polling()
+        self.start()
 
     def __del__(self) -> None:
         self.close()
+
+    def start(self) -> None:
+        self._start_job_polling()
 
     def close(self) -> None:
         if self._polling_stop_event.is_set():
@@ -159,6 +173,8 @@ class RDSClient(RDSClientBase):
             list[Dataset]: A list of all datasets
         """
         return self.dataset.get_all()
+
+    # TODO move all logic under here to a separate job handler module
 
     def run_private(
         self,
@@ -229,6 +245,48 @@ class RDSClient(RDSClientBase):
         )
         return job_config
 
+    def _prepare_job(self, job: Job, config: JobConfig) -> None:
+        if job.custom_function_id is not None:
+            self._prepare_custom_function(
+                code_dir=job.user_code.local_dir,
+                custom_function_id=job.custom_function_id,
+            )
+
+    def _prepare_custom_function(
+        self,
+        code_dir: Path,
+        custom_function_id: UUID,
+    ) -> None:
+        custom_function = self.custom_function.get(uid=custom_function_id)
+
+        try:
+            copy_dir_contents(
+                src=custom_function.local_dir,
+                dst=code_dir,
+                exists_ok=False,
+            )
+        except FileExistsError as e:
+            raise FileExistsError(
+                f"Cannot copy custom function files to {code_dir}: {e}"
+            ) from e
+
+    def _get_display_handler(
+        self, display_type: str, show_stdout: bool, show_stderr: bool
+    ):
+        """Returns the appropriate display handler based on the display type."""
+        if display_type == "rich":
+            return RichConsoleUI(
+                show_stdout=show_stdout,
+                show_stderr=show_stderr,
+            )
+        elif display_type == "text":
+            return TextUI(
+                show_stdout=show_stdout,
+                show_stderr=show_stderr,
+            )
+        else:
+            raise ValueError(f"Unknown display type: {display_type}")
+
     def _run(
         self,
         job: Job,
@@ -237,24 +295,16 @@ class RDSClient(RDSClientBase):
         show_stdout: bool = True,
         show_stderr: bool = True,
     ) -> int | subprocess.Popen:
-        if display_type == "rich":
-            display_handler = RichConsoleUI(
-                show_stdout=show_stdout,
-                show_stderr=show_stderr,
-            )
-        elif display_type == "text":
-            display_handler = TextUI(
-                show_stdout=show_stdout,
-                show_stderr=show_stderr,
-            )
-        else:
-            raise ValueError(f"Unknown display type: {display_type}")
-
+        display_handler = self._get_display_handler(
+            display_type, show_stdout, show_stderr
+        )
         runner_cls = get_runner_cls(job_config)
         runner = runner_cls(
             handlers=[FileOutputHandler(), display_handler],
             update_job_status_callback=self.job.update_job_status,
         )
+
+        self._prepare_job(job, job_config)
         return runner.run(job, job_config)
 
     def _start_job_polling(self) -> None:

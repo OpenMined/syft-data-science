@@ -39,6 +39,8 @@ def zip_to_bytes(
         for path in paths:
             path = Path(path)
 
+            if not path.exists():
+                raise FileNotFoundError(f"Path {path} does not exist.")
             if path.is_file():
                 arcname = path.name if base_dir is None else path.relative_to(base_dir)
                 z.write(path, arcname=str(arcname))

@@ -1,10 +1,10 @@
 import enum
 import json
 import subprocess
+from datetime import datetime
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Optional
 from uuid import UUID
-from datetime import datetime
 
 from IPython.display import HTML, display
 from loguru import logger
@@ -17,7 +17,7 @@ from syft_rds.models.runtime_models import Runtime
 from syft_rds.utils.name_generator import generate_name
 
 if TYPE_CHECKING:
-    from syft_rds.models import UserCode, Runtime
+    from syft_rds.models import CustomFunction, UserCode
 
 
 class JobStatus(str, enum.Enum):
@@ -58,6 +58,7 @@ class Job(ItemBase):
     dataset_name: str
     runtime_id: UUID
     user_code_id: UUID
+    custom_function_id: Optional[UUID] = None
     description: str | None = None
     tags: list[str] = Field(default_factory=list)
     user_metadata: dict = {}
@@ -65,22 +66,6 @@ class Job(ItemBase):
     error: JobErrorKind = JobErrorKind.no_error
     error_message: str | None = None
     output_url: SyftBoxURL | None = None
-
-    @property
-    def user_code(self) -> "UserCode":
-        client = self._client
-        return client.user_code.get(self.user_code_id)
-
-    @property
-    def runtime(self) -> "Runtime":
-        """Get the runtime of the job"""
-        client = self._client
-        return client.runtime.get(self.runtime_id)
-
-    @property
-    def runtime_name(self) -> str:
-        """Get the name of the runtime of the job"""
-        return self.runtime.name
 
     def describe(self) -> None:
         html_description = create_html_repr(
@@ -97,11 +82,45 @@ class Job(ItemBase):
                 "error_message",
                 "output_path",
                 "dataset_name",
-                "user_code_id",
+                "user_code_name",
+                "custom_function_name",
             ],
             display_paths=["output_path"],
         )
         display(HTML(html_description))
+
+    @property
+    def runtime(self) -> "Runtime":
+        """Get the runtime of the job"""
+        client = self._client
+        return client.runtime.get(self.runtime_id)
+
+    @property
+    def runtime_name(self) -> str:
+        """Get the name of the runtime of the job"""
+        return self.runtime.name
+
+    @property
+    def user_code(self) -> "UserCode":
+        client = self._client
+        return client.user_code.get(self.user_code_id)
+
+    @property
+    def user_code_name(self) -> str:
+        return self.user_code.name
+
+    @property
+    def custom_function(self) -> "Optional[CustomFunction]":
+        if self.custom_function_id is None:
+            return None
+        client = self._client
+        return client.custom_function.get(self.custom_function_id)
+
+    @property
+    def custom_function_name(self) -> Optional[str]:
+        if self.custom_function is None:
+            return None
+        return self.custom_function.name
 
     def show_user_code(self) -> None:
         user_code = self.user_code
@@ -169,6 +188,7 @@ class JobCreate(ItemBaseCreate[Job]):
     name: str | None = None
     description: str | None = None
     tags: list[str] = Field(default_factory=list)
+    custom_function_id: Optional[UUID] = None
 
 
 class JobConfig(BaseModel):
@@ -177,7 +197,7 @@ class JobConfig(BaseModel):
     function_folder: Path
     args: list[str]
     data_path: Path
-    runtime: Runtime
+    runtime: "Runtime"
     job_folder: Optional[Path] = Field(
         default_factory=lambda: Path("jobs") / datetime.now().strftime("%Y%m%d_%H%M%S")
     )
