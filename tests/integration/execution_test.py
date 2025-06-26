@@ -1,141 +1,109 @@
-import os
+import time
 
 import pytest
+from loguru import logger
 
 from syft_rds.client.rds_client import RDSClient
-from syft_rds.models import GetAllRequest, JobStatus
-from tests.conftest import DS_PATH, PRIVATE_CODE_PATH
-from tests.utils import create_dataset, create_dataset_with_custom_runtime
+from syft_rds.client.rds_clients.runtime import (
+    DEFAULT_DOCKERFILE_FILE_PATH,
+)
+from syft_rds.models import Job, JobStatus
+from syft_rds.utils.constants import JOB_STATUS_POLLING_INTERVAL
+from tests.conftest import DS_PATH
+from tests.utils import create_dataset
+
+single_file_submission = {"user_code_path": DS_PATH / "ds.py"}
+folder_submission = {"user_code_path": DS_PATH / "code", "entrypoint": "main.py"}
+runtime_configs = {
+    "default_runtime": {},
+    "docker_runtime": {
+        "runtime_kind": "docker",
+        "runtime_config": {"dockerfile": str(DEFAULT_DOCKERFILE_FILE_PATH)},
+    },
+    "python_runtime": {"runtime_kind": "python"},
+    "named_python_runtime": {
+        "runtime_name": "my_python_runtime",
+        "runtime_kind": "python",
+    },
+}
+test_cases = []
+for sub_type, sub_params in [
+    ("single_file", single_file_submission),
+    ("folder", folder_submission),
+]:
+    for rt_name, rt_params in runtime_configs.items():
+        for blocking_mode in [True, False]:
+            blocking_str = "blocking" if blocking_mode else "non_blocking"
+            test_cases.append(
+                {
+                    "id": f"{sub_type}_{rt_name}_{blocking_str}",
+                    "submission_params": {**sub_params, **rt_params},
+                    "expected_num_runtimes": 1,
+                    "blocking": blocking_mode,
+                }
+            )
 
 
 @pytest.mark.parametrize(
-    "use_docker",
-    [
-        # True, # TODO setup docker flow in CI
-        False,
-    ],
+    "test_case",
+    test_cases,
+    ids=lambda x: x["id"],
 )
 def test_job_execution(
     ds_rds_client: RDSClient,
     do_rds_client: RDSClient,
-    use_docker: bool,
+    test_case: dict,
+    monkeypatch,
 ):
-    user_code_path = DS_PATH / "ds.py"
+    """Test job execution with a file or a folder, for various configurations."""
+    blocking_mode = test_case["blocking"]
+    submit_kwargs = {
+        "dataset_name": "dummy",
+        **test_case["submission_params"],
+    }
+
     create_dataset(do_rds_client, "dummy")
-    # Client Side
-    job = ds_rds_client.job.submit(
-        user_code_path=user_code_path,
-        dataset_name="dummy",
-    )
+
+    # DS submits job
+    job = ds_rds_client.job.submit(**submit_kwargs)
     assert job.status == JobStatus.pending_code_review
 
-    # Server Side
-    job = do_rds_client.rpc.job.get_all(GetAllRequest())[0]
+    assert len(do_rds_client.runtime.get_all()) == test_case["expected_num_runtimes"]
 
-    # Runner side
-    config = do_rds_client.job_runner.get_default_config_for_job(job)
-    config.use_docker = use_docker
-    do_rds_client.run_private(job, config)
+    # DO reviews, runs, and shares job
+    _run_and_verify_job(do_rds_client, blocking=blocking_mode)
+
+
+def _run_and_verify_job(do_rds_client: RDSClient, blocking: bool):
+    """Helper function to run a job and verify its execution."""
+    job: Job = do_rds_client.job.get_all()[0]
+
+    # Runner side: Execute the job
+    do_rds_client.run_private(job, blocking=blocking)
+
+    if not blocking:
+        assert job.status == JobStatus.job_in_progress
+
+    if job.status == JobStatus.job_run_failed:
+        logger.info(f"Job failed: {job.error_message}")
+        raise Exception(f"Job failed: {job.error_message}")
+
+    time.sleep(JOB_STATUS_POLLING_INTERVAL + 0.5)
     assert job.status == JobStatus.job_run_finished
 
+    # DO shares results with DS
     do_rds_client.job.share_results(job)
     assert job.status == JobStatus.shared
 
+    # DS checks for output
     output_path = job.get_output_path()
     assert output_path.exists()
 
     all_files_folders = list(output_path.glob("**/*"))
     all_files = [f for f in all_files_folders if f.is_file()]
-    assert len(all_files) == 3
+    assert len(all_files) == 3  # output.txt, stdout.log, stderr.log
 
-
-@pytest.mark.parametrize(
-    "use_docker",
-    [
-        # True, # TODO setup docker flow in CI
-        False,
-    ],
-)
-def test_job_folder_execution(
-    ds_rds_client: RDSClient,
-    do_rds_client: RDSClient,
-    use_docker: bool,
-):
-    user_code_dir = DS_PATH / "code"
-    entrypoint = "main.py"
-    create_dataset(do_rds_client, "dummy")
-    # Client Side
-    job = ds_rds_client.job.submit(
-        user_code_path=user_code_dir,
-        entrypoint=entrypoint,
-        dataset_name="dummy",
-    )
-    assert job.status == JobStatus.pending_code_review
-
-    # Server Side
-    job = do_rds_client.rpc.job.get_all(GetAllRequest())[0]
-
-    # Runner side
-    config = do_rds_client.job_runner.get_default_config_for_job(job)
-    config.use_docker = use_docker
-    do_rds_client.run_private(job, config)
-    assert job.status == JobStatus.job_run_finished
-
-    do_rds_client.job.share_results(job)
-    assert job.status == JobStatus.shared
-
-    output_path = job.get_output_path()
-    assert output_path.exists()
-
-    all_files_folders = list(output_path.glob("**/*"))
-    all_files = [f for f in all_files_folders if f.is_file()]
-    assert len(all_files) == 3
-
-    output_txt = output_path / "output" / "output.txt"
-    assert output_txt.exists()
-    with open(output_txt, "r") as f:
-        assert f.read() == "ABC"
-
-
-@pytest.mark.parametrize(
-    "use_docker",
-    [
-        # True, # TODO setup docker flow in CI
-        False,
-    ],
-)
-def test_job_execution_with_custom_runtime(
-    ds_rds_client: RDSClient,
-    do_rds_client: RDSClient,
-    use_docker: bool,
-):
-    create_dataset_with_custom_runtime(do_rds_client, "dummy")
-    # Client Side
-    job = ds_rds_client.job.submit(
-        user_code_path=DS_PATH / "ds.txt",
-        dataset_name="dummy",
-    )
-
-    # Server Side
-    job = do_rds_client.rpc.job.get_all(GetAllRequest())[0]
-
-    # Runner side
-    do_rds_client.run_private(job)
-    assert job.status == JobStatus.job_run_failed, "Need to set`SECRET_KEY`"
-
-    os.environ["PYDEVD_DISABLE_FILE_VALIDATION"] = "1"
-    config = do_rds_client.job_runner.get_default_config_for_job(job)
-    config.use_docker = use_docker
-    if use_docker:
-        config.runtime.mount_dir = PRIVATE_CODE_PATH
-    config.extra_env["SECRET_KEY"] = "__AA__"
-    do_rds_client.run_private(job, config)
-
-    assert job.status == JobStatus.job_run_finished
-    do_rds_client.job.share_results(job)
-    output_path = job.get_output_path()
-    assert output_path.exists()
-
-    all_files_folders = list(output_path.glob("**/*"))
-    all_files = [f for f in all_files_folders if f.is_file()]
-    assert len(all_files) == 3
+    my_result = output_path / "output" / "my_result.csv"
+    assert my_result.exists()
+    with open(my_result, "r") as f:
+        assert f.read() == "Hello, world!"

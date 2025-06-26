@@ -1,5 +1,6 @@
 from pathlib import Path
 from typing import Optional, Union
+from uuid import UUID
 
 from syft_rds.client.rds_clients.base import RDSClientModule
 from syft_rds.client.rds_clients.utils import ensure_is_admin
@@ -8,7 +9,6 @@ from syft_rds.models import (
     DatasetCreate,
     DatasetUpdate,
 )
-from syft_rds.syft_runtime.main import CodeRuntime
 
 
 class DatasetRDSClient(RDSClientModule[Dataset]):
@@ -23,7 +23,7 @@ class DatasetRDSClient(RDSClientModule[Dataset]):
         summary: Optional[str] = None,
         description_path: Optional[Union[str, Path]] = None,
         tags: list[str] = [],
-        runtime: Optional[CodeRuntime] = None,
+        runtime_id: Optional[UUID] = None,
     ) -> Dataset:
         dataset_create = DatasetCreate(
             name=name,
@@ -32,7 +32,7 @@ class DatasetRDSClient(RDSClientModule[Dataset]):
             summary=summary,
             description_path=str(description_path) if description_path else None,
             tags=tags,
-            runtime=runtime,
+            runtime_id=runtime_id,
         )
         return self.local_store.dataset.create(dataset_create)
 

@@ -202,6 +202,7 @@ class E2EContext:
         env["SYFTBOX_OTEL_ENABLED"] = "0"
         env.update(server.env)
 
+        # TODO: Use new go syftbox server
         process = await asyncio.create_subprocess_exec(
             "gunicorn",
             "syftbox.server.server:app",
@@ -232,6 +233,7 @@ class E2EContext:
             env["SYFTBOX_DEFAULT_APPS"] = ",".join(client.apps)
         logger.info(f"{client_dir=}")
 
+        # TODO: Use new syftbox client
         process = await asyncio.create_subprocess_exec(
             "syftbox",
             "client",
