@@ -18,6 +18,7 @@ dependencies = [
   "jinja2>=3.1.6",
   "ipython>=8.18.1",
   "syft-datasets",
+  "syft-runtime",
 ]
 
 [tool.uv]
@@ -56,3 +57,4 @@ members = ["packages/*"]
 
 [tool.uv.sources]
 syft-datasets = { workspace = true }
+syft-runtime = { workspace = true }
