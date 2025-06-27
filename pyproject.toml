@@ -17,6 +17,7 @@ dependencies = [
   "nh3>=0.2.21",
   "jinja2>=3.1.6",
   "ipython>=8.18.1",
+  "syft-datasets",
 ]
 
 [tool.uv]
@@ -39,7 +40,9 @@ exclude = ["src/**/__pycache__"]
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/syft_rds"]
-only-include = ["src/syft_rds"]  # no need for pyproject.toml and README.md for wheel
+only-include = [
+  "src/syft_rds",
+] # no need for pyproject.toml and README.md for wheel
 exclude = ["src/syft_rds/**/__pycache__"]
 
 [project.scripts]
@@ -47,3 +50,9 @@ syft-rds = "syft_rds.cli:app"
 
 [tool.setuptools.packages.find]
 where = ["src"]
+
+[tool.uv.workspace]
+members = ["packages/*"]
+
+[tool.uv.sources]
+syft-datasets = { workspace = true }
