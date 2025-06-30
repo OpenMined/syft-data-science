@@ -3,7 +3,7 @@ import enum
 import json
 
 # relative
-from syft_rds.utils.resources import load_svg
+from syft_notebook_ui.resources import load_svg
 
 
 class Icon(enum.Enum):

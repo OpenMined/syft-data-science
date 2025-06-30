@@ -1,6 +1,6 @@
 from typing import Any
 
-from syft_rds.display_utils.jupyter.types import TableDict, TableList
+from syft_notebook_ui.types import TableDict, TableList
 
 
 def display(obj: Any) -> Any:

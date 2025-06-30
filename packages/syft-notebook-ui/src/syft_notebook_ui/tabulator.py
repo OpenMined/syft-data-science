@@ -7,14 +7,14 @@ from typing import Any, Optional
 import jinja2
 from IPython.display import HTML, display
 
-# from syft_rds.display_utils.jupyter.components import Badge, CopyButton, Label
-from syft_rds.display_utils.jupyter.icons import Icon
-from syft_rds.display_utils.jupyter.table_utils import (
+# from syft_notebook_ui.components import Badge, CopyButton, Label
+from syft_notebook_ui.icons import Icon
+from syft_notebook_ui.resources import load_css, load_js
+from syft_notebook_ui.table_utils import (
     TABLE_INDEX_KEY,
     format_table_data,
     prepare_table_data,
 )
-from syft_rds.utils.resources import load_css, load_js
 
 logger = logging.getLogger(__name__)
 
@@ -25,7 +25,9 @@ def make_links(text: str) -> str:
 
 
 DEFAULT_ID_WIDTH = 110
-jinja_env = jinja2.Environment(loader=jinja2.PackageLoader("syft_rds", "assets/jinja"))  # nosec
+jinja_env = jinja2.Environment(
+    loader=jinja2.PackageLoader("syft_notebook_ui", "assets/jinja")
+)  # nosec
 jinja_env.filters["make_links"] = make_links
 
 

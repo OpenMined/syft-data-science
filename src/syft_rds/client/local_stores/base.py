@@ -1,8 +1,8 @@
 from typing import TYPE_CHECKING, ClassVar, Generic, List, Type, TypeVar
 
 from syft_core import Client as SyftBoxClient
+from syft_notebook_ui.types import TableList
 
-from syft_rds.display_utils.jupyter.types import TableList
 from syft_rds.models import (
     GetAllRequest,
     GetOneRequest,

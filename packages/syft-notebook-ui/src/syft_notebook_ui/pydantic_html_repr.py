@@ -9,9 +9,11 @@ from pydantic import BaseModel
 from rich.console import Console
 from rich.tree import Tree
 
-from syft_rds.utils.resources import load_css
+from syft_notebook_ui.resources import load_css
 
-jinja_env = jinja2.Environment(loader=jinja2.PackageLoader("syft_rds", "assets/jinja"))  # nosec
+jinja_env = jinja2.Environment(
+    loader=jinja2.PackageLoader("syft_notebook_ui", "assets/jinja")
+)  # nosec
 PERM_FILE = "syftperm.yaml"
 
 

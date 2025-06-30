@@ -15,8 +15,7 @@ from uuid import UUID, uuid4
 
 from pydantic import BaseModel, Field
 from syft_core import Client as SyftBoxClient
-
-from syft_rds.display_utils.formatter import (
+from syft_notebook_ui.formatter_mixin import (
     ANSIPydanticFormatter,
     PydanticFormatter,
 )
