@@ -1,6 +1,6 @@
 [project]
 name = "syft-rds"
-version = "0.1.3"
+version = "0.1.4"
 description = "Doing remote data science with SyftBox"
 readme = "README.md"
 requires-python = ">=3.9"
@@ -9,9 +9,9 @@ dependencies = [
   "pydantic[email]>=2.10.4",
   "rich>=13.9.4",
   "syft-core==0.2.5",
-  "syft-event==0.2.6",
+  "syft-event==0.2.7",
   "syft-rpc==0.2.4",
-  "typing-extensions>=4.12.2",
+  "typing-extensions>=4.14.0",
   "pyyaml>=6.0.2",
   "typer>=0.12.5",
   "nh3>=0.2.21",
