@@ -2,7 +2,7 @@ from enum import Enum
 from pathlib import Path
 import json
 import hashlib
-from typing import Any, Type, TypeAlias, Union, Literal, Optional
+from typing import Any, TypeAlias, Union, Literal, Optional
 import os
 from IPython.display import HTML, display
 from datetime import datetime
@@ -16,6 +16,7 @@ from pydantic import (
 )
 
 from syft_notebook_ui.pydantic_html_repr import create_html_repr
+from syft_rds.models.base import ItemBaseCreate, ItemBase, ItemBaseUpdate
 
 PathLike: TypeAlias = Union[str, os.PathLike, Path]
 
@@ -118,7 +119,7 @@ class KubernetesRuntimeConfig(BaseRuntimeConfig):
 RuntimeConfig = PythonRuntimeConfig | DockerRuntimeConfig | KubernetesRuntimeConfig
 
 
-class Runtime(BaseModel):
+class Runtime(ItemBase):
     __schema_name__ = "runtime"
     __table_extra_fields__ = [
         "name",
@@ -148,7 +149,7 @@ class Runtime(BaseModel):
         return self.config.cmd
 
 
-class RuntimeCreate(BaseModel):
+class RuntimeCreate(ItemBaseCreate[Runtime]):
     name: str | None = None
     kind: RuntimeKind
     config: RuntimeConfig = Field(default_factory=dict)
@@ -166,17 +167,8 @@ class RuntimeCreate(BaseModel):
         self.name = f"{self.kind.value.lower()}_{config_hash}"
         return self
 
-    @classmethod
-    def get_target_model(cls) -> Type[Runtime]:
-        return cls.__bases__[0].__pydantic_generic_metadata__["args"][0]  # type: ignore
 
-    def to_item(self, extra: Optional[dict[str, Any]] = None) -> Runtime:
-        model_cls = self.get_target_model()
-        extra = extra or {}
-        return model_cls(**self.model_dump(), **extra)
-
-
-class RuntimeUpdate(BaseModel):
+class RuntimeUpdate(ItemBaseUpdate[Runtime]):
     pass
 
 

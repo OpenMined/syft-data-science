@@ -17,7 +17,7 @@ DEFAULT_RUNTIME_KIND = os.getenv("SYFT_RDS_DEFAULT_RUNTIME_KIND", "python")
 DEFAULT_RUNTIME_NAME = os.getenv(
     "SYFT_RDS_DEFAULT_RUNTIME_NAME", "syft_default_python_runtime"
 )
-PROJECT_ROOT = Path(__file__).resolve().parents[4]
+PROJECT_ROOT = Path(__file__).resolve().parents[6]
 DEFAULT_DOCKERFILE_FILE_PATH = PROJECT_ROOT / "runtimes" / "python.Dockerfile"
 
 
