@@ -2,7 +2,7 @@ from enum import Enum
 from pathlib import Path
 import json
 import hashlib
-from typing import Any, TypeAlias, Union, Literal, Optional
+from typing import Any, Type, TypeAlias, Union, Literal, Optional
 import os
 from IPython.display import HTML, display
 from datetime import datetime
@@ -165,6 +165,15 @@ class RuntimeCreate(BaseModel):
         config_hash = hashlib.sha256(config_str.encode()).hexdigest()[:6]
         self.name = f"{self.kind.value.lower()}_{config_hash}"
         return self
+
+    @classmethod
+    def get_target_model(cls) -> Type[Runtime]:
+        return cls.__bases__[0].__pydantic_generic_metadata__["args"][0]  # type: ignore
+
+    def to_item(self, extra: Optional[dict[str, Any]] = None) -> Runtime:
+        model_cls = self.get_target_model()
+        extra = extra or {}
+        return model_cls(**self.model_dump(), **extra)
 
 
 class RuntimeUpdate(BaseModel):

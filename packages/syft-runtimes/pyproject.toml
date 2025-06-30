@@ -9,7 +9,6 @@ authors = [
 requires-python = ">=3.9"
 dependencies = [
     "loguru>=0.7.3",
-    "syft-display-utils",
 ]
 
 [project.scripts]
@@ -29,4 +28,3 @@ only-include = ["src", "pyproject.toml", "README.md"]
 exclude = ["src/**/__pycache__"]
 
 [tool.uv.sources]
-syft-display-utils = { workspace = true }
