@@ -14,12 +14,11 @@ dependencies = [
   "typing-extensions>=4.14.0",
   "pyyaml>=6.0.2",
   "typer>=0.12.5",
-  "nh3>=0.2.21",
   "jinja2>=3.1.6",
-  "ipython>=8.18.1",
   "syft-datasets",
   "syft-rds",
   "syft-runtimes",
+  "syft-notebook-ui",
 ]
 
 [tool.uv]
@@ -42,3 +41,4 @@ members = ["packages/*"]
 syft-datasets = { workspace = true }
 syft-rds = { workspace = true }
 syft-runtimes = { workspace = true }
+syft-notebook-ui = { workspace = true }

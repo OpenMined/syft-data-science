@@ -1,29 +1,55 @@
 from loguru import logger
-from syft_core import Client as SyftBoxClient
 from syft_core.types import PathLike
+from typing_extensions import Literal
 
-_syftbox_client: SyftBoxClient | None = None
+from syft_datasets.dataset import Dataset
+from syft_datasets.manager import SyftDatasetManager
+
+_global_manager: SyftDatasetManager | None = None
 
 
-def get_syftbox_client() -> SyftBoxClient:
-    """Get the global SyftBox client, initializing if needed."""
-    global _syftbox_client
-    if _syftbox_client is None:
+def login(config_path: PathLike | None = None) -> SyftDatasetManager:
+    global _global_manager
+    _global_manager = SyftDatasetManager.load(config_path=config_path)
+    logger.info(f"Logged in as {_global_manager.syftbox_client.email}")
+    return _global_manager
+
+
+def get_global_manager() -> SyftDatasetManager:
+    global _global_manager
+    if _global_manager is None:
         try:
-            _syftbox_client = SyftBoxClient.load()
-            logger.info("Logged in as {}", _syftbox_client.email)
+            _global_manager = SyftDatasetManager.load()
+            logger.info(f"Auto-logged in as {_global_manager.syftbox_client.email}")
         except Exception as e:
-            logger.error("Failed to load SyftBox client: {}", e)
-            raise
-    return _syftbox_client
+            raise ValueError(
+                "syft-datasets failed to auto-login to SyftBox. Please use `syft_datasets.login(config_path=/path/to/syftbox/config.json)`."
+            ) from e
+    return _global_manager
 
 
-def set_syftbox_client(config_path: PathLike | None = None) -> None:
-    """Set the global syftbox client for syft-datasets."""
-    global _syftbox_client
-    try:
-        _syftbox_client = SyftBoxClient.load(filepath=config_path)
-        logger.info("SyftBox client set to {}", _syftbox_client.email)
-    except Exception as e:
-        logger.error("Failed to set SyftBox client: {}", e)
-        raise
+def create(
+    name: str,
+    mock_path: PathLike,
+    private_path: PathLike,
+    summary: str | None = None,
+    readme_path: PathLike | None = None,
+    tags: list[str] | None = None,
+) -> Dataset:
+    return get_global_manager().create(
+        name, mock_path, private_path, summary, readme_path, tags
+    )
+
+
+def get(dataset_name: str, datasite: str | None = None) -> Dataset:
+    return get_global_manager().get(dataset_name, datasite)
+
+
+def get_all(
+    datasite: str | None = None,
+    limit: int | None = None,
+    offset: int | None = None,
+    order_by: str | None = None,
+    sort_order: Literal["asc", "desc"] = "asc",
+) -> list[Dataset]:
+    return get_global_manager().get_all(datasite, limit, offset, order_by, sort_order)

@@ -9,8 +9,8 @@ from pydantic import (
     field_validator,
 )
 from syft_core import SyftBoxURL
+from syft_notebook_ui.pydantic_html_repr import create_html_repr
 
-from syft_display_utils.html_format import create_html_repr
 from syft_rds.models.base import ItemBase, ItemBaseCreate, ItemBaseUpdate
 
 T = TypeVar("T", bound=ItemBase)
