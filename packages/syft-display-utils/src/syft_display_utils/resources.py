@@ -1,7 +1,7 @@
 import importlib.resources
 from functools import lru_cache
 
-ASSETS = "syft_rds.assets"
+ASSETS = "syft_display_utils.assets"
 CSS_ASSETS = f"{ASSETS}.css"
 JS_ASSETS = f"{ASSETS}.js"
 SVG_ASSETS = f"{ASSETS}.svg"
