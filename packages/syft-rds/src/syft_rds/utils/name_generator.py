@@ -2,7 +2,7 @@ import random
 import string
 from typing import List
 
-from syft_display_utils.resources import load_resource
+from syft_notebook_ui.resources import load_resource
 
 _adjectives: List[str] | None = None
 _nouns: List[str] | None = None

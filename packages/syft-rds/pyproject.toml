@@ -10,6 +10,7 @@ requires-python = ">=3.9"
 dependencies = [
     "loguru>=0.7.3",
     "syft-runtimes",
+    "syft-notebook-ui",
 ]
 
 [project.scripts]
@@ -30,3 +31,4 @@ exclude = ["src/**/__pycache__"]
 
 [tool.uv.sources]
 syft-runtimes = { workspace = true }
+syft-notebook-ui = { workspace = true }

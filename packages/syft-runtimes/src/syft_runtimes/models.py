@@ -15,7 +15,7 @@ from pydantic import (
     model_validator,
 )
 
-from syft_display_utils.html_format import create_html_repr
+from syft_notebook_ui.pydantic_html_repr import create_html_repr
 
 PathLike: TypeAlias = Union[str, os.PathLike, Path]
 

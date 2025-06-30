@@ -9,6 +9,7 @@ authors = [
 requires-python = ">=3.9"
 dependencies = [
     "loguru>=0.7.3",
+    "syft-notebook-ui",
 ]
 
 [project.scripts]
@@ -28,3 +29,4 @@ only-include = ["src", "pyproject.toml", "README.md"]
 exclude = ["src/**/__pycache__"]
 
 [tool.uv.sources]
+syft-notebook-ui = { workspace = true }

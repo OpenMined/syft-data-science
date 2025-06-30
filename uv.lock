@@ -2479,12 +2479,14 @@ version = "0.1.4"
 source = { editable = "packages/syft-rds" }
 dependencies = [
     { name = "loguru" },
+    { name = "syft-notebook-ui" },
     { name = "syft-runtimes" },
 ]
 
 [package.metadata]
 requires-dist = [
     { name = "loguru", specifier = ">=0.7.3" },
+    { name = "syft-notebook-ui", editable = "packages/syft-notebook-ui" },
     { name = "syft-runtimes", editable = "packages/syft-runtimes" },
 ]
 
@@ -2508,10 +2510,14 @@ version = "0.1.0"
 source = { editable = "packages/syft-runtimes" }
 dependencies = [
     { name = "loguru" },
+    { name = "syft-notebook-ui" },
 ]
 
 [package.metadata]
-requires-dist = [{ name = "loguru", specifier = ">=0.7.3" }]
+requires-dist = [
+    { name = "loguru", specifier = ">=0.7.3" },
+    { name = "syft-notebook-ui", editable = "packages/syft-notebook-ui" },
+]
 
 [[package]]
 name = "terminado"

@@ -7,7 +7,7 @@ from IPython.display import HTML, display
 from pydantic import Field, model_validator
 from syft_core import SyftBoxURL
 
-from syft_display_utils.html_format import create_html_repr
+from syft_notebook_ui.pydantic_html_repr import create_html_repr
 from syft_rds.models.base import ItemBase, ItemBaseCreate, ItemBaseUpdate
 from syft_runtimes.models import Runtime, JobStatus, JobErrorKind
 from syft_rds.utils.name_generator import generate_name
