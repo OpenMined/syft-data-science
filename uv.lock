@@ -2373,7 +2373,7 @@ requires-dist = [
 
 [[package]]
 name = "syft-event"
-version = "0.2.6"
+version = "0.2.7"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "loguru" },
@@ -2382,9 +2382,9 @@ dependencies = [
     { name = "syft-rpc" },
     { name = "watchdog" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/16/dd/b224673a360fafd5934d111fccf4648eec1f10ef0cb2fba0297fe2e0ce1a/syft_event-0.2.6.tar.gz", hash = "sha256:4f4906a4bf6d9f2990d8964b2752bb00786878da447b5cad2ee1e373376d8e0e", size = 9320 }
+sdist = { url = "https://files.pythonhosted.org/packages/b3/87/6ed4002b95c505665bf06e89ebd4e5eaf4933c24c32388872b735b104a9a/syft_event-0.2.7.tar.gz", hash = "sha256:82bc95294786a3b64c1ab1fb731dca178bc7517307f95570c8473d2de1be0c13", size = 9764 }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/cb/80/6b8fade1c9fde5ee3dd4d98d2742d475a99ad98561c621c17caeddd565c7/syft_event-0.2.6-py3-none-any.whl", hash = "sha256:e0b05ffbf243a55986d918b45647cbfc90546cef55bbe954245f8392a8f348b2", size = 10440 },
+    { url = "https://files.pythonhosted.org/packages/35/79/a488f72524f5f24ea15756b068a2d7f8cf742ab0b06ad85275dc5caa952e/syft_event-0.2.7-py3-none-any.whl", hash = "sha256:89de5c5acbdc10f66c787908e3978324bd0ab83e50a52f6c127daf36f888b830", size = 10955 },
 ]
 
 [[package]]
@@ -2414,7 +2414,7 @@ requires-dist = [
 
 [[package]]
 name = "syft-rds"
-version = "0.1.3"
+version = "0.1.4"
 source = { editable = "." }
 dependencies = [
     { name = "jinja2" },
@@ -2450,11 +2450,11 @@ requires-dist = [
     { name = "rich", specifier = ">=13.9.4" },
     { name = "syft-core", specifier = "==0.2.5" },
     { name = "syft-datasets", editable = "packages/syft-datasets" },
-    { name = "syft-event", specifier = "==0.2.6" },
+    { name = "syft-event", specifier = "==0.2.7" },
     { name = "syft-notebook-ui", editable = "packages/syft-notebook-ui" },
     { name = "syft-rpc", specifier = "==0.2.4" },
     { name = "typer", specifier = ">=0.12.5" },
-    { name = "typing-extensions", specifier = ">=4.12.2" },
+    { name = "typing-extensions", specifier = ">=4.14.0" },
 ]
 
 [package.metadata.requires-dev]
