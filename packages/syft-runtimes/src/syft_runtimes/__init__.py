@@ -4,6 +4,8 @@ from .main import (
     FileOutputHandler,
     JobConfig,
     RichConsoleUI,
+    TextUI,
+    get_runner_cls,
 )
 
 __all__ = [
@@ -12,4 +14,6 @@ __all__ = [
     "FileOutputHandler",
     "JobConfig",
     "RichConsoleUI",
+    "TextUI",
+    "get_runner_cls",
 ]

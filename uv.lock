@@ -11,9 +11,11 @@ resolution-markers = [
 
 [manifest]
 members = [
+    "syft-data-science",
     "syft-datasets",
+    "syft-display-utils",
     "syft-rds",
-    "syft-runtime",
+    "syft-runtimes",
 ]
 
 [[package]]
@@ -2266,40 +2268,9 @@ wheels = [
 ]
 
 [[package]]
-name = "syft-datasets"
+name = "syft-data-science"
 version = "0.1.0"
-source = { editable = "packages/syft-datasets" }
-dependencies = [
-    { name = "pydantic" },
-    { name = "syft-core" },
-]
-
-[package.metadata]
-requires-dist = [
-    { name = "pydantic", specifier = ">=2.11.3" },
-    { name = "syft-core", specifier = ">=0.2.5" },
-]
-
-[[package]]
-name = "syft-event"
-version = "0.2.7"
-source = { registry = "https://pypi.org/simple" }
-dependencies = [
-    { name = "loguru" },
-    { name = "pathspec" },
-    { name = "pydantic" },
-    { name = "syft-rpc" },
-    { name = "watchdog" },
-]
-sdist = { url = "https://files.pythonhosted.org/packages/b3/87/6ed4002b95c505665bf06e89ebd4e5eaf4933c24c32388872b735b104a9a/syft_event-0.2.7.tar.gz", hash = "sha256:82bc95294786a3b64c1ab1fb731dca178bc7517307f95570c8473d2de1be0c13", size = 9764, upload-time = "2025-06-27T09:47:13.515Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/35/79/a488f72524f5f24ea15756b068a2d7f8cf742ab0b06ad85275dc5caa952e/syft_event-0.2.7-py3-none-any.whl", hash = "sha256:89de5c5acbdc10f66c787908e3978324bd0ab83e50a52f6c127daf36f888b830", size = 10955, upload-time = "2025-06-27T09:47:11.806Z" },
-]
-
-[[package]]
-name = "syft-rds"
-version = "0.1.4"
-source = { editable = "." }
+source = { virtual = "." }
 dependencies = [
     { name = "ipython", version = "8.18.1", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.10'" },
     { name = "ipython", version = "8.37.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version == '3.10.*'" },
@@ -2312,9 +2283,11 @@ dependencies = [
     { name = "rich" },
     { name = "syft-core" },
     { name = "syft-datasets" },
+    { name = "syft-display-utils" },
     { name = "syft-event" },
+    { name = "syft-rds" },
     { name = "syft-rpc" },
-    { name = "syft-runtime" },
+    { name = "syft-runtimes" },
     { name = "typer" },
     { name = "typing-extensions" },
 ]
@@ -2340,9 +2313,11 @@ requires-dist = [
     { name = "rich", specifier = ">=13.9.4" },
     { name = "syft-core", specifier = "==0.2.5" },
     { name = "syft-datasets", editable = "packages/syft-datasets" },
+    { name = "syft-display-utils", editable = "packages/syft-display-utils" },
     { name = "syft-event", specifier = "==0.2.7" },
+    { name = "syft-rds", editable = "packages/syft-rds" },
     { name = "syft-rpc", specifier = "==0.2.4" },
-    { name = "syft-runtime", editable = "packages/syft-runtime" },
+    { name = "syft-runtimes", editable = "packages/syft-runtimes" },
     { name = "typer", specifier = ">=0.12.5" },
     { name = "typing-extensions", specifier = ">=4.14.0" },
 ]
@@ -2355,6 +2330,73 @@ dev = [
     { name = "pre-commit", specifier = ">=4.1.0" },
     { name = "pytest", specifier = ">=8.3.4" },
     { name = "pytest-asyncio", specifier = ">=0.25.3" },
+]
+
+[[package]]
+name = "syft-datasets"
+version = "0.1.0"
+source = { editable = "packages/syft-datasets" }
+dependencies = [
+    { name = "pydantic" },
+    { name = "syft-core" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "pydantic", specifier = ">=2.11.3" },
+    { name = "syft-core", specifier = ">=0.2.5" },
+]
+
+[[package]]
+name = "syft-display-utils"
+version = "0.1.0"
+source = { editable = "packages/syft-display-utils" }
+dependencies = [
+    { name = "jinja2" },
+    { name = "loguru" },
+    { name = "pydantic" },
+    { name = "rich" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "jinja2", specifier = ">=3.1.2" },
+    { name = "loguru", specifier = ">=0.7.3" },
+    { name = "pydantic", specifier = ">=2.10.6" },
+    { name = "rich", specifier = ">=14.0.0" },
+]
+
+[[package]]
+name = "syft-event"
+version = "0.2.7"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "loguru" },
+    { name = "pathspec" },
+    { name = "pydantic" },
+    { name = "syft-rpc" },
+    { name = "watchdog" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/b3/87/6ed4002b95c505665bf06e89ebd4e5eaf4933c24c32388872b735b104a9a/syft_event-0.2.7.tar.gz", hash = "sha256:82bc95294786a3b64c1ab1fb731dca178bc7517307f95570c8473d2de1be0c13", size = 9764, upload-time = "2025-06-27T09:47:13.515Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/35/79/a488f72524f5f24ea15756b068a2d7f8cf742ab0b06ad85275dc5caa952e/syft_event-0.2.7-py3-none-any.whl", hash = "sha256:89de5c5acbdc10f66c787908e3978324bd0ab83e50a52f6c127daf36f888b830", size = 10955, upload-time = "2025-06-27T09:47:11.806Z" },
+]
+
+[[package]]
+name = "syft-rds"
+version = "0.1.4"
+source = { editable = "packages/syft-rds" }
+dependencies = [
+    { name = "loguru" },
+    { name = "syft-display-utils" },
+    { name = "syft-runtimes" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "loguru", specifier = ">=0.7.3" },
+    { name = "syft-display-utils", editable = "packages/syft-display-utils" },
+    { name = "syft-runtimes", editable = "packages/syft-runtimes" },
 ]
 
 [[package]]
@@ -2372,18 +2414,18 @@ wheels = [
 ]
 
 [[package]]
-name = "syft-runtime"
+name = "syft-runtimes"
 version = "0.1.0"
-source = { editable = "packages/syft-runtime" }
+source = { editable = "packages/syft-runtimes" }
 dependencies = [
     { name = "loguru" },
-    { name = "syft-rds" },
+    { name = "syft-display-utils" },
 ]
 
 [package.metadata]
 requires-dist = [
     { name = "loguru", specifier = ">=0.7.3" },
-    { name = "syft-rds", editable = "." },
+    { name = "syft-display-utils", editable = "packages/syft-display-utils" },
 ]
 
 [[package]]

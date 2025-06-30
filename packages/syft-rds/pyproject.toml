@@ -1,7 +1,7 @@
 [project]
-name = "syft-runtimes"
-version = "0.1.0"
-description = "Runtimes for Syft Data Science"
+name = "syft-rds"
+version = "0.1.4"
+description = "Doing remote data science with SyftBox"
 readme = "README.md"
 authors = [
     { name = "openmined", email = "info@openmined.org" }
@@ -10,23 +10,25 @@ requires-python = ">=3.9"
 dependencies = [
     "loguru>=0.7.3",
     "syft-display-utils",
+    "syft-runtimes",
 ]
 
 [project.scripts]
-syft-runtimes = "syft_runtimes:main"
+syft-rds = "syft_rds:main"
 
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [tool.hatch.build.targets.wheel]
-packages = ["src/syft_runtimes"]
-only-include = ["src/syft_runtimes"]
-exclude = ["src/syft_runtimes/**/__pycache__"]
+packages = ["src/syft_rds"]
+only-include = ["src/syft_rds"]
+exclude = ["src/syft_rds/**/__pycache__"]
 
 [tool.hatch.build.targets.sdist]
 only-include = ["src", "pyproject.toml", "README.md"]
 exclude = ["src/**/__pycache__"]
 
 [tool.uv.sources]
+syft-runtimes = { workspace = true }
 syft-display-utils = { workspace = true }
