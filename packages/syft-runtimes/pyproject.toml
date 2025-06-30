@@ -1,7 +1,7 @@
 [project]
-name = "syft-runtime"
+name = "syft-runtimes"
 version = "0.1.0"
-description = "Runtime for Syft"
+description = "Runtimes for Syft"
 readme = "README.md"
 authors = [
     { name = "openmined", email = "info@openmined.org" }
@@ -13,16 +13,16 @@ dependencies = [
 ]
 
 [project.scripts]
-syft-runtime = "syft_runtime:main"
+syft-runtimes = "syft_runtimes:main"
 
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [tool.hatch.build.targets.wheel]
-packages = ["src/syft_runtime"]
-only-include = ["src/syft_runtime"]
-exclude = ["src/syft_runtime/**/__pycache__"]
+packages = ["src/syft_runtimes"]
+only-include = ["src/syft_runtimes"]
+exclude = ["src/syft_runtimes/**/__pycache__"]
 
 [tool.hatch.build.targets.sdist]
 only-include = ["src", "pyproject.toml", "README.md"]
