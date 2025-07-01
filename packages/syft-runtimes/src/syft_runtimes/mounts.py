@@ -1,5 +1,5 @@
 from typing import Dict, List
-from syft_rds.models import DockerMount, JobConfig
+from syft_runtimes.models import DockerMount, JobConfig
 
 
 class MountProvider:

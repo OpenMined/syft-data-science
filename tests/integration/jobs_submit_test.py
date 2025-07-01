@@ -9,7 +9,7 @@ from syft_rds.client.rds_clients.runtime import (
     DEFAULT_DOCKERFILE_FILE_PATH,
 )
 from syft_rds.client.rds_client import RDSClient
-from syft_rds.models import JobStatus
+from syft_runtimes.models import JobStatus
 
 
 @pytest.mark.parametrize(

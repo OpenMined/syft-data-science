@@ -19,7 +19,7 @@ from syft_rds.models import (
     UserCode,
 )
 from syft_rds.models.custom_function_models import CustomFunction
-from syft_rds.models.job_models import JobErrorKind, JobResults
+from syft_runtimes.models import JobErrorKind, JobResults
 
 
 class JobRDSClient(RDSClientModule[Job]):

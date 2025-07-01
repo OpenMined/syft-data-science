@@ -2,178 +2,24 @@ import os
 import subprocess
 import time
 from pathlib import Path
-from typing import Callable, Protocol, Type
+from typing import Callable, Optional, Type
 
 from loguru import logger
-from rich.console import Console
-from rich.live import Live
-from rich.panel import Panel
-from rich.spinner import Spinner
 
-from syft_rds.models import (
+from syft_runtimes.models import (
     DockerMount,
-    Job,
     JobConfig,
-    JobUpdate,
     RuntimeKind,
+    JobStatus,
+    JobErrorKind,
+    JobStatusUpdate,
 )
-from syft_rds.syft_runtime.mounts import get_mount_provider
+from syft_runtimes.mounts import get_mount_provider
+from syft_runtimes.output_handler import JobOutputHandler
+
 
 DEFAULT_WORKDIR = "/app"
 DEFAULT_OUTPUT_DIR = DEFAULT_WORKDIR + "/output"
-
-
-class JobOutputHandler(Protocol):
-    """Protocol defining the interface for job output handling and display"""
-
-    def on_job_start(self, job_config: JobConfig) -> None:
-        """Display job configuration"""
-        pass
-
-    def on_job_progress(self, stdout: str, stderr: str) -> None:
-        """Display job progress"""
-        pass
-
-    def on_job_completion(self, return_code: int) -> None:
-        """Display job completion status"""
-        pass
-
-
-class FileOutputHandler(JobOutputHandler):
-    """Handles writing job output to log files"""
-
-    def __init__(self):
-        pass
-
-    def on_job_start(self, job_config: JobConfig) -> None:
-        self.config = job_config
-        self.stdout_file = (job_config.logs_dir / "stdout.log").open("w")
-        self.stderr_file = (job_config.logs_dir / "stderr.log").open("w")
-        self.on_job_progress(stdout="Starting job...\n", stderr="Starting job...\n")
-
-    def on_job_progress(self, stdout: str, stderr: str) -> None:
-        if stdout:
-            self.stdout_file.write(stdout)
-            self.stdout_file.flush()
-        if stderr:
-            self.stderr_file.write(stderr)
-            self.stderr_file.flush()
-
-    def on_job_completion(self, return_code: int) -> None:
-        self.on_job_progress(
-            stdout=f"Job completed with return code {return_code}\n",
-            stderr=f"Job completed with return code {return_code}\n",
-        )
-        self.close()
-
-    def close(self) -> None:
-        self.stdout_file.close()
-        self.stderr_file.close()
-
-
-# Helper function to limit path depth
-def limit_path_depth(path: Path, max_depth: int = 4) -> str:
-    parts = path.parts
-    if len(parts) <= max_depth:
-        return str(path)
-    return str(Path("...") / Path(*parts[-max_depth:]))
-
-
-class RichConsoleUI(JobOutputHandler):
-    """Rich console implementation of JobOutputHandler"""
-
-    def __init__(self, show_stdout: bool = True, show_stderr: bool = True):
-        self.show_stdout = show_stdout
-        self.show_stderr = show_stderr
-        self.console = Console()
-        spinner = Spinner("dots")
-        self.live = Live(spinner, refresh_per_second=10)
-
-    def on_job_start(self, job_config: JobConfig) -> None:
-        self.console.print(
-            Panel.fit(
-                "\n".join(
-                    [
-                        "[bold green]Starting job[/]",
-                        f"[bold white]Execution:[/] [cyan]{' '.join(job_config.runtime.cmd)} {' '.join(job_config.args)}[/]",
-                        f"[bold white]Dataset Dir.:[/]  [cyan]{limit_path_depth(job_config.data_path)}[/]",
-                        f"[bold white]Output Dir.:[/]   [cyan]{limit_path_depth(job_config.output_dir)}[/]",
-                        f"[bold white]Timeout:[/]  [cyan]{job_config.timeout}s[/]",
-                    ]
-                ),
-                title="[bold]Job Configuration",
-                border_style="cyan",
-            )
-        )
-        try:
-            self.live.start()
-            self.live.console.print("[bold cyan]Running job...[/]")
-        except Exception as e:
-            self.console.print(f"[red]Error starting live: {e}[/]")
-
-    def on_job_progress(self, stdout: str, stderr: str) -> None:
-        # Update UI display
-        if not self.live:
-            return
-
-        if stdout and self.show_stdout:
-            self.live.console.print(stdout, end="")
-        if stderr and self.show_stderr:
-            self.live.console.print(f"[red]{stderr}[/]", end="")
-
-    def on_job_completion(self, return_code: int) -> None:
-        # Update UI display
-        if self.live:
-            self.live.stop()
-
-        if return_code == 0:
-            self.console.print("\n[bold green]Job completed successfully![/]")
-        else:
-            self.console.print(
-                f"\n[bold red]Job failed with return code {return_code}[/]"
-            )
-
-    def __del__(self):
-        self.live.stop()
-
-
-class TextUI(JobOutputHandler):
-    """Simple text-based implementation of JobOutputHandler using print statements"""
-
-    def __init__(self, show_stdout: bool = True, show_stderr: bool = True):
-        self.show_stdout = show_stdout
-        self.show_stderr = show_stderr
-        self._job_running = False
-
-    def on_job_start(self, config: JobConfig) -> None:
-        first_line = "================ Job Configuration ================"
-        last_line = "=" * len(first_line)
-        print(f"\n{first_line}")
-        print(f"Execution:    {' '.join(config.runtime.cmd)} {' '.join(config.args)}")
-        print(f"Dataset Dir.: {limit_path_depth(config.data_path)}")
-        print(f"Output Dir.:  {limit_path_depth(config.output_dir)}")
-        print(f"Timeout:      {config.timeout}s")
-        print(f"{last_line}\n")
-        print("[STARTING JOB]")
-        self._job_running = True
-
-    def on_job_progress(self, stdout: str, stderr: str) -> None:
-        if not self._job_running:
-            return
-        if stdout and self.show_stdout:
-            print(stdout, end="")
-        if stderr and self.show_stderr:
-            print(f"[STDERR] {stderr}", end="")
-
-    def on_job_completion(self, return_code: int) -> None:
-        self._job_running = False
-        if return_code == 0:
-            print("\n[JOB COMPLETED SUCCESSFULLY]\n")
-        else:
-            print(f"\n[JOB FAILED] Return code: {return_code}\n")
-
-    def __del__(self):
-        self._job_running = False
 
 
 class JobRunner:
@@ -182,14 +28,13 @@ class JobRunner:
     def __init__(
         self,
         handlers: list[JobOutputHandler],
-        update_job_status_callback: Callable[[JobUpdate, Job], Job | None],
+        update_job_status_callback: Optional[Callable[[JobStatusUpdate], None]] = None,
     ):
         self.handlers = handlers
         self.update_job_status_callback = update_job_status_callback
 
     def run(
         self,
-        job: Job,
         job_config: JobConfig,
     ) -> tuple[int, str | None] | subprocess.Popen:
         """Run a job
@@ -220,7 +65,6 @@ class JobRunner:
         self,
         cmd: list[str],
         job_config: JobConfig,
-        job: Job,
         env: dict | None = None,
         blocking: bool = True,
     ) -> tuple[int, str | None] | subprocess.Popen:
@@ -231,8 +75,13 @@ class JobRunner:
             subprocess.Popen: (non-blocking mode) The process object.
         """
         if self.update_job_status_callback:
-            job_update = job.get_update_for_in_progress()
-            self.update_job_status_callback(job_update, job)
+            self.update_job_status_callback(
+                JobStatusUpdate(
+                    status=JobStatus.job_in_progress,
+                    error=JobErrorKind.no_error,
+                    error_message=None,
+                )
+            )
 
         for handler in self.handlers:
             handler.on_job_start(job_config)
@@ -247,7 +96,7 @@ class JobRunner:
 
         if blocking:
             logger.info("Running job in blocking mode")
-            return self._run_blocking(process, job)
+            return self._run_blocking(process)
         else:
             logger.info("Running job in non-blocking mode")
             return process
@@ -255,7 +104,6 @@ class JobRunner:
     def _run_blocking(
         self,
         process: subprocess.Popen,
-        job: Job,
     ) -> tuple[int, str | None]:
         stderr_logs = []
 
@@ -308,7 +156,6 @@ class PythonRunner(JobRunner):
 
     def run(
         self,
-        job: Job,
         job_config: JobConfig,
     ) -> tuple[int, str | None] | subprocess.Popen:
         """Run a job"""
@@ -322,7 +169,7 @@ class PythonRunner(JobRunner):
         env.update(job_config.extra_env)
 
         return self._run_subprocess(
-            cmd, job_config, job, env=env, blocking=job_config.blocking
+            cmd, job_config, env=env, blocking=job_config.blocking
         )
 
     def _prepare_run_command(self, job_config: JobConfig) -> list[str]:
@@ -338,7 +185,6 @@ class DockerRunner(JobRunner):
 
     def run(
         self,
-        job: Job,
         job_config: JobConfig,
     ) -> tuple[int, str | None] | subprocess.Popen:
         """Run a job in a Docker container"""
@@ -349,14 +195,14 @@ class DockerRunner(JobRunner):
         self._validate_paths(job_config)
         self._prepare_job_folders(job_config)
 
-        self._check_docker_daemon(job)
-        self._check_or_build_image(job_config, job)
+        self._check_docker_daemon()
+        self._check_or_build_image(job_config)
 
         cmd = self._prepare_run_command(job_config)
 
-        return self._run_subprocess(cmd, job_config, job, blocking=job_config.blocking)
+        return self._run_subprocess(cmd, job_config, blocking=job_config.blocking)
 
-    def _check_docker_daemon(self, job: Job) -> None:
+    def _check_docker_daemon(self) -> None:
         """Check if the Docker daemon is running."""
         try:
             process = subprocess.run(
@@ -364,13 +210,19 @@ class DockerRunner(JobRunner):
                 check=True,
                 capture_output=True,
             )
+            logger.info(
+                f"Docker daemon is running with return code {process.returncode}"
+            )
         except Exception as e:
             if self.update_job_status_callback:
-                job_update = job.get_update_for_return_code(
-                    return_code=process.returncode,
-                    error_message="Docker daemon is not running with error: " + str(e),
+                self.update_job_status_callback(
+                    JobStatusUpdate(
+                        status=JobStatus.job_run_failed,
+                        error=JobErrorKind.execution_failed,
+                        error_message="Docker daemon is not running with error: "
+                        + str(e),
+                    )
                 )
-                self.update_job_status_callback(job_update, job)
             raise RuntimeError("Docker daemon is not running with error: " + str(e))
 
     def _get_image_name(self, job_config: JobConfig) -> str:
@@ -380,7 +232,7 @@ class DockerRunner(JobRunner):
             return job_config.runtime.name
         return runtime_config.image_name
 
-    def _check_or_build_image(self, job_config: JobConfig, job: Job) -> None:
+    def _check_or_build_image(self, job_config: JobConfig) -> None:
         """Check if the Docker image exists, otherwise build it."""
         image_name = self._get_image_name(job_config)
         result = subprocess.run(
@@ -394,9 +246,9 @@ class DockerRunner(JobRunner):
             return
 
         logger.info(f"Docker image '{image_name}' not found. Building it now...")
-        self._build_docker_image(job_config, job)
+        self._build_docker_image(job_config)
 
-    def _build_docker_image(self, job_config: JobConfig, job: Job) -> None:
+    def _build_docker_image(self, job_config: JobConfig) -> None:
         """Build the Docker image."""
         image_name = self._get_image_name(job_config)
         dockerfile_content: str = job_config.runtime.config.dockerfile_content
@@ -435,12 +287,15 @@ class DockerRunner(JobRunner):
         except Exception as e:
             raise RuntimeError(f"An error occurred during Docker image build: {e}")
         finally:
-            if error_for_job and self.update_job_status_callback:
-                job_failed = job.get_update_for_return_code(
-                    return_code=process.returncode,
-                    error_message=error_for_job,
-                )
-                self.update_job_status_callback(job_failed, job)
+            if error_for_job:
+                if self.update_job_status_callback:
+                    self.update_job_status_callback(
+                        JobStatusUpdate(
+                            status=JobStatus.job_run_failed,
+                            error=JobErrorKind.execution_failed,
+                            error_message=error_for_job,
+                        )
+                    )
 
     def _get_extra_mounts(self, job_config: JobConfig) -> list[DockerMount]:
         """Get extra mounts for a job"""
