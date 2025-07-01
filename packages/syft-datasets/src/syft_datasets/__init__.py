@@ -3,7 +3,7 @@ from syft_core.types import PathLike
 from typing_extensions import Literal
 
 from syft_datasets.dataset import Dataset
-from syft_datasets.manager import SyftDatasetManager
+from syft_datasets.dataset_manager import SyftDatasetManager
 
 _global_manager: SyftDatasetManager | None = None
 

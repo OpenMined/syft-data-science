@@ -4,7 +4,7 @@ from fastsyftbox import FastSyftBox
 from syft_core import SyftClientConfig
 
 from syft_datasets.app.routers import dataset_router, main_router
-from syft_datasets.manager import SyftDatasetManager
+from syft_datasets.dataset_manager import SyftDatasetManager
 
 APP_NAME = "syft-datasets"
 
@@ -32,3 +32,10 @@ def create_app(syftbox_config: SyftClientConfig | None = None) -> FastSyftBox:
     app.include_router(dataset_router)
 
     return app
+
+
+if __name__ == "__main__":
+    import uvicorn
+
+    app = create_app()
+    uvicorn.run(app)

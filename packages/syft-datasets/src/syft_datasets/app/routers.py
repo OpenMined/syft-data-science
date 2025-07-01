@@ -9,7 +9,7 @@ from pydantic import BaseModel
 
 from syft_datasets.app.dependencies import get_dataset_manager
 from syft_datasets.dataset import Dataset
-from syft_datasets.manager import SyftDatasetManager
+from syft_datasets.dataset_manager import SyftDatasetManager
 
 main_router = APIRouter()
 dataset_router = APIRouter()
