@@ -8,9 +8,6 @@ from syft_rds.client.rds_clients.runtime import DEFAULT_DOCKERFILE_FILE_PATH
 from syft_runtimes.models import (
     DockerRuntimeConfig,
     JobStatus,
-    Runtime,
-    RuntimeCreate,
-    RuntimeUpdate,
 )
 from syft_rds.models import (
     CustomFunctionCreate,
@@ -21,6 +18,9 @@ from syft_rds.models import (
     JobUpdate,
     UserCodeCreate,
     UserCodeType,
+    Runtime,
+    RuntimeCreate,
+    RuntimeUpdate,
 )
 from syft_rds.utils.zip_utils import zip_to_bytes
 from tests.conftest import ASSET_PATH

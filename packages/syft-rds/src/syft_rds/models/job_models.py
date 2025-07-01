@@ -9,7 +9,8 @@ from syft_core import SyftBoxURL
 
 from syft_notebook_ui.pydantic_html_repr import create_html_repr
 from syft_rds.models.base import ItemBase, ItemBaseCreate, ItemBaseUpdate
-from syft_runtimes.models import Runtime, JobStatus, JobErrorKind
+from syft_rds.models.runtime_models import Runtime
+from syft_runtimes.models import JobStatus, JobErrorKind
 from syft_rds.utils.name_generator import generate_name
 
 if TYPE_CHECKING:

@@ -2511,14 +2511,12 @@ source = { editable = "packages/syft-runtimes" }
 dependencies = [
     { name = "loguru" },
     { name = "syft-notebook-ui" },
-    { name = "syft-rds" },
 ]
 
 [package.metadata]
 requires-dist = [
     { name = "loguru", specifier = ">=0.7.3" },
     { name = "syft-notebook-ui", editable = "packages/syft-notebook-ui" },
-    { name = "syft-rds", editable = "packages/syft-rds" },
 ]
 
 [[package]]

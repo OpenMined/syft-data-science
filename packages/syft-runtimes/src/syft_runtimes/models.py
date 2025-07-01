@@ -16,7 +16,6 @@ from pydantic import (
 )
 
 from syft_notebook_ui.pydantic_html_repr import create_html_repr
-from syft_rds.models.base import ItemBaseCreate, ItemBase, ItemBaseUpdate
 
 PathLike: TypeAlias = Union[str, os.PathLike, Path]
 
@@ -119,13 +118,7 @@ class KubernetesRuntimeConfig(BaseRuntimeConfig):
 RuntimeConfig = PythonRuntimeConfig | DockerRuntimeConfig | KubernetesRuntimeConfig
 
 
-class Runtime(ItemBase):
-    __schema_name__ = "runtime"
-    __table_extra_fields__ = [
-        "name",
-        "kind",
-    ]
-
+class Runtime(BaseModel):
     name: str | None = None
     kind: RuntimeKind
     config: RuntimeConfig = Field(default_factory=dict)
@@ -149,7 +142,7 @@ class Runtime(ItemBase):
         return self.config.cmd
 
 
-class RuntimeCreate(ItemBaseCreate[Runtime]):
+class RuntimeCreate(BaseModel):
     name: str | None = None
     kind: RuntimeKind
     config: RuntimeConfig = Field(default_factory=dict)
@@ -168,7 +161,7 @@ class RuntimeCreate(ItemBaseCreate[Runtime]):
         return self
 
 
-class RuntimeUpdate(ItemBaseUpdate[Runtime]):
+class RuntimeUpdate(BaseModel):
     pass
 
 

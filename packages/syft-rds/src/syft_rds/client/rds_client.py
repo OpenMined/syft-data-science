@@ -33,8 +33,9 @@ from syft_runtimes import (
     TextUI,
     get_runner_cls,
 )
-from syft_runtimes.models import JobStatus, JobErrorKind, Runtime, JobStatusUpdate
+from syft_runtimes.models import JobStatus, JobErrorKind, JobStatusUpdate
 from syft_rds.utils.constants import JOB_STATUS_POLLING_INTERVAL
+from syft_rds.models.runtime_models import Runtime
 
 T = TypeVar("T", bound=ItemBase)
 
