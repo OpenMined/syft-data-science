@@ -1,4 +1,3 @@
-import shutil
 from pathlib import Path
 from typing import Self
 
@@ -8,7 +7,7 @@ from syft_core.types import PathLike, to_path
 from typing_extensions import Literal
 
 from syft_datasets.dataset import Dataset
-from syft_datasets.file_utils import copy_dir_contents, is_empty_dir
+from syft_datasets.file_utils import copy_dir_contents, copy_paths, is_empty_dir
 
 FOLDER_NAME = "syft_datasets"
 METADATA_FILENAME = "dataset.yaml"
@@ -45,52 +44,80 @@ class SyftDatasetManager:
     def get_private_dataset_dir(self, dataset_name: str) -> Path:
         return self.my_private_dir / dataset_name
 
-    def _prepare_mock_data(self, dataset: Dataset, mock_path: Path) -> None:
-        if not mock_path.exists():
-            raise FileNotFoundError(f"Could not find mock data at {mock_path}")
+    def _prepare_mock_data(self, dataset: Dataset, src_path: Path) -> None:
+        # Validate src data
+        if not src_path.exists():
+            raise FileNotFoundError(f"Could not find mock data at {src_path}")
 
-        if (mock_path / METADATA_FILENAME).exists():
+        if (src_path / METADATA_FILENAME).exists():
             raise ValueError(
-                f"Mock data at {mock_path} contains reserved file {METADATA_FILENAME}. Please rename it and try again."
+                f"Mock data at {src_path} contains reserved file {METADATA_FILENAME}. Please rename it and try again."
             )
 
-        if not is_empty_dir(dataset.mock_dir):
+        # Validate dir we're making on Syftbox
+        if dataset.mock_dir.exists() and not is_empty_dir(dataset.mock_dir):
             raise FileExistsError(
                 f"Mock dir {dataset.mock_dir} already exists and is not empty."
             )
+        dataset.mock_dir.mkdir(parents=True, exist_ok=True)
 
-        copy_dir_contents(
-            src=mock_path,
-            dst=dataset.mock_dir,
-            exists_ok=True,
-        )
+        if src_path.is_dir():
+            copy_dir_contents(
+                src=src_path,
+                dst=dataset.mock_dir,
+                exists_ok=True,
+            )
+        elif src_path.is_file():
+            copy_paths(
+                files=[src_path],
+                dst=dataset.mock_dir,
+                exists_ok=True,
+            )
+        else:
+            raise ValueError(
+                f"Mock data path {src_path} must be an existing file or directory."
+            )
 
     def _prepare_private_data(
         self,
         dataset: Dataset,
-        private_path: Path,
+        src_path: Path,
     ) -> None:
-        private_dir = dataset.private_dir
-        private_dir.mkdir(parents=True, exist_ok=True)
-        if not is_empty_dir(private_dir):
+        if dataset.private_dir.exists() and not is_empty_dir(dataset.private_dir):
             raise FileExistsError(
-                f"Private dir {private_dir} already exists and is not empty."
+                f"Private dir {dataset.private_dir} already exists and is not empty."
             )
 
-        if not private_path.exists():
-            raise FileNotFoundError(f"Could not find private data at {private_path}")
+        dataset.private_dir.mkdir(parents=True, exist_ok=True)
 
-        copy_dir_contents(
-            src=private_path,
-            dst=private_dir,
-            exists_ok=True,
-        )
+        if src_path.is_dir():
+            copy_dir_contents(
+                src=src_path,
+                dst=dataset.private_dir,
+                exists_ok=True,
+            )
+        elif src_path.is_file():
+            copy_paths(
+                files=[src_path],
+                dst=dataset.private_dir,
+                exists_ok=True,
+            )
+        else:
+            raise ValueError(
+                f"Private data path {src_path} must be an existing file or directory."
+            )
 
-    def _prepare_readme(self, dataset: Dataset, readme_path: Path | None) -> None:
-        if readme_path is not None:
-            if not readme_path.exists():
-                raise FileNotFoundError(f"Could not find README at {readme_path}")
-            shutil.copy2(readme_path, dataset.mock_dir / readme_path.name)
+    def _prepare_readme(self, dataset: Dataset, src_file: Path | None) -> None:
+        if src_file is not None:
+            if not src_file.is_file():
+                raise FileNotFoundError(f"Could not find README at {src_file}")
+            if not src_file.suffix.lower() == ".md":
+                raise ValueError("readme file must be a markdown (.md) file.")
+            copy_paths(
+                files=[src_file],
+                dst=dataset.mock_dir,
+                exists_ok=True,
+            )
 
     def create(
         self,
@@ -104,6 +131,7 @@ class SyftDatasetManager:
         mock_path = to_path(mock_path)
         private_path = to_path(private_path)
         readme_path = to_path(readme_path) if readme_path else None
+        tags = tags or []
 
         mock_dir = self.get_mock_dataset_dir(
             dataset_name=name,
@@ -113,32 +141,39 @@ class SyftDatasetManager:
             path=mock_dir,
             workspace=self.syftbox_client.workspace,
         )
+        readme_url = None
+        if readme_path:
+            readme_url = SyftBoxURL.from_path(
+                path=mock_dir / readme_path.name,
+                workspace=self.syftbox_client.workspace,
+            )
 
         dataset = Dataset(
             name=name,
             mock_url=mock_url,
+            readme_url=readme_url,
             summary=summary,
-            tags=tags or [],
-            _syftbox_client=self.syftbox_client,
+            tags=tags,
         )
+        dataset._syftbox_client = self.syftbox_client
 
         self._prepare_mock_data(
             dataset=dataset,
-            mock_path=mock_path,
+            src_path=mock_path,
         )
 
         self._prepare_private_data(
             dataset=dataset,
-            private_path=private_path,
+            src_path=private_path,
         )
 
         self._prepare_readme(
             dataset=dataset,
-            readme_path=readme_path,
+            src_file=readme_path,
         )
 
-        metadata_path = mock_dir / METADATA_FILENAME
-        dataset.save(filepath=metadata_path)
+        dataset_yaml_path = mock_dir / METADATA_FILENAME
+        dataset.save(filepath=dataset_yaml_path)
         return dataset
 
     def get(self, dataset_name: str, datasite: str | None = None) -> Dataset:
