@@ -69,7 +69,7 @@ def get_all_datasets(
 
 @dataset_router.get("/datasets/{datasite}/{dataset_name}")
 def get_dataset(
-    dataset_name: str,
+    name: str,
     datasite: str,
     dataset_manager: SyftDatasetManager = Depends(get_dataset_manager),
 ) -> Dataset:
@@ -77,7 +77,7 @@ def get_dataset(
     Retrieve a specific dataset by name and datasite.
     """
     try:
-        dataset = dataset_manager.get(dataset_name=dataset_name, datasite=datasite)
+        dataset = dataset_manager.get(name=name, datasite=datasite)
         return dataset
     except FileNotFoundError as e:
         raise HTTPException(

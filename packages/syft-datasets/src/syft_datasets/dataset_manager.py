@@ -1,12 +1,14 @@
+import re
 from pathlib import Path
 from typing import Self
 
 from syft_core import Client as SyftBoxClient
 from syft_core import SyftBoxURL
 from syft_core.types import PathLike, to_path
+from syft_notebook_ui.types import TableList
 from typing_extensions import Literal
 
-from syft_datasets.dataset import Dataset
+from syft_datasets.dataset import Dataset, PrivateDatasetConfig
 from syft_datasets.file_utils import copy_dir_contents, copy_paths, is_empty_dir
 
 FOLDER_NAME = "syft_datasets"
@@ -27,22 +29,15 @@ class SyftDatasetManager:
         dir.mkdir(parents=True, exist_ok=True)
         return dir
 
-    @property
-    def my_public_dir(self) -> Path:
-        return self.public_dir_for_datasite(self.syftbox_client.email)
-
-    @property
-    def my_private_dir(self) -> Path:
-        # TODO move workspace.private_dir to syftbox_client
-        dir = self.syftbox_client.workspace.data_dir / "private" / FOLDER_NAME
-        dir.mkdir(parents=True, exist_ok=True)
-        return dir
-
     def get_mock_dataset_dir(self, dataset_name: str, datasite: str) -> Path:
         return self.public_dir_for_datasite(datasite) / dataset_name
 
-    def get_private_dataset_dir(self, dataset_name: str) -> Path:
-        return self.my_private_dir / dataset_name
+    def _validate_dataset_name(self, dataset_name: str) -> None:
+        # Returns True if the dataset is a valid path name on unix or windows.
+        if not re.match(r"^[\w-]+$", dataset_name):
+            raise ValueError(
+                f"Invalid dataset name '{dataset_name}'. Only alphanumeric characters, underscores, and hyphens are allowed."
+            )
 
     def _prepare_mock_data(self, dataset: Dataset, src_path: Path) -> None:
         # Validate src data
@@ -83,11 +78,6 @@ class SyftDatasetManager:
         dataset: Dataset,
         src_path: Path,
     ) -> None:
-        if dataset.private_dir.exists() and not is_empty_dir(dataset.private_dir):
-            raise FileExistsError(
-                f"Private dir {dataset.private_dir} already exists and is not empty."
-            )
-
         dataset.private_dir.mkdir(parents=True, exist_ok=True)
 
         if src_path.is_dir():
@@ -106,6 +96,32 @@ class SyftDatasetManager:
             raise ValueError(
                 f"Private data path {src_path} must be an existing file or directory."
             )
+
+    def _prepare_private_config(
+        self,
+        dataset: Dataset,
+        private_data_dir: Path,
+        location: str | None = None,
+    ) -> None:
+        """
+        The private dataset config is used to store private metadata separately from the public dataset metadata.
+        """
+        if dataset._private_metadata_dir.exists() and not is_empty_dir(
+            dataset._private_metadata_dir
+        ):
+            raise FileExistsError(
+                f"Private dir {dataset.private_dir} already exists and is not empty."
+            )
+
+        private_config = PrivateDatasetConfig(
+            uid=dataset.uid,
+            data_dir=private_data_dir,
+            location=location,
+        )
+
+        private_config_path = dataset.private_config_path
+        private_config_path.parent.mkdir(parents=True, exist_ok=True)
+        private_config.save(filepath=private_config_path)
 
     def _prepare_readme(self, dataset: Dataset, src_file: Path | None) -> None:
         if src_file is not None:
@@ -127,7 +143,21 @@ class SyftDatasetManager:
         summary: str | None = None,
         readme_path: Path | None = None,
         tags: list[str] | None = None,
+        # copy_private_data: bool = True, # TODO
     ) -> Dataset:
+        """_summary_
+
+        Args:
+            name (str): Unique of the dataset to create.
+            mock_path (PathLike): Path to the existing mock data. This can be a file or a directory.
+            private_path (PathLike): Path to the existing private data. This can be a file or a directory.
+            summary (str | None, optional): Short summary of the dataset. Defaults to None.
+            readme_path (Path | None, optional): Markdown README in the public dataset. Defaults to None.
+            tags (list[str] | None, optional): Optional tags for the dataset. Defaults to None.
+
+        Returns:
+            Dataset: The created Dataset object.
+        """
         mock_path = to_path(mock_path)
         private_path = to_path(private_path)
         readme_path = to_path(readme_path) if readme_path else None
@@ -161,31 +191,28 @@ class SyftDatasetManager:
             dataset=dataset,
             src_path=mock_path,
         )
-
-        self._prepare_private_data(
-            dataset=dataset,
-            src_path=private_path,
-        )
-
         self._prepare_readme(
             dataset=dataset,
             src_file=readme_path,
+        )
+
+        # TODO enable adding private data without copying to SyftBox
+        # e.g. private_data_dir = dataset._private_metadata_dir if copy_private_data else private_path
+        self._prepare_private_config(
+            dataset=dataset,
+            private_data_dir=dataset._private_metadata_dir,
+        )
+        self._prepare_private_data(
+            dataset=dataset,
+            src_path=private_path,
         )
 
         dataset_yaml_path = mock_dir / METADATA_FILENAME
         dataset.save(filepath=dataset_yaml_path)
         return dataset
 
-    def get(self, dataset_name: str, datasite: str | None = None) -> Dataset:
-        datasite = datasite or self.syftbox_client.email
-        mock_dir = self.get_mock_dataset_dir(
-            dataset_name=dataset_name,
-            datasite=datasite,
-        )
-
-        if not mock_dir.exists():
-            raise FileNotFoundError(f"Dataset {dataset_name} not found in {mock_dir}")
-        metadata_path = mock_dir / METADATA_FILENAME
+    def _load_dataset_from_dir(self, dataset_dir: Path) -> Dataset:
+        metadata_path = dataset_dir / METADATA_FILENAME
         if not metadata_path.exists():
             raise FileNotFoundError(f"Dataset metadata not found at {metadata_path}")
 
@@ -193,6 +220,17 @@ class SyftDatasetManager:
             filepath=metadata_path,
             syftbox_client=self.syftbox_client,
         )
+
+    def get(self, name: str, datasite: str | None = None) -> Dataset:
+        datasite = datasite or self.syftbox_client.email
+        mock_dir = self.get_mock_dataset_dir(
+            dataset_name=name,
+            datasite=datasite,
+        )
+
+        if not mock_dir.exists():
+            raise FileNotFoundError(f"Dataset {name} not found in {mock_dir}")
+        return self._load_dataset_from_dir(mock_dir)
 
     def get_all(
         self,
@@ -215,12 +253,9 @@ class SyftDatasetManager:
             if not public_datasets_dir.exists():
                 continue
             for dataset_dir in public_datasets_dir.iterdir():
-                if dataset_dir.is_dir() and (dataset_dir / METADATA_FILENAME).exists():
+                if dataset_dir.is_dir():
                     try:
-                        dataset = Dataset.load(
-                            filepath=dataset_dir / METADATA_FILENAME,
-                            syftbox_client=self.syftbox_client,
-                        )
+                        dataset = self._load_dataset_from_dir(dataset_dir)
                         all_datasets.append(dataset)
                     except Exception:
                         continue
@@ -236,4 +271,4 @@ class SyftDatasetManager:
         if limit is not None:
             all_datasets = all_datasets[:limit]
 
-        return all_datasets
+        return TableList(all_datasets)

@@ -1,6 +1,8 @@
 from datetime import datetime, timezone
+from functools import cached_property
 from pathlib import Path
-from typing import ClassVar
+from typing import ClassVar, Self
+from uuid import UUID, uuid4
 
 import yaml
 from pydantic import BaseModel, Field
@@ -18,13 +20,65 @@ def _utcnow():
     return datetime.now(tz=timezone.utc)
 
 
-class Dataset(BaseModel, PydanticFormatterMixin):
+class DatasetBase(BaseModel):
     __display_formatter__: ClassVar[PydanticFormatter] = ANSIPydanticFormatter()
-
     _syftbox_client: SyftBoxClient | None = None
+
+    def save(self, filepath: PathLike) -> None:
+        filepath = to_path(filepath)
+        if not filepath.suffix == ".yaml":
+            raise ValueError("Model must be saved as a .yaml file.")
+
+        if not filepath.parent.exists():
+            filepath.parent.mkdir(parents=True, exist_ok=True)
+
+        data = self.model_dump(mode="json")
+        yaml_dump = yaml.safe_dump(data, indent=2, sort_keys=False)
+        filepath.write_text(yaml_dump)
+
+    @classmethod
+    def load(
+        cls, filepath: PathLike, syftbox_client: SyftBoxClient | None = None
+    ) -> Self:
+        filepath = to_path(filepath)
+        if not filepath.exists():
+            raise FileNotFoundError(f"Config file not found: {filepath}")
+
+        data = yaml.safe_load(filepath.read_text())
+        res = cls.model_validate(data)
+        res._syftbox_client = syftbox_client
+        return res
+
+    def __str__(self) -> str:
+        return self.__display_formatter__.format_str(self)
+
+    def __repr__(self) -> str:
+        return self.__display_formatter__.format_repr(self)
+
+    def _repr_html_(self) -> str:
+        return self.__display_formatter__.format_html(self)
+
+    def _repr_markdown_(self) -> str:
+        return self.__display_formatter__.format_markdown(self)
+
+
+class PrivateDatasetConfig(DatasetBase, PydanticFormatterMixin):
+    """Used to store private dataset metadata, outside of the sync folder."""
+
+    uid: UUID  # id for this dataset
+    data_dir: Path
+    location: str | None = None
+
+
+class Dataset(DatasetBase, PydanticFormatterMixin):
+    __table_extra_fields__ = [
+        "name",
+        "owner",
+    ]
+
+    uid: UUID = Field(default_factory=uuid4)
     created_at: datetime = Field(default_factory=_utcnow)
     updated_at: datetime = Field(default_factory=_utcnow)
-
     name: str
     created_at: datetime
     summary: str | None = None
@@ -59,7 +113,32 @@ class Dataset(BaseModel, PydanticFormatterMixin):
         return self._url_to_path(self.mock_url)
 
     @property
+    def private_config_path(self) -> Path:
+        if self.syftbox_client.email != self.owner:
+            raise ValueError(
+                "Cannot access private config for a dataset owned by another user."
+            )
+        return self._private_metadata_dir / "private.yaml"
+
+    @cached_property
+    def private_config(self) -> PrivateDatasetConfig:
+        config_path = self.private_config_path
+        if not config_path.exists():
+            raise FileNotFoundError(
+                f"Private dataset config not found at {config_path}"
+            )
+
+        return PrivateDatasetConfig.load(
+            filepath=config_path, syftbox_client=self._syftbox_client
+        )
+
+    @property
     def private_dir(self) -> Path:
+        private_config = self.private_config
+        return private_config.data_dir
+
+    @property
+    def _private_metadata_dir(self) -> Path:
         if self.syftbox_client.email != self.owner:
             raise ValueError(
                 "Cannot access private data for a dataset owned by another user."
@@ -71,31 +150,6 @@ class Dataset(BaseModel, PydanticFormatterMixin):
         )
 
         return private_datasets_dir / self.name
-
-    def save(self, filepath: PathLike) -> None:
-        filepath = to_path(filepath)
-        if not filepath.suffix == ".yaml":
-            raise ValueError("Dataset metadata must be saved as a .yaml file.")
-
-        if not filepath.parent.exists():
-            filepath.parent.mkdir(parents=True, exist_ok=True)
-
-        data = self.model_dump(mode="json")
-        yaml_dump = yaml.safe_dump(data, indent=2, sort_keys=False)
-        filepath.write_text(yaml_dump)
-
-    @classmethod
-    def load(
-        cls,
-        filepath: PathLike,
-        syftbox_client: SyftBoxClient | None = None,
-    ) -> "Dataset":
-        filepath = to_path(filepath)
-        if not filepath.exists():
-            raise FileNotFoundError(f"Dataset metadata file not found: {filepath}")
-
-        data = yaml.safe_load(filepath.read_text())
-        return cls.model_validate(data, context={"_syftbox_client": syftbox_client})
 
     def describe(self) -> None:
         from IPython.display import HTML, display
@@ -112,14 +166,14 @@ class Dataset(BaseModel, PydanticFormatterMixin):
         try:
             private_dir = self.private_dir
             if private_dir.is_dir():
-                paths_to_include.append(("private_dir", self.private_dir))
+                paths_to_include.append("private_dir")
         except Exception:
             pass
 
         try:
             readme_path = self.readme_path
             if readme_path and readme_path.exists():
-                paths_to_include.append(("readme_path", readme_path))
+                paths_to_include.append("readme_path")
         except Exception:
             fields_to_include.append("readme_url")
 

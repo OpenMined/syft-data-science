@@ -37,12 +37,17 @@ def create(
     tags: list[str] | None = None,
 ) -> Dataset:
     return get_global_manager().create(
-        name, mock_path, private_path, summary, readme_path, tags
+        name=name,
+        mock_path=mock_path,
+        private_path=private_path,
+        summary=summary,
+        readme_path=readme_path,
+        tags=tags,
     )
 
 
-def get(dataset_name: str, datasite: str | None = None) -> Dataset:
-    return get_global_manager().get(dataset_name, datasite)
+def get(name: str, datasite: str | None = None) -> Dataset:
+    return get_global_manager().get(name=name, datasite=datasite)
 
 
 def get_all(

@@ -171,12 +171,6 @@ cython_debug/
 .pypirc
 
 
-# some other files
-experimental/
-experimentals/
-tests/integration/assets/do/job_outputs/*
-notebooks/data/
-notebooks/quickstart/data/
 
 # VSCode
 .vscode/
@@ -187,6 +181,10 @@ job_outputs/
 .clients/
 .server/
 tmp/
+experimental/
+experimentals/
+tests/integration/assets/do/job_outputs/*
+**/notebooks/**/data/
 
 # MacOS
 .DS_Store
