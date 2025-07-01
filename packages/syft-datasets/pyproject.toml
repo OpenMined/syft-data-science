@@ -1,0 +1,20 @@
+[project]
+name = "syft-datasets"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+authors = [{ name = "eelcovdw", email = "eelcovdw@gmail.com" }]
+requires-python = ">=3.9"
+dependencies = [
+    "fastapi[multipart]>=0.115.14",
+    "fastsyftbox>=0.1.17",
+    "pydantic>=2.11.3",
+    "syft-core>=0.2.5",
+]
+
+[project.scripts]
+syft-datasets = "syft_datasets:main"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"

@@ -4,23 +4,23 @@ from uuid import UUID, uuid4
 import pytest
 
 from syft_rds.client.rds_client import RDSClient
-from syft_rds.client.rds_clients.runtime import (
-    DEFAULT_DOCKERFILE_FILE_PATH,
+from syft_rds.client.rds_clients.runtime import DEFAULT_DOCKERFILE_FILE_PATH
+from syft_runtimes.models import (
+    DockerRuntimeConfig,
+    JobStatus,
 )
 from syft_rds.models import (
     CustomFunctionCreate,
-    DockerRuntimeConfig,
     GetAllRequest,
     GetOneRequest,
     Job,
     JobCreate,
-    JobStatus,
     JobUpdate,
+    UserCodeCreate,
+    UserCodeType,
     Runtime,
     RuntimeCreate,
     RuntimeUpdate,
-    UserCodeCreate,
-    UserCodeType,
 )
 from syft_rds.utils.zip_utils import zip_to_bytes
 from tests.conftest import ASSET_PATH
