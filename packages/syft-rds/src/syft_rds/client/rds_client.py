@@ -24,7 +24,7 @@ from syft_rds.client.rds_clients.runtime import RuntimeRDSClient
 from syft_rds.client.rds_clients.user_code import UserCodeRDSClient
 from syft_rds.client.rpc import RPCClient
 from syft_rds.client.utils import PathLike, copy_dir_contents, deprecation_warning
-from syft_rds.models import CustomFunction, Dataset, Job, JobStatus, Runtime, UserCode
+from syft_rds.models import CustomFunction, Dataset, Job, UserCode, JobUpdate
 from syft_rds.models.base import ItemBase
 from syft_runtimes import (
     FileOutputHandler,
@@ -33,6 +33,7 @@ from syft_runtimes import (
     TextUI,
     get_runner_cls,
 )
+from syft_runtimes.models import JobStatus, JobErrorKind, Runtime, JobStatusUpdate
 from syft_rds.utils.constants import JOB_STATUS_POLLING_INTERVAL
 
 T = TypeVar("T", bound=ItemBase)
@@ -287,6 +288,40 @@ class RDSClient(RDSClientBase):
         else:
             raise ValueError(f"Unknown display type: {display_type}")
 
+    def _update_job_status_callback(self, job: Job) -> None:
+        def callback(update: JobStatusUpdate) -> None:
+            try:
+                logger.debug(
+                    f"Updating job '{job.name}' (UID: {job.uid}) status to {update.status}"
+                )
+
+                # Create a JobUpdate object based on the status update
+                job_update = JobUpdate(
+                    uid=job.uid,
+                    status=update.status,
+                    error=update.error,
+                    error_message=update.error_message,
+                )
+
+                # Update the job through the RDS client
+                self.job.update_job_status(job_update, job)
+
+                logger.info(
+                    f"Successfully updated job '{job.name}' status to {update.status}"
+                    + (
+                        f" with error: {update.error}"
+                        if update.error != JobErrorKind.no_error
+                        else ""
+                    )
+                )
+
+            except Exception as e:
+                logger.error(f"Failed to update job '{job.name}' status: {e}")
+                # Re-raise the exception to let the caller handle it
+                raise
+
+        return callback
+
     def _run(
         self,
         job: Job,
@@ -301,11 +336,11 @@ class RDSClient(RDSClientBase):
         runner_cls = get_runner_cls(job_config)
         runner = runner_cls(
             handlers=[FileOutputHandler(), display_handler],
-            update_job_status_callback=self.job.update_job_status,
+            update_job_status_callback=self._update_job_status_callback(job),
         )
 
         self._prepare_job(job, job_config)
-        return runner.run(job, job_config)
+        return runner.run(job_config)
 
     def _start_job_polling(self) -> None:
         """Starts the job polling mechanism."""

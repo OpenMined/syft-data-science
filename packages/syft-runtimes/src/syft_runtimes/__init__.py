@@ -6,6 +6,7 @@ from .main import (
     RichConsoleUI,
     TextUI,
     get_runner_cls,
+    JobStatusUpdate,
 )
 
 __all__ = [
@@ -16,4 +17,5 @@ __all__ = [
     "RichConsoleUI",
     "TextUI",
     "get_runner_cls",
+    "JobStatusUpdate",
 ]

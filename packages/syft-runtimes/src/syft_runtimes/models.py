@@ -318,6 +318,12 @@ class JobErrorKind(str, Enum):
     failed_output_review = "failed_output_review"
 
 
+class JobStatusUpdate(BaseModel):
+    status: JobStatus
+    error: JobErrorKind
+    error_message: str | None = None
+
+
 def _load_output_file(filepath: Path, max_size: int) -> Any:
     if not filepath.exists():
         raise ValueError(f"File {filepath} does not exist.")
