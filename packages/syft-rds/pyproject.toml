@@ -11,6 +11,7 @@ dependencies = [
     "loguru>=0.7.3",
     "syft-runtimes",
     "syft-notebook-ui",
+    "syft-datasets",
 ]
 
 [project.scripts]
@@ -30,5 +31,6 @@ only-include = ["src", "pyproject.toml", "README.md"]
 exclude = ["src/**/__pycache__"]
 
 [tool.uv.sources]
+syft-datasets = { workspace = true }
 syft-runtimes = { workspace = true }
 syft-notebook-ui = { workspace = true }
