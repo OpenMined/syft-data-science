@@ -9,6 +9,15 @@ authors = [
 requires-python = ">=3.9"
 dependencies = [
     "loguru>=0.7.3",
+    "pydantic[email]>=2.10.4",
+    "rich>=14.0.0",
+    "syft-core==0.2.5",
+    "syft-event==0.2.7",
+    "syft-rpc==0.2.4",
+    "typing-extensions>=4.14.0",
+    "pyyaml>=6.0.2",
+    "typer>=0.12.5",
+    "jinja2>=3.1.6",
     "syft-runtimes",
     "syft-notebook-ui",
     "syft-datasets",

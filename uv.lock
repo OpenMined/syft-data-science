@@ -2359,20 +2359,10 @@ name = "syft-data-science"
 version = "0.1.0"
 source = { virtual = "." }
 dependencies = [
-    { name = "jinja2" },
-    { name = "loguru" },
-    { name = "pydantic", extra = ["email"] },
-    { name = "pyyaml" },
-    { name = "rich" },
-    { name = "syft-core" },
     { name = "syft-datasets" },
-    { name = "syft-event" },
     { name = "syft-notebook-ui" },
     { name = "syft-rds" },
-    { name = "syft-rpc" },
     { name = "syft-runtimes" },
-    { name = "typer" },
-    { name = "typing-extensions" },
 ]
 
 [package.dev-dependencies]
@@ -2387,20 +2377,10 @@ dev = [
 
 [package.metadata]
 requires-dist = [
-    { name = "jinja2", specifier = ">=3.1.6" },
-    { name = "loguru", specifier = ">=0.7.3" },
-    { name = "pydantic", extras = ["email"], specifier = ">=2.10.4" },
-    { name = "pyyaml", specifier = ">=6.0.2" },
-    { name = "rich", specifier = ">=13.9.4" },
-    { name = "syft-core", specifier = "==0.2.5" },
     { name = "syft-datasets", editable = "packages/syft-datasets" },
-    { name = "syft-event", specifier = "==0.2.7" },
     { name = "syft-notebook-ui", editable = "packages/syft-notebook-ui" },
     { name = "syft-rds", editable = "packages/syft-rds" },
-    { name = "syft-rpc", specifier = "==0.2.4" },
     { name = "syft-runtimes", editable = "packages/syft-runtimes" },
-    { name = "typer", specifier = ">=0.12.5" },
-    { name = "typing-extensions", specifier = ">=4.14.0" },
 ]
 
 [package.metadata.requires-dev]
@@ -2478,18 +2458,36 @@ name = "syft-rds"
 version = "0.1.4"
 source = { editable = "packages/syft-rds" }
 dependencies = [
+    { name = "jinja2" },
     { name = "loguru" },
+    { name = "pydantic", extra = ["email"] },
+    { name = "pyyaml" },
+    { name = "rich" },
+    { name = "syft-core" },
     { name = "syft-datasets" },
+    { name = "syft-event" },
     { name = "syft-notebook-ui" },
+    { name = "syft-rpc" },
     { name = "syft-runtimes" },
+    { name = "typer" },
+    { name = "typing-extensions" },
 ]
 
 [package.metadata]
 requires-dist = [
+    { name = "jinja2", specifier = ">=3.1.6" },
     { name = "loguru", specifier = ">=0.7.3" },
+    { name = "pydantic", extras = ["email"], specifier = ">=2.10.4" },
+    { name = "pyyaml", specifier = ">=6.0.2" },
+    { name = "rich", specifier = ">=14.0.0" },
+    { name = "syft-core", specifier = "==0.2.5" },
     { name = "syft-datasets", editable = "packages/syft-datasets" },
+    { name = "syft-event", specifier = "==0.2.7" },
     { name = "syft-notebook-ui", editable = "packages/syft-notebook-ui" },
+    { name = "syft-rpc", specifier = "==0.2.4" },
     { name = "syft-runtimes", editable = "packages/syft-runtimes" },
+    { name = "typer", specifier = ">=0.12.5" },
+    { name = "typing-extensions", specifier = ">=4.14.0" },
 ]
 
 [[package]]
