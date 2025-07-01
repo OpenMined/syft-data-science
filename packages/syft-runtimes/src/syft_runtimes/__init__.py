@@ -1,21 +1,24 @@
-from .main import (
+from syft_runtimes.runners import (
     DockerRunner,
     PythonRunner,
+    get_runner_cls,
+)
+from syft_runtimes.output_handler import (
     FileOutputHandler,
-    JobConfig,
     RichConsoleUI,
     TextUI,
-    get_runner_cls,
-    JobStatusUpdate,
 )
+from syft_runtimes.models import JobConfig, JobStatusUpdate, JobErrorKind, JobStatus
 
 __all__ = [
     "DockerRunner",
     "PythonRunner",
     "FileOutputHandler",
-    "JobConfig",
     "RichConsoleUI",
     "TextUI",
     "get_runner_cls",
+    "JobConfig",
     "JobStatusUpdate",
+    "JobErrorKind",
+    "JobStatus",
 ]
