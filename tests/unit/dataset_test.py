@@ -1,6 +1,9 @@
+# TODO port tests to syft-datasets
+
 import pandas as pd
 import pytest
 from syft_rds.client.rds_client import RDSClient
+
 from tests.conftest import MOCK_DATA_PATH, PRIVATE_DATA_PATH, README_PATH
 from tests.utils import create_dataset
 

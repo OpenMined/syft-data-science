@@ -1,15 +1,14 @@
 import pytest
+from syft_rds.client.rds_client import RDSClient
+from syft_rds.client.rds_clients.runtime import (
+    DEFAULT_DOCKERFILE_FILE_PATH,
+    DEFAULT_RUNTIME_KIND,
+    DEFAULT_RUNTIME_NAME,
+)
+from syft_runtimes.models import JobStatus
 
 from tests.conftest import DS_PATH
 from tests.utils import create_dataset
-
-from syft_rds.client.rds_clients.runtime import (
-    DEFAULT_RUNTIME_KIND,
-    DEFAULT_RUNTIME_NAME,
-    DEFAULT_DOCKERFILE_FILE_PATH,
-)
-from syft_rds.client.rds_client import RDSClient
-from syft_runtimes.models import JobStatus
 
 
 @pytest.mark.parametrize(
@@ -20,7 +19,7 @@ from syft_runtimes.models import JobStatus
             {
                 "name": "My FL Flower Experiment",
                 "description": "Some description",
-                "user_code_path": f"{DS_PATH / "code"}",
+                "user_code_path": f"{DS_PATH / 'code'}",
                 "entrypoint": "main.py",
                 "dataset_name": "dummy",
             },
@@ -32,7 +31,7 @@ from syft_runtimes.models import JobStatus
             {
                 "name": "My FL Flower Experiment",
                 "description": "Some description",
-                "user_code_path": f"{DS_PATH / "code"}",
+                "user_code_path": f"{DS_PATH / 'code'}",
                 "entrypoint": "main.py",
                 "dataset_name": "dummy",
                 "runtime_name": "python3.12",
@@ -46,7 +45,7 @@ from syft_runtimes.models import JobStatus
             {
                 "name": "My FL Flower Experiment",
                 "description": "Some description",
-                "user_code_path": f"{DS_PATH / "code"}",
+                "user_code_path": f"{DS_PATH / 'code'}",
                 "entrypoint": "main.py",
                 "dataset_name": "dummy",
                 "runtime_name": "my_docker_python",
@@ -61,7 +60,7 @@ from syft_runtimes.models import JobStatus
             {
                 "name": "My FL Flower Experiment",
                 "description": "Some description",
-                "user_code_path": f"{DS_PATH / "code"}",
+                "user_code_path": f"{DS_PATH / 'code'}",
                 "entrypoint": "main.py",
                 "dataset_name": "dummy",
                 "runtime_kind": "docker",
@@ -75,7 +74,7 @@ from syft_runtimes.models import JobStatus
             {
                 "name": "My FL Flower Experiment",
                 "description": "Some description",
-                "user_code_path": f"{DS_PATH / "code"}",
+                "user_code_path": f"{DS_PATH / 'code'}",
                 "entrypoint": "main.py",
                 "dataset_name": "dummy",
                 "runtime_kind": "kubernetes",
@@ -93,7 +92,7 @@ from syft_runtimes.models import JobStatus
             {
                 "name": "My FL Flower Experiment",
                 "description": "Some description",
-                "user_code_path": f"{DS_PATH / "code"}",
+                "user_code_path": f"{DS_PATH / 'code'}",
                 "entrypoint": "main.py",
                 "dataset_name": "dummy",
                 "runtime_name": "my_k8s_runtime",
@@ -120,7 +119,7 @@ def test_job_submit_with_custom_runtime(
     create_dataset(do_rds_client, name=submit_kwargs["dataset_name"])
 
     # DS: submit job
-    job = ds_rds_client.jobs.submit(**submit_kwargs)
+    job = ds_rds_client.job.submit(**submit_kwargs)
 
     assert job is not None
     assert job.status == JobStatus.pending_code_review

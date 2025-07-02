@@ -1,4 +1,5 @@
 import re
+import shutil
 from pathlib import Path
 from typing import Self
 
@@ -272,3 +273,55 @@ class SyftDatasetManager:
             all_datasets = all_datasets[:limit]
 
         return TableList(all_datasets)
+
+    def delete(
+        self,
+        name: str,
+        datasite: str | None = None,
+        require_confirmation: bool = True,
+    ) -> None:
+        datasite = datasite or self.syftbox_client.email
+
+        if datasite != self.syftbox_client.email:
+            # NOTE this check is easily bypassed, but bypassing does not have any effect.
+            # When bypassed, the dataset will be restored because the user only has
+            # read access to someone else's datasite.
+            raise ValueError(
+                "Cannot delete datasets from a datasite that is not your own."
+            )
+
+        try:
+            dataset = self.get(
+                name=name,
+                datasite=datasite,
+            )
+        except FileNotFoundError:
+            raise FileNotFoundError(f"Dataset {name} not found in datasite {datasite}")
+
+        if require_confirmation:
+            msg = (
+                "Deleting this dataset will remove the following folders:\n"
+                f"Mock data: {dataset.mock_dir}\n"
+                f"Private metadata: {dataset._private_metadata_dir}\n"
+            )
+            if (
+                dataset.private_dir.resolve().absolute()
+                == dataset._private_metadata_dir.resolve().absolute()
+            ):
+                msg += (
+                    "WARNING: this will also delete the private data from your system\n"
+                )
+            else:
+                msg += "Private data will not be deleted from your system, it is not managed by SyftBox.\n"
+
+            msg += "Are you sure you want to delete these folders? (yes/no): "
+            confirmation = input(msg).strip().lower()
+            if confirmation != "yes":
+                print("Dataset deletion cancelled.")
+                return
+
+        # Delete the dataset directories
+        if dataset.mock_dir.exists():
+            shutil.rmtree(dataset.mock_dir)
+        if dataset._private_metadata_dir.exists():
+            shutil.rmtree(dataset._private_metadata_dir)

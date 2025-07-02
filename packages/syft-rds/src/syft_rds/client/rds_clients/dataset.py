@@ -88,3 +88,18 @@ class DatasetRDSClient(RDSClientModule[Dataset]):
             readme_path=readme_path,
             tags=tags,
         )
+
+    @ensure_is_admin
+    def delete(
+        self,
+        name: str,
+        require_confirmation: bool = True,
+    ) -> None:
+        """
+        Delete a dataset by name.
+        If `require_confirmation` is True, it will prompt for confirmation before deletion.
+        If `require_confirmation` is False, it will delete without confirmation.
+        """
+        return self._dataset_manager.delete(
+            name=name, datasite=self.host, require_confirmation=require_confirmation
+        )

@@ -75,3 +75,77 @@ def test_get_dataset(dataset_manager: SyftDatasetManager):
         datasite="wrong_datasite",
     )
     assert len(all_datasets_from_wrong_datasite) == 0
+
+
+def test_delete_dataset(dataset_manager: SyftDatasetManager):
+    dataset = dataset_manager.create(
+        name="test_delete_dataset",
+        mock_path=MOCK_DATA_PATH,
+        private_path=PRIVATE_DATA_PATH,
+        summary="A test dataset",
+        readme_path=README_PATH,
+    )
+
+    assert dataset.mock_dir.exists()
+    assert dataset.private_dir.exists()
+
+    all_datasets = dataset_manager.get_all()
+    assert any(d.name == "test_delete_dataset" for d in all_datasets)
+
+    dataset_manager.delete(name="test_delete_dataset", require_confirmation=False)
+
+    all_datasets_after = dataset_manager.get_all()
+    assert not any(d.name == "test_delete_dataset" for d in all_datasets_after)
+
+    with pytest.raises(FileNotFoundError):
+        dataset_manager.get(name="test_delete_dataset")
+
+
+def test_delete_nonexistent_dataset(dataset_manager: SyftDatasetManager):
+    with pytest.raises(FileNotFoundError):
+        dataset_manager.delete(name="nonexistent_dataset", require_confirmation=False)
+
+
+def test_permission_error_non_admin(dataset_manager: SyftDatasetManager):
+    with pytest.raises(ValueError):
+        dataset_manager.delete(
+            name="test_dataset",
+            datasite="someone_else@test.openmined.org",
+            require_confirmation=False,
+        )
+
+
+def test_create_datasets_same_name(dataset_manager: SyftDatasetManager):
+    dataset_manager.create(
+        name="duplicate_name",
+        mock_path=MOCK_DATA_PATH,
+        private_path=PRIVATE_DATA_PATH,
+        summary="A test dataset",
+        readme_path=README_PATH,
+    )
+
+    with pytest.raises(FileExistsError):
+        dataset_manager.create(
+            name="duplicate_name",
+            mock_path=MOCK_DATA_PATH,
+            private_path=PRIVATE_DATA_PATH,
+            summary="Another test dataset",
+            readme_path=README_PATH,
+        )
+
+
+def test_readme_content(dataset_manager: SyftDatasetManager):
+    dataset = dataset_manager.create(
+        name="test_readme_content",
+        mock_path=MOCK_DATA_PATH,
+        private_path=PRIVATE_DATA_PATH,
+        summary="A test dataset",
+        readme_path=README_PATH,
+    )
+
+    retrieved_dataset = dataset_manager.get(name=dataset.name)
+
+    with open(README_PATH, "r") as f:
+        original_content = f.read()
+
+    assert retrieved_dataset.readme_path.read_text() == original_content
