@@ -80,7 +80,7 @@ class DatasetRDSClient(RDSClientModule[Dataset]):
         readme_path: PathLike | None = None,
         tags: list[str] | None = None,
     ) -> Dataset:
-        self._dataset_manager.create(
+        return self._dataset_manager.create(
             name=name,
             mock_path=mock_path,
             private_path=private_path,

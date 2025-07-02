@@ -108,6 +108,12 @@ class Dataset(DatasetBase, PydanticFormatterMixin):
             return None
         return self._url_to_path(self.readme_url)
 
+    def get_readme(self) -> str | None:
+        """Get the content of the README file."""
+        if self.readme_path and self.readme_path.exists():
+            return self.readme_path.read_text()
+        return None
+
     @property
     def mock_dir(self) -> Path:
         return self._url_to_path(self.mock_url)
