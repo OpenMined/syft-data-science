@@ -1,4 +1,4 @@
-name: PR Tests - RDS
+name: PR Tests - Syft Data Science
 on:
   workflow_dispatch:
 
@@ -22,17 +22,12 @@ jobs:
           python-version: "3.12"
       - uses: pre-commit/action@v3.0.1
 
-  call-pr-tests-rds-unit:
+  call-pr-tests-syft-data-science:
     uses: ./.github/workflows/pr-tests-base.yml
     with:
-      test-type: test-rds-unit
+      test-type: test-syft-data-science
 
-  call-pr-tests-rds-integration:
+  call-pr-tests-notebooks:
     uses: ./.github/workflows/pr-tests-base.yml
     with:
-      test-type: test-rds-integration
-
-  # call-pr-tests-e2e:
-  #   uses: ./.github/workflows/pr-tests-base.yml
-  #   with:
-  #     test-type: test-e2e
+      test-type: test-notebooks
