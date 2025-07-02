@@ -76,24 +76,39 @@ setup-test-env:
     uv sync --cache-dir=.uv-cache
 
 [group('test')]
-test-unit: setup-test-env
+test-rds-unit: setup-test-env
     #!/bin/sh
     echo "{{ _cyan }}Running unit tests {{ _nc }}"
-    uv run --with "pytest-xdist" pytest -{{ _test_verbosity }} --color=yes -n {{ _test_workers }} tests/unit/
+    uv run --with "pytest-xdist" pytest -{{ _test_verbosity }} --color=yes -n {{ _test_workers }} packages/syft-rds/tests/unit/
 
 [group('test')]
-test-integration: setup-test-env
+test-rds-integration: setup-test-env
     #!/bin/sh
     echo "{{ _cyan }}Running integration tests {{ _nc }}"
-    uv run --with "pytest-xdist" pytest -{{ _test_verbosity }} --color=yes -n {{ _test_workers }} tests/integration/
+    uv run --with "pytest-xdist" pytest -{{ _test_verbosity }} --color=yes -n {{ _test_workers }} packages/syft-rds/tests/integration/
 
 [group('test')]
-test-e2e: setup-test-env
+test-rds-e2e: setup-test-env
     #!/bin/sh
     rm -rf .e2e/
     echo "{{ _cyan }}Running end-to-end tests {{ _nc }}"
     echo "Using SyftBox from {{ _green }}'$(which syftbox)'{{ _nc }}"
-    uv run --with "pytest-xdist" pytest -{{ _test_verbosity }} --color=yes -n {{ _test_workers }} tests/e2e/
+    uv run --with "pytest-xdist" pytest -{{ _test_verbosity }} --color=yes -n {{ _test_workers }} packages/syft-rds/tests/e2e/
+
+[group('test')]
+test-rds: setup-test-env
+    #!/bin/sh
+    echo "{{ _cyan }}Running all syft-rds tests in parallel{{ _nc }}"
+    just test-rds-unit &
+    just test-rds-integration &
+    # just test-rds-e2e &
+    wait
+
+[group('test')]
+test-syft-data-science: setup-test-env
+    #!/bin/sh
+    echo "{{ _cyan }}Running syft-data-science tests{{ _nc }}"
+    uv run --with "pytest-xdist" pytest -{{ _test_verbosity }} --color=yes -n {{ _test_workers }} tests/
 
 [group('test')]
 test-notebooks: setup-test-env
@@ -108,13 +123,11 @@ test-notebooks: setup-test-env
 test: setup-test-env
     #!/bin/sh
     echo "{{ _cyan }}Running all tests in parallel{{ _nc }}"
-    just test-unit &
-    just test-integration &
-    # just test-e2e &
+    just test-rds &
+    just test-syft-data-science &
     just test-notebooks &
     wait
     just clean
-
 # ---------------------------------------------------------------------------------------------------------------------
 
 # Run a local syftbox client on any available port between 8080-9000
