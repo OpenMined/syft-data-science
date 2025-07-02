@@ -22,7 +22,7 @@ repos:
         always_run: true
       - id: name-tests-test
         always_run: true
-        exclude: ^(tests/assets/.*|tests/mocks.py|tests/utils.py)
+        exclude: ^(packages/syft-rds/tests/assets/.*|packages/syft-rds/tests/mocks.py|packages/syft-rds/tests/utils.py)
       - id: mixed-line-ending
         args: ["--fix=lf"]
 

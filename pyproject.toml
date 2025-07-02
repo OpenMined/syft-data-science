@@ -29,3 +29,7 @@ syft-datasets = { workspace = true }
 syft-rds = { workspace = true }
 syft-runtimes = { workspace = true }
 syft-notebook-ui = { workspace = true }
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
