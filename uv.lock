@@ -2357,7 +2357,7 @@ wheels = [
 [[package]]
 name = "syft-data-science"
 version = "0.1.0"
-source = { virtual = "." }
+source = { editable = "." }
 dependencies = [
     { name = "syft-datasets" },
     { name = "syft-notebook-ui" },

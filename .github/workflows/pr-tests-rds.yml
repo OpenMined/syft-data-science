@@ -13,36 +13,17 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  lint:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
-        with:
-          python-version: "3.12"
-      - uses: pre-commit/action@v3.0.1
-
-  call-pr-tests-unit:
+  call-pr-tests-rds-unit:
     uses: ./.github/workflows/pr-tests-base.yml
     with:
-      test-type: test-unit
+      test-type: test-rds-unit
 
-  call-pr-tests-integration:
+  call-pr-tests-rds-integration:
     uses: ./.github/workflows/pr-tests-base.yml
     with:
-      test-type: test-integration
+      test-type: test-rds-integration
 
   # call-pr-tests-e2e:
   #   uses: ./.github/workflows/pr-tests-base.yml
   #   with:
   #     test-type: test-e2e
-
-  call-pr-tests-notebooks:
-    uses: ./.github/workflows/pr-tests-base.yml
-    with:
-      test-type: test-notebooks
-
-  call-pr-tests-syft-datasets:
-    uses: ./.github/workflows/pr-tests-base.yml
-    with:
-      test-type: test-syft-datasets
