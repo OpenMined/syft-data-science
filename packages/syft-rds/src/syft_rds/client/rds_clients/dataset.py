@@ -1,56 +1,90 @@
-from pathlib import Path
-from typing import Optional, Union
+from typing import TYPE_CHECKING, Any, Literal, Optional
 from uuid import UUID
 
-from syft_rds.client.rds_clients.base import RDSClientModule
+from syft_core.types import PathLike
+from syft_datasets import Dataset, SyftDatasetManager
+
+from syft_rds.client.local_store import LocalStore
+from syft_rds.client.rds_clients.base import RDSClientConfig, RDSClientModule
 from syft_rds.client.rds_clients.utils import ensure_is_admin
-from syft_rds.models import (
-    Dataset,
-    DatasetCreate,
-    DatasetUpdate,
-)
+from syft_rds.client.rpc import RPCClient
+
+if TYPE_CHECKING:
+    from syft_rds.client.rds_client import RDSClient
 
 
 class DatasetRDSClient(RDSClientModule[Dataset]):
     ITEM_TYPE = Dataset
 
+    def __init__(
+        self,
+        config: RDSClientConfig,
+        rpc_client: RPCClient,
+        local_store: LocalStore,
+        parent: "Optional[RDSClient]" = None,
+    ) -> None:
+        super().__init__(config, rpc_client, local_store, parent)
+        self._dataset_manager = SyftDatasetManager(self._syftbox_client)
+
+    def get_all(
+        self,
+        order_by: str = "created_at",
+        sort_order: str = "desc",
+        limit: Optional[int] = None,
+        offset: int = 0,
+        mode: Literal["local", "rpc"] = "local",
+        **filters: Any,
+    ) -> list[Dataset]:
+        if mode == "rpc":
+            raise ValueError("Can only get all datasets in local mode")
+
+        if len(filters) > 0:
+            raise ValueError("Filters are not supported")
+
+        return self._dataset_manager.get_all(
+            datasite=self.host,
+            order_by=order_by,
+            sort_order=sort_order,
+            limit=limit,
+            offset=offset,
+        )
+
+    def get(
+        self,
+        uid: Optional[UUID] = None,
+        mode: Literal["local", "rpc"] = "local",
+        name: Optional[str] = None,
+        **filters: Any,
+    ) -> Dataset:
+        if mode == "rpc":
+            raise ValueError("Can only get datasets in local mode")
+
+        if name is None:
+            raise ValueError("Name must be provided to get a dataset")
+
+        if uid is not None:
+            raise ValueError("Cannot get dataset by uid, use name instead")
+
+        return self._dataset_manager.get(
+            datasite=self.host,
+            name=name,
+        )
+
     @ensure_is_admin
     def create(
         self,
         name: str,
-        path: Union[str, Path],
-        mock_path: Union[str, Path],
+        private_path: PathLike,
+        mock_path: PathLike,
         summary: Optional[str] = None,
-        description_path: Optional[Union[str, Path]] = None,
-        tags: list[str] = [],
-        runtime_id: Optional[UUID] = None,
+        readme_path: PathLike | None = None,
+        tags: list[str] | None = None,
     ) -> Dataset:
-        dataset_create = DatasetCreate(
+        self._dataset_manager.create(
             name=name,
-            path=str(path),
-            mock_path=str(mock_path),
+            mock_path=mock_path,
+            private_path=private_path,
             summary=summary,
-            description_path=str(description_path) if description_path else None,
+            readme_path=readme_path,
             tags=tags,
-            runtime_id=runtime_id,
         )
-        return self.local_store.dataset.create(dataset_create)
-
-    @ensure_is_admin
-    def delete(self, name: str) -> bool:
-        """Delete a dataset by name.
-
-        Args:
-            name: Name of the dataset to delete
-
-        Returns:
-            True if deletion was successful, False otherwise
-
-        Raises:
-            RuntimeError: If deletion fails due to file system errors
-        """
-        return self.local_store.dataset.delete_by_name(name)
-
-    @ensure_is_admin
-    def update(self, dataset_update: DatasetUpdate) -> Dataset:
-        raise NotImplementedError("Dataset update is not supported yet")

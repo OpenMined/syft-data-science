@@ -7,7 +7,16 @@ from uuid import UUID
 
 from loguru import logger
 from syft_core import Client as SyftBoxClient
+from syft_datasets import Dataset
 from syft_event import SyftEvents
+from syft_runtimes import (
+    FileOutputHandler,
+    JobConfig,
+    RichConsoleUI,
+    TextUI,
+    get_runner_cls,
+)
+from syft_runtimes.models import JobErrorKind, JobStatus, JobStatusUpdate
 
 from syft_rds.client.client_registry import GlobalClientRegistry
 from syft_rds.client.connection import get_connection
@@ -23,19 +32,11 @@ from syft_rds.client.rds_clients.job import JobRDSClient
 from syft_rds.client.rds_clients.runtime import RuntimeRDSClient
 from syft_rds.client.rds_clients.user_code import UserCodeRDSClient
 from syft_rds.client.rpc import RPCClient
-from syft_rds.client.utils import PathLike, copy_dir_contents, deprecation_warning
-from syft_rds.models import CustomFunction, Dataset, Job, UserCode, JobUpdate
+from syft_rds.client.utils import PathLike, copy_dir_contents
+from syft_rds.models import CustomFunction, Job, JobUpdate, UserCode
 from syft_rds.models.base import ItemBase
-from syft_runtimes import (
-    FileOutputHandler,
-    JobConfig,
-    RichConsoleUI,
-    TextUI,
-    get_runner_cls,
-)
-from syft_runtimes.models import JobStatus, JobErrorKind, JobStatusUpdate
-from syft_rds.utils.constants import JOB_STATUS_POLLING_INTERVAL
 from syft_rds.models.runtime_models import Runtime
+from syft_rds.utils.constants import JOB_STATUS_POLLING_INTERVAL
 
 T = TypeVar("T", bound=ItemBase)
 
@@ -161,21 +162,6 @@ class RDSClient(RDSClientBase):
     def uid(self) -> UUID:
         return self.config.uid
 
-    @property
-    @deprecation_warning(reason="client.jobs has been renamed to client.job")
-    def jobs(self) -> JobRDSClient:
-        return self.job
-
-    @property
-    @deprecation_warning(reason="Use client.dataset.get_all() instead.")
-    def datasets(self) -> list[Dataset]:
-        """Returns all available datasets.
-
-        Returns:
-            list[Dataset]: A list of all datasets
-        """
-        return self.dataset.get_all()
-
     # TODO move all logic under here to a separate job handler module
 
     def run_private(
@@ -192,7 +178,9 @@ class RDSClient(RDSClientBase):
                 "If you want to override this, set `job.status` to something else."
             )
         logger.debug(f"Running job '{job.name}' on private data")
-        job_config: JobConfig = self._get_config_for_job(job, blocking=blocking)
+        job_config: JobConfig = self._get_config_for_job(
+            job, blocking=blocking, use_mock=False
+        )
         result = self._run(
             job,
             job_config,
@@ -219,8 +207,12 @@ class RDSClient(RDSClientBase):
         blocking: bool = True,
     ) -> Job:
         logger.debug(f"Running job '{job.name}' on mock data")
-        job_config: JobConfig = self._get_config_for_job(job, blocking=blocking)
-        job_config.data_path = self.dataset.get(name=job.dataset_name).get_mock_path()
+        job_config: JobConfig = self._get_config_for_job(
+            job,
+            blocking=blocking,
+            use_mock=True,
+        )
+
         result = self._run(
             job,
             job_config,
@@ -231,13 +223,16 @@ class RDSClient(RDSClientBase):
         logger.info(f"Result from running job '{job.name}' on mock data: {result}")
         return job
 
-    def _get_config_for_job(self, job: Job, blocking: bool = True) -> JobConfig:
+    def _get_config_for_job(
+        self, job: Job, blocking: bool = True, use_mock: bool = False
+    ) -> JobConfig:
         user_code = self.user_code.get(job.user_code_id)
         dataset = self.dataset.get(name=job.dataset_name)
         runtime = self.runtime.get(job.runtime_id)
         runner_config = self.config.runner_config
+        data_path = dataset.mock_dir if use_mock else dataset.private_dir
         job_config = JobConfig(
-            data_path=dataset.get_private_path(),
+            data_path=data_path,
             function_folder=user_code.local_dir,
             runtime=runtime,
             args=[user_code.entrypoint],
