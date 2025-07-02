@@ -41,3 +41,8 @@ jobs:
     uses: ./.github/workflows/pr-tests-base.yml
     with:
       test-type: test-notebooks
+
+  call-pr-tests-syft-datasets:
+    uses: ./.github/workflows/pr-tests-base.yml
+    with:
+      test-type: test-syft-datasets
