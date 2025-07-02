@@ -124,6 +124,7 @@ test: setup-test-env
     #!/bin/sh
     echo "{{ _cyan }}Running all tests in parallel{{ _nc }}"
     just test-rds &
+    just test-syft-data-science &
     just test-notebooks &
     wait
     just clean
