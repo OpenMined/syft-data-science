@@ -77,6 +77,31 @@ def test_get_dataset(dataset_manager: SyftDatasetManager):
     assert len(all_datasets_from_wrong_datasite) == 0
 
 
+def test_get_dataset_from_ds(
+    dataset_manager: SyftDatasetManager, ds_dataset_manager: SyftDatasetManager
+):
+    do_syftbox_client = dataset_manager.syftbox_client
+
+    dataset_1 = dataset_manager.create(
+        name="test_dataset",
+        mock_path=MOCK_DATA_PATH,
+        private_path=PRIVATE_DATA_PATH,
+        summary="A test dataset",
+        readme_path=README_PATH,
+    )
+
+    retrieved_dataset_1_ds = ds_dataset_manager.get(
+        datasite=do_syftbox_client.email,
+        name=dataset_1.name,
+    )
+    assert retrieved_dataset_1_ds.name == dataset_1.name
+    assert retrieved_dataset_1_ds.owner == do_syftbox_client.email
+    assert retrieved_dataset_1_ds.mock_dir.exists()
+    with pytest.raises(ValueError) as e:
+        retrieved_dataset_1_ds.private_dir
+        assert "dataset owned by another user" in str(e)
+
+
 def test_delete_dataset(dataset_manager: SyftDatasetManager):
     dataset = dataset_manager.create(
         name="test_delete_dataset",

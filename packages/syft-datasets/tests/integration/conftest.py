@@ -30,5 +30,27 @@ def do_syftbox_client(do_config: SyftClientConfig) -> SyftBoxClient:
 
 
 @pytest.fixture()
+def ds_config(tmp_path: Path) -> SyftClientConfig:
+    cfg = SyftClientConfig(
+        email="ds@datasets.openmined.org",
+        client_url="http://testserver:8000",  # Not used in tests.
+        path=tmp_path / "ds_config.json",
+        data_dir=tmp_path,
+    )
+    cfg.save()
+    return cfg
+
+
+@pytest.fixture()
+def ds_syftbox_client(ds_config: SyftClientConfig) -> SyftBoxClient:
+    return SyftBoxClient(ds_config)
+
+
+@pytest.fixture()
 def dataset_manager(do_syftbox_client: SyftBoxClient) -> SyftDatasetManager:
     return SyftDatasetManager(syftbox_client=do_syftbox_client)
+
+
+@pytest.fixture()
+def ds_dataset_manager(ds_syftbox_client: SyftBoxClient) -> SyftDatasetManager:
+    return SyftDatasetManager(syftbox_client=ds_syftbox_client)
