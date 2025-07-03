@@ -1,31 +1,8 @@
-from loguru import logger
 from syft_core.types import PathLike
 from typing_extensions import Literal
 
 from syft_datasets.dataset import Dataset
 from syft_datasets.dataset_manager import SyftDatasetManager
-
-_global_manager: SyftDatasetManager | None = None
-
-
-def login(config_path: PathLike | None = None) -> SyftDatasetManager:
-    global _global_manager
-    _global_manager = SyftDatasetManager.load(config_path=config_path)
-    logger.info(f"Logged in as {_global_manager.syftbox_client.email}")
-    return _global_manager
-
-
-def get_global_manager() -> SyftDatasetManager:
-    global _global_manager
-    if _global_manager is None:
-        try:
-            _global_manager = SyftDatasetManager.load()
-            logger.info(f"Auto-logged in as {_global_manager.syftbox_client.email}")
-        except Exception as e:
-            raise ValueError(
-                "syft-datasets failed to auto-login to SyftBox. Please use `syft_datasets.login(config_path=/path/to/syftbox/config.json)`."
-            ) from e
-    return _global_manager
 
 
 def create(
@@ -36,8 +13,10 @@ def create(
     readme_path: PathLike | None = None,
     location: str | None = None,
     tags: list[str] | None = None,
+    syftbox_config_path: PathLike | None = None,
 ) -> Dataset:
-    return get_global_manager().create(
+    dataset_manager = SyftDatasetManager.load(config_path=syftbox_config_path)
+    return dataset_manager.create(
         name=name,
         mock_path=mock_path,
         private_path=private_path,
@@ -48,8 +27,13 @@ def create(
     )
 
 
-def get(name: str, datasite: str | None = None) -> Dataset:
-    return get_global_manager().get(name=name, datasite=datasite)
+def get(
+    name: str,
+    datasite: str | None = None,
+    syftbox_config_path: PathLike | None = None,
+) -> Dataset:
+    dataset_manager = SyftDatasetManager.load(config_path=syftbox_config_path)
+    return dataset_manager.get(name=name, datasite=datasite)
 
 
 def get_all(
@@ -58,5 +42,13 @@ def get_all(
     offset: int | None = None,
     order_by: str | None = None,
     sort_order: Literal["asc", "desc"] = "asc",
+    syftbox_config_path: PathLike | None = None,
 ) -> list[Dataset]:
-    return get_global_manager().get_all(datasite, limit, offset, order_by, sort_order)
+    dataset_manager = SyftDatasetManager.load(config_path=syftbox_config_path)
+    return dataset_manager.get_all(
+        datasite,
+        limit,
+        offset,
+        order_by,
+        sort_order,
+    )
