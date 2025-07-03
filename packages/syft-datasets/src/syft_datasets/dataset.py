@@ -67,7 +67,6 @@ class PrivateDatasetConfig(DatasetBase, PydanticFormatterMixin):
 
     uid: UUID  # id for this dataset
     data_dir: Path
-    location: str | None = None
 
 
 class Dataset(DatasetBase, PydanticFormatterMixin):
@@ -83,6 +82,7 @@ class Dataset(DatasetBase, PydanticFormatterMixin):
     created_at: datetime
     summary: str | None = None
     tags: list[str] = []
+    location: str | None = None
 
     mock_url: SyftBoxURL
     readme_url: SyftBoxURL | None = None

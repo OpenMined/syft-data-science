@@ -143,6 +143,7 @@ class SyftDatasetManager:
         private_path: PathLike,
         summary: str | None = None,
         readme_path: Path | None = None,
+        location: str | None = None,
         tags: list[str] | None = None,
         # copy_private_data: bool = True, # TODO
     ) -> Dataset:
@@ -154,6 +155,9 @@ class SyftDatasetManager:
             private_path (PathLike): Path to the existing private data. This can be a file or a directory.
             summary (str | None, optional): Short summary of the dataset. Defaults to None.
             readme_path (Path | None, optional): Markdown README in the public dataset. Defaults to None.
+            location (str | None, optional): Location identifier for the dataset, e.g. 'high-side-1234'.
+                Only required for datasets that are hosted on a remote location and require manual syncing.
+                Defaults to None.
             tags (list[str] | None, optional): Optional tags for the dataset. Defaults to None.
 
         Returns:
@@ -184,6 +188,7 @@ class SyftDatasetManager:
             mock_url=mock_url,
             readme_url=readme_url,
             summary=summary,
+            location=location,
             tags=tags,
         )
         dataset._syftbox_client = self.syftbox_client

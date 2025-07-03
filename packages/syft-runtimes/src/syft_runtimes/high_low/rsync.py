@@ -77,8 +77,8 @@ def generate_rsync_command(
     entry: RsyncEntry,
     connection: SSHConnection | None = None,
 ) -> str:
-    # Base rsync flags
-    flags = "-av"
+    # Base rsync flags: archive, verbose, progress, partial, human-readable
+    flags = "-avP --human-readable"
     if entry.ignore_existing:
         flags += " --ignore-existing"
 

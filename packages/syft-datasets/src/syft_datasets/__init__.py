@@ -34,6 +34,7 @@ def create(
     private_path: PathLike,
     summary: str | None = None,
     readme_path: PathLike | None = None,
+    location: str | None = None,
     tags: list[str] | None = None,
 ) -> Dataset:
     return get_global_manager().create(
@@ -42,6 +43,7 @@ def create(
         private_path=private_path,
         summary=summary,
         readme_path=readme_path,
+        location=location,
         tags=tags,
     )
 
