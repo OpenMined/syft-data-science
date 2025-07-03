@@ -82,6 +82,7 @@ class SyftDatasetManager:
         dataset.private_dir.mkdir(parents=True, exist_ok=True)
 
         if src_path.is_dir():
+            # TODO: Implementing without copying private data to `SyftBox/private``
             copy_dir_contents(
                 src=src_path,
                 dst=dataset.private_dir,

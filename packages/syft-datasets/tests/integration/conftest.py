@@ -33,7 +33,7 @@ def do_syftbox_client(do_config: SyftClientConfig) -> SyftBoxClient:
 def ds_config(tmp_path: Path) -> SyftClientConfig:
     cfg = SyftClientConfig(
         email="ds@datasets.openmined.org",
-        client_url="http://testserver:8000",  # Not used in tests.
+        client_url="http://testserver:8001",  # Not used in tests.
         path=tmp_path / "ds_config.json",
         data_dir=tmp_path,
     )
