@@ -5,6 +5,11 @@ from pydantic import BaseModel
 from syft_core import Client as SyftBoxClient
 
 
+class Side(StrEnum):
+    HIGH = "high"
+    LOW = "low"
+
+
 class ConnectionType(StrEnum):
     SSH = "ssh"
     LOCAL = "local"
@@ -65,6 +70,19 @@ class RsyncConfig(BaseModel):
             command = entry.to_command(self.connection_settings)
             commands.append(command)
         return commands
+
+    def base_sync_dir(self, side: Side = Side.HIGH) -> Path:
+        base_dir = self.high_syftbox_dir if side == Side.HIGH else self.low_syftbox_dir
+        return base_dir / "private" / "job_runners" / self.high_side_name
+
+    def jobs_dir(self, side: Side = Side.HIGH) -> Path:
+        return self.base_sync_dir(side) / "jobs"
+
+    def outputs_dir(self, side: Side = Side.HIGH) -> Path:
+        return self.base_sync_dir(side) / "outputs"
+
+    def datasets_dir(self, side: Side = Side.HIGH) -> Path:
+        return self.base_sync_dir(side) / "datasets"
 
 
 def get_rsync_config_path(

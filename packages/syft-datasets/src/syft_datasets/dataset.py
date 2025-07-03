@@ -124,7 +124,7 @@ class Dataset(DatasetBase, PydanticFormatterMixin):
             raise ValueError(
                 "Cannot access private config for a dataset owned by another user."
             )
-        return self._private_metadata_dir / "private.yaml"
+        return self._private_metadata_dir / "private_metadata.yaml"
 
     @cached_property
     def private_config(self) -> PrivateDatasetConfig:
@@ -161,7 +161,7 @@ class Dataset(DatasetBase, PydanticFormatterMixin):
         from IPython.display import HTML, display
         from syft_notebook_ui.pydantic_html_repr import create_html_repr
 
-        fields_to_include = ["name", "created_at", "summary", "tags"]
+        fields_to_include = ["name", "created_at", "summary", "tags", "location"]
 
         paths_to_include = []
         try:

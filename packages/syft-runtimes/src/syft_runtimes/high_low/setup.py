@@ -7,10 +7,13 @@ from typing import Optional
 from syft_core import Client as SyftBoxClient
 from syft_core import SyftClientConfig
 from syft_core.types import PathLike, to_path
+from syft_datasets import Dataset
+from syft_datasets.dataset_manager import SyftDatasetManager
 
 from syft_runtimes.high_low.rsync import (
     RsyncConfig,
     RsyncEntry,
+    Side,
     SSHConnection,
     SyncDirection,
     get_rsync_config_path,
@@ -39,33 +42,24 @@ def _generate_high_side_name() -> str:
 def _get_default_sync_entries(
     syftbox_client: SyftBoxClient, rsync_config: RsyncConfig
 ) -> list[RsyncEntry]:
-    private_dir = Path("private")
-    relative_highside_dir = private_dir / "job_runners" / rsync_config.high_side_name
-    relative_jobs_dir = relative_highside_dir / "jobs"
-    relative_outputs_dir = relative_highside_dir / "outputs"
-    relative_datasets_dir = relative_highside_dir / "datasets"
-
-    low_syftbox_dir = rsync_config.low_syftbox_dir
-    high_syftbox_dir = syftbox_client.workspace.data_dir
-
     return [
         RsyncEntry(
-            local_dir=high_syftbox_dir / relative_jobs_dir,
-            remote_dir=low_syftbox_dir / relative_jobs_dir,
+            local_dir=rsync_config.jobs_dir(Side.HIGH),
+            remote_dir=rsync_config.jobs_dir(Side.LOW),
             direction=SyncDirection.REMOTE_TO_LOCAL,
             ignore_existing=True,
         ),
         RsyncEntry(
-            local_dir=high_syftbox_dir / relative_outputs_dir,
-            remote_dir=low_syftbox_dir / relative_outputs_dir,
+            local_dir=rsync_config.outputs_dir(Side.HIGH),
+            remote_dir=rsync_config.outputs_dir(Side.LOW),
             direction=SyncDirection.LOCAL_TO_REMOTE,
             ignore_existing=False,
         ),
         RsyncEntry(
-            local_dir=high_syftbox_dir / relative_datasets_dir,
-            remote_dir=low_syftbox_dir / relative_datasets_dir,
+            local_dir=rsync_config.datasets_dir(Side.HIGH),
+            remote_dir=rsync_config.datasets_dir(Side.LOW),
             direction=SyncDirection.LOCAL_TO_REMOTE,
-            ignore_existing=True,
+            ignore_existing=False,
         ),
     ]
 
@@ -228,3 +222,61 @@ def sync(
     for command in commands:
         print(f"Executing: {command}")
         subprocess.run(command, shell=True, check=True)
+
+
+def prepare_dataset_for_low_side(
+    dataset: Dataset,
+    syftbox_client: Optional[SyftBoxClient] = None,
+) -> None:
+    sync_config = RsyncConfig.load(syftbox_client or SyftBoxClient.load())
+    mock_dir = dataset.mock_dir
+    shutil.copytree(
+        mock_dir,
+        sync_config.datasets_dir(Side.HIGH) / dataset.name,
+        dirs_exist_ok=True,
+    )
+
+
+def prepare_datasets_from_high_side(
+    high_side_name: str,
+    overwrite: bool = False,
+    syftbox_client: SyftBoxClient | None = None,
+) -> None:
+    syftbox_client = syftbox_client or SyftBoxClient.load()
+    high_side_folder = (
+        syftbox_client.workspace.data_dir / "private" / "job_runners" / high_side_name
+    )
+    if not high_side_folder.is_dir():
+        raise ValueError(
+            f"High side folder {high_side_folder} does not exist or is not a directory."
+        )
+    high_datasets_dir = high_side_folder / "datasets"
+    if not high_datasets_dir.is_dir():
+        raise ValueError(
+            f"High side datasets directory {high_datasets_dir} does not exist or is not a directory."
+        )
+
+    dataset_manager = SyftDatasetManager(syftbox_client=syftbox_client)
+    local_mock_datasets_dir = dataset_manager.public_dir_for_datasite(
+        syftbox_client.email
+    )
+
+    # Foreach dataset in the high side datasets directory,
+    # check if it already exists (warning) and if not, copy it to the local mock datasets directory.
+    for dataset_path in high_datasets_dir.iterdir():
+        if not dataset_path.is_dir():
+            continue
+        dataset_name = dataset_path.name
+        local_dataset_path = local_mock_datasets_dir / dataset_name
+        if local_dataset_path.exists() and overwrite is False:
+            # If the dataset already exists, skip copying it.
+            print(
+                f"Dataset {dataset_name} already exists in local mock datasets directory. Skipping copy."
+            )
+            continue
+        print(f"Copying dataset {dataset_name} to local mock datasets directory.")
+        shutil.copytree(
+            dataset_path,
+            local_dataset_path,
+            dirs_exist_ok=True,
+        )

@@ -6,39 +6,14 @@ from typing import Any, List, Optional
 
 import jinja2
 from pydantic import BaseModel
-from rich.console import Console
-from rich.tree import Tree
 
 from syft_notebook_ui.resources import load_css
+from syft_notebook_ui.utils import make_dirtree_string
 
 jinja_env = jinja2.Environment(
     loader=jinja2.PackageLoader("syft_notebook_ui", "assets/jinja")
 )  # nosec
 PERM_FILE = "syftperm.yaml"
-
-
-def make_dirtree_string(root_dir: Path) -> Optional[str]:
-    try:
-        # Create a Tree object
-        tree = Tree(f"📁 {root_dir.name}")
-
-        def add_dir(tree: Tree, path: Path) -> None:
-            for child in sorted(path.iterdir(), key=lambda p: (not p.is_dir(), p.name)):
-                if child.is_dir():
-                    sub_tree = tree.add(f"📁 {child.name}")
-                    add_dir(sub_tree, child)
-                elif child.name == PERM_FILE:
-                    tree.add(f"🛡️ {child.name}")
-                else:
-                    tree.add(f"📄 {child.name}")
-
-        add_dir(tree, root_dir)
-        console = Console()
-        with console.capture() as capture:
-            console.print(tree)
-        return capture.get()
-    except Exception as e:
-        return f"Could not generate directory tree: {e}"
 
 
 def format_field_value(value: Any) -> str:
