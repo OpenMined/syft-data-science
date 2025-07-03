@@ -13,9 +13,6 @@ from syft_rpc.rpc import BodyType
 
 from syft_rds.client.connection import BlockingRPCConnection
 from syft_rds.models import (
-    Dataset,
-    DatasetCreate,
-    DatasetUpdate,
     GetAllRequest,
     GetOneRequest,
     ItemList,
@@ -105,11 +102,6 @@ class CRUDRPCClient(RPCClientModule, Generic[T, CreateT, UpdateT]):
         return self.register_client_id(res)
 
 
-class DatasetRPCClient(CRUDRPCClient[Dataset, DatasetCreate, DatasetUpdate]):
-    MODULE_NAME = "dataset"
-    ITEM_TYPE = Dataset
-
-
 class JobRPCClient(CRUDRPCClient[Job, JobCreate, JobUpdate]):
     MODULE_NAME = "job"
     ITEM_TYPE = Job
@@ -139,7 +131,6 @@ class RPCClient(RPCClientModule):
         self.job = JobRPCClient(self.config, self.connection)
         self.user_code = UserCodeRPCClient(self.config, self.connection)
         self.runtime = RuntimeRPCClient(self.config, self.connection)
-        self.dataset = DatasetRPCClient(self.config, self.connection)
         self.custom_function = CustomFunctionRPCClient(self.config, self.connection)
 
         # Create lookup table for type-based access
@@ -147,7 +138,6 @@ class RPCClient(RPCClientModule):
             Job: self.job,
             UserCode: self.user_code,
             Runtime: self.runtime,
-            Dataset: self.dataset,
             CustomFunction: self.custom_function,
         }
 

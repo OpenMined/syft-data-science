@@ -3,9 +3,7 @@ name = "syft-rds"
 version = "0.1.4"
 description = "Doing remote data science with SyftBox"
 readme = "README.md"
-authors = [
-    { name = "openmined", email = "info@openmined.org" }
-]
+authors = [{ name = "openmined", email = "info@openmined.org" }]
 requires-python = ">=3.9"
 dependencies = [
     "loguru>=0.7.3",

@@ -7,7 +7,7 @@ from syft_core import Client as SyftBoxClient
 
 from syft_rds.client.local_store import LocalStore
 from syft_rds.client.rpc import RPCClient, T
-from syft_rds.models import GetAllRequest, GetOneRequest, Job, Runtime
+from syft_rds.models import GetAllRequest, GetOneRequest, Runtime
 
 if TYPE_CHECKING:
     from syft_rds.client.rds_client import RDSClient
@@ -87,7 +87,7 @@ class RDSClientModule(RDSClientBase, Generic[T]):
         offset: int = 0,
         mode: Literal["local", "rpc"] = "local",
         **filters: Any,
-    ) -> list[Job]:
+    ) -> list[T]:
         req = GetAllRequest(
             order_by=order_by,
             sort_order=sort_order,

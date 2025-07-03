@@ -3,7 +3,7 @@ from syft_core.types import PathLike
 from typing_extensions import Literal
 
 from syft_datasets.dataset import Dataset
-from syft_datasets.manager import SyftDatasetManager
+from syft_datasets.dataset_manager import SyftDatasetManager
 
 _global_manager: SyftDatasetManager | None = None
 
@@ -35,14 +35,26 @@ def create(
     summary: str | None = None,
     readme_path: PathLike | None = None,
     tags: list[str] | None = None,
+    syftbox_config_path: PathLike | None = None,
 ) -> Dataset:
-    return get_global_manager().create(
-        name, mock_path, private_path, summary, readme_path, tags
+    dataset_manager = SyftDatasetManager.load(config_path=syftbox_config_path)
+    return dataset_manager.create(
+        name=name,
+        mock_path=mock_path,
+        private_path=private_path,
+        summary=summary,
+        readme_path=readme_path,
+        tags=tags,
     )
 
 
-def get(dataset_name: str, datasite: str | None = None) -> Dataset:
-    return get_global_manager().get(dataset_name, datasite)
+def get(
+    name: str,
+    datasite: str | None = None,
+    syftbox_config_path: PathLike | None = None,
+) -> Dataset:
+    dataset_manager = SyftDatasetManager.load(config_path=syftbox_config_path)
+    return dataset_manager.get(name=name, datasite=datasite)
 
 
 def get_all(
@@ -51,5 +63,13 @@ def get_all(
     offset: int | None = None,
     order_by: str | None = None,
     sort_order: Literal["asc", "desc"] = "asc",
+    syftbox_config_path: PathLike | None = None,
 ) -> list[Dataset]:
-    return get_global_manager().get_all(datasite, limit, offset, order_by, sort_order)
+    dataset_manager = SyftDatasetManager.load(config_path=syftbox_config_path)
+    return dataset_manager.get_all(
+        datasite,
+        limit,
+        offset,
+        order_by,
+        sort_order,
+    )

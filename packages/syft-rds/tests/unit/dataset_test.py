@@ -1,6 +1,9 @@
+# TODO port tests to syft-datasets
+
 import pandas as pd
 import pytest
 from syft_rds.client.rds_client import RDSClient
+
 from tests.conftest import MOCK_DATA_PATH, PRIVATE_DATA_PATH, README_PATH
 from tests.utils import create_dataset
 
@@ -10,13 +13,13 @@ def test_create_dataset(do_rds_client: RDSClient) -> None:
 
     dataset = create_dataset(do_rds_client, "Test")
     assert dataset.name == "Test"
-    assert dataset.get_mock_path().exists()
-    assert dataset.get_private_path().exists()
+    assert dataset.mock_dir.exists()
+    assert dataset.private_dir.exists()
     assert dataset.summary == "Test data"
     assert dataset.describe() is None  # Check if describe works
-    private_df = pd.read_csv(dataset.get_private_path() / "data.csv")
+    private_df = pd.read_csv(dataset.private_dir / "data.csv")
     assert private_df.equals(pd.read_csv(PRIVATE_DATA_PATH / "data.csv"))
-    mock_df = pd.read_csv(dataset.get_mock_path() / "data.csv")
+    mock_df = pd.read_csv(dataset.mock_dir / "data.csv")
     assert mock_df.equals(pd.read_csv(MOCK_DATA_PATH / "data.csv"))
 
 
@@ -26,12 +29,12 @@ def test_get_dataset(do_rds_client: RDSClient) -> None:
     dataset = create_dataset(do_rds_client, "Test")
     test_data = do_rds_client.dataset.get(name="Test")
     assert test_data.name == dataset.name
-    assert test_data.get_mock_path().exists()
-    assert test_data.get_private_path().exists()
+    assert test_data.mock_dir.exists()
+    assert test_data.private_dir.exists()
     assert test_data.summary == dataset.summary
-    private_df = pd.read_csv(test_data.get_private_path() / "data.csv")
+    private_df = pd.read_csv(test_data.private_dir / "data.csv")
     assert private_df.equals(pd.read_csv(PRIVATE_DATA_PATH / "data.csv"))
-    mock_df = pd.read_csv(test_data.get_mock_path() / "data.csv")
+    mock_df = pd.read_csv(test_data.mock_dir / "data.csv")
     assert mock_df.equals(pd.read_csv(MOCK_DATA_PATH / "data.csv"))
 
 
@@ -58,8 +61,8 @@ def test_delete_dataset(do_rds_client: RDSClient) -> None:
     dataset = create_dataset(do_rds_client, "TestToDelete")
 
     # Verify it exists
-    mock_path = dataset.get_mock_path()
-    private_path = dataset.get_private_path()
+    mock_path = dataset.mock_dir
+    private_path = dataset.private_dir
     assert mock_path.exists()
     assert private_path.exists()
 
@@ -68,8 +71,7 @@ def test_delete_dataset(do_rds_client: RDSClient) -> None:
     assert any(d.name == "TestToDelete" for d in datasets_before)
 
     # Delete the dataset
-    success = do_rds_client.dataset.delete("TestToDelete")
-    assert success is True
+    do_rds_client.dataset.delete("TestToDelete", require_confirmation=False)
 
     # Verify it's gone from the list
     datasets_after = do_rds_client.dataset.get_all()
@@ -77,21 +79,12 @@ def test_delete_dataset(do_rds_client: RDSClient) -> None:
     assert len(datasets_after) == len(datasets_before) - 1
 
     # Try to get the deleted dataset (should raise an error)
-    with pytest.raises(ValueError, match="No Dataset found with"):
+    with pytest.raises(FileNotFoundError):
         do_rds_client.dataset.get(name="TestToDelete")
 
     # Verify files are cleaned up (should no longer exist)
     assert not mock_path.parent.exists() or not any(mock_path.parent.iterdir())
     assert not private_path.parent.exists() or not any(private_path.parent.iterdir())
-
-
-def test_delete_nonexistent_dataset(do_rds_client: RDSClient) -> None:
-    """Test deleting a dataset that doesn't exist returns False."""
-    assert do_rds_client.is_admin
-
-    # Try to delete a non-existent dataset
-    success = do_rds_client.dataset.delete("NonExistentDataset")
-    assert success is False
 
 
 def test_permission_error_non_admin(
@@ -110,7 +103,7 @@ def test_permission_error_non_admin(
 
     # Then try to delete it as non-admin
     with pytest.raises(PermissionError, match="You must be the datasite admin"):
-        ds_rds_client.dataset.delete(dataset.name)
+        ds_rds_client.dataset.delete(dataset.name, require_confirmation=False)
 
 
 def test_create_datasets_same_name(do_rds_client: RDSClient) -> None:
@@ -120,9 +113,7 @@ def test_create_datasets_same_name(do_rds_client: RDSClient) -> None:
     # Create a dataset
     create_dataset(do_rds_client, "DuplicateName")
 
-    with pytest.raises(
-        ValueError, match="Dataset with name 'DuplicateName' already exists"
-    ):
+    with pytest.raises(FileExistsError):
         create_dataset(do_rds_client, "DuplicateName")
 
 
@@ -137,7 +128,7 @@ def test_readme_content(do_rds_client: RDSClient) -> None:
     retrieved = do_rds_client.dataset.get(name=dataset.name)
 
     # Assuming we've implemented the get_description method
-    readme_content = retrieved.get_description()
+    readme_content = retrieved.get_readme()
     assert readme_content is not None
     assert len(readme_content) > 0
 

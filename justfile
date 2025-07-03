@@ -120,6 +120,13 @@ test-notebooks: setup-test-env
         --nbmake notebooks/quickstart/full_flow.ipynb
 
 [group('test')]
+test-syft-datasets: setup-test-env
+    #!/bin/sh
+    echo "{{ _cyan }}Running integration tests {{ _nc }}"
+    uv run --with "pytest-xdist" pytest -{{ _test_verbosity }} --color=yes -n {{ _test_workers }} packages/syft-datasets/tests/
+
+
+[group('test')]
 test: setup-test-env
     #!/bin/sh
     echo "{{ _cyan }}Running all tests in parallel{{ _nc }}"
