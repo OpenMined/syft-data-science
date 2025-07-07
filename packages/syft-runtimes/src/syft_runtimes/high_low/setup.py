@@ -4,6 +4,7 @@ import subprocess
 from pathlib import Path
 from typing import Optional
 
+from loguru import logger
 from syft_core import Client as SyftBoxClient
 from syft_core import SyftClientConfig
 from syft_core.types import PathLike, to_path
@@ -28,7 +29,7 @@ def high_side_connect(email: str, dir: PathLike | None = None) -> SyftBoxClient:
         dir = to_path(Path.home() / ".syftbox" / "high-datasites" / email)
 
     syftbox_client = SyftBoxClient.load(dir / "config.json")
-    print(
+    logger.debug(
         f"Connected to high datasite {syftbox_client.email} at {syftbox_client.workspace.data_dir}"
     )
 
@@ -78,15 +79,15 @@ def initialize_high_datasite(
         )
 
     if force_overwrite and dir.exists():
-        print(f"Overwriting existing directory: {dir}")
+        logger.debug(f"Overwriting existing directory: {dir}")
         shutil.rmtree(dir)
 
-    print(f"Creating directory: {dir}")
+    logger.debug(f"Creating directory: {dir}")
     dir.mkdir(parents=True, exist_ok=True)
     config_path = dir / "config.json"
     data_dir = dir / "SyftBox"
 
-    print(f"Saving SyftBox configuration to: {config_path}")
+    logger.debug(f"Saving SyftBox configuration to: {config_path}")
     syft_config = SyftClientConfig(
         email=email,
         client_url="http://testserver:5000",
@@ -98,7 +99,7 @@ def initialize_high_datasite(
     client = SyftBoxClient(conf=syft_config)
     client.datasite_path.mkdir(parents=True, exist_ok=True)
 
-    print(f"High datasite initialized successfully at: {data_dir}")
+    logger.debug(f"High datasite initialized successfully at: {data_dir}")
     return data_dir
 
 
@@ -120,7 +121,7 @@ def initialize_sync_config(
     low_ssh_key_path = to_path(low_ssh_key_path) if low_ssh_key_path else None
 
     highside_identifier = highside_identifier or _generate_high_side_name()
-    print(f"Using high side identifier: {highside_identifier}")
+    logger.debug(f"Using high side identifier: {highside_identifier}")
     sync_config_path = get_rsync_config_path(syftbox_client)
 
     if sync_config_path.exists() and not force_overwrite:
@@ -148,13 +149,13 @@ def initialize_sync_config(
     )
 
     if add_default_entries:
-        print("Adding default sync entries...")
+        logger.debug("Adding default sync entries...")
         default_entries = _get_default_sync_entries(syftbox_client, rsync_config)
         rsync_config.entries.extend(default_entries)
     rsync_config.save(syftbox_client)
-    print(f"Sync configuration saved to {sync_config_path}")
+    logger.debug(f"Sync configuration saved to {sync_config_path}")
 
-    print("Initializing sync directories...")
+    logger.debug("Initializing sync directories...")
     initialize_sync_dirs(rsync_config)
     rsync_config.save(syftbox_client)
     return rsync_config
@@ -189,6 +190,8 @@ def get_sync_commands(
         command = entry.to_command(rsync_config.connection_settings)
         commands.append(command)
 
+    logger.debug(f"Rsync commands: {commands}")
+
     return commands
 
 
@@ -196,16 +199,16 @@ def show_rsync_commands(
     direction: Optional[str | SyncDirection] = None,
     syftbox_client: Optional[SyftBoxClient] = None,
 ) -> None:
-    """Print rsync commands for configured sync entries, optionally filtered by direction."""
+    """logger.debug rsync commands for configured sync entries, optionally filtered by direction."""
     syftbox_client = syftbox_client or SyftBoxClient.load()
     commands = get_sync_commands(direction, syftbox_client=syftbox_client)
     if not commands:
-        print("No rsync commands found.")
+        logger.debug("No rsync commands found.")
         return
 
-    print("Rsync Commands:")
+    logger.debug("Rsync Commands:")
     for command in commands:
-        print(f"{command}")
+        logger.debug(f"{command}")
 
 
 def sync(
@@ -216,11 +219,11 @@ def sync(
     syftbox_client = syftbox_client or SyftBoxClient.load()
     commands = get_sync_commands(direction, syftbox_client=syftbox_client)
     if not commands:
-        print("No rsync commands to execute.")
+        logger.debug("No rsync commands to execute.")
         return
 
     for command in commands:
-        print(f"Executing: {command}")
+        logger.debug(f"Executing: {command}")
         subprocess.run(command, shell=True, check=True)
 
 
@@ -230,6 +233,9 @@ def prepare_dataset_for_low_side(
 ) -> None:
     sync_config = RsyncConfig.load(syftbox_client or SyftBoxClient.load())
     mock_dir = dataset.mock_dir
+    logger.debug(
+        f"Copying dataset {dataset.name} to {sync_config.datasets_dir(Side.HIGH)}"
+    )
     shutil.copytree(
         mock_dir,
         sync_config.datasets_dir(Side.HIGH) / dataset.name,
@@ -270,11 +276,13 @@ def prepare_datasets_from_high_side(
         local_dataset_path = local_mock_datasets_dir / dataset_name
         if local_dataset_path.exists() and overwrite is False:
             # If the dataset already exists, skip copying it.
-            print(
+            logger.debug(
                 f"Dataset {dataset_name} already exists in local mock datasets directory. Skipping copy."
             )
             continue
-        print(f"Copying dataset {dataset_name} to local mock datasets directory.")
+        logger.debug(
+            f"Copying dataset {dataset_name} to local mock datasets directory."
+        )
         shutil.copytree(
             dataset_path,
             local_dataset_path,
