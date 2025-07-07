@@ -52,3 +52,12 @@ def get_all(
         order_by,
         sort_order,
     )
+
+
+def delete(
+    name: str,
+    datasite: str | None = None,
+    syftbox_config_path: PathLike | None = None,
+) -> None:
+    dataset_manager = SyftDatasetManager.load(config_path=syftbox_config_path)
+    return dataset_manager.delete(name=name, datasite=datasite)
