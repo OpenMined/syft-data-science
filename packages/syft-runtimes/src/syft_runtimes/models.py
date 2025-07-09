@@ -29,6 +29,7 @@ class RuntimeKind(str, Enum):
 class BaseRuntimeConfig(BaseModel):
     """Base configuration for runtime environments."""
 
+    config_path: PathLike | None = None
     cmd: list[str] | None = None
 
     def validate_config(self) -> bool:
@@ -113,6 +114,10 @@ class KubernetesRuntimeConfig(BaseRuntimeConfig):
     namespace: str = "syft-rds"
     num_workers: int = 1
     cmd: list[str] = Field(default_factory=list)
+
+
+class HighLowRuntimeConfig(BaseRuntimeConfig):
+    pass
 
 
 RuntimeConfig = PythonRuntimeConfig | DockerRuntimeConfig | KubernetesRuntimeConfig
