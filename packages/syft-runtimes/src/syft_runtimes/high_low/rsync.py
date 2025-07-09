@@ -36,13 +36,20 @@ class RsyncEntry(BaseModel):
     def to_command(self, connection: SSHConnection | None = None) -> str:
         return generate_rsync_command(self, connection)
 
+    def show(self) -> str:
+        return (
+            f"   → Syncing {self.direction} from {self.local_dir} to {self.remote_dir}"
+        )
+
 
 class RsyncConfig(BaseModel):
+    # high_low_runtime_config: HighLowRuntimeConfig
     high_side_name: str
     high_syftbox_dir: Path
     low_syftbox_dir: Path
     connection_settings: SSHConnection | None = None
     entries: list[RsyncEntry] = []
+    syftbox_client_email: str | None = None
 
     @property
     def connection_type(self) -> ConnectionType:
@@ -71,18 +78,26 @@ class RsyncConfig(BaseModel):
             commands.append(command)
         return commands
 
-    def base_sync_dir(self, side: Side = Side.HIGH) -> Path:
+    def high_low_runtime_dir(self, side: Side = Side.HIGH) -> Path:
         base_dir = self.high_syftbox_dir if side == Side.HIGH else self.low_syftbox_dir
-        return base_dir / "private" / "job_runners" / self.high_side_name
+        return (
+            base_dir
+            / "private"
+            / self.syftbox_client_email
+            / "syft_runtimes"
+            / self.high_side_name
+        )
 
     def jobs_dir(self, side: Side = Side.HIGH) -> Path:
-        return self.base_sync_dir(side) / "jobs"
+        return self.high_low_runtime_dir(side) / "jobs"
 
     def outputs_dir(self, side: Side = Side.HIGH) -> Path:
-        return self.base_sync_dir(side) / "outputs"
+        return self.high_low_runtime_dir(side) / "done"
 
-    def datasets_dir(self, side: Side = Side.HIGH) -> Path:
-        return self.base_sync_dir(side) / "datasets"
+    def public_dataset_dirs(self, side: Side = Side.HIGH) -> Path:
+        # TODO: let's remove this datasets folder. We can keep an entry in the
+        # high low's runtime config.yaml file
+        return self.high_low_runtime_dir(side) / "datasets"
 
 
 def get_rsync_config_path(
