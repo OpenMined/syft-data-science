@@ -91,7 +91,13 @@ def high_side_connect(email: str, data_dir: PathLike | None = None) -> SyftBoxCl
     else:
         data_dir = to_path(DEFAULT_HIGH_SIDE_DATA_DIR / email)
 
-    syftbox_client = SyftBoxClient.load(data_dir / "config.json")
+    config_path = data_dir / "config.json"
+    syftbox_client = SyftBoxClient.load(config_path)
+    if syftbox_client.email != email:
+        raise ValueError(
+            f"Provided email ({email}) does not match the email in the config file at {config_path}, which is "
+        )
+
     logger.debug(
         f"Connected to high datasite {syftbox_client.email} at {syftbox_client.workspace.data_dir}"
     )
