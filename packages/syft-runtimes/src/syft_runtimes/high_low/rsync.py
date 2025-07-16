@@ -1,6 +1,7 @@
 from enum import StrEnum
 from pathlib import Path
 
+from loguru import logger
 from pydantic import BaseModel
 from syft_core import Client as SyftBoxClient
 
@@ -57,12 +58,17 @@ class RsyncConfig(BaseModel):
             return ConnectionType.LOCAL
         return ConnectionType.SSH
 
+    def path(self, syftbox_client: SyftBoxClient) -> Path:
+        return get_rsync_config_path(syftbox_client)
+
     def save(self, syftbox_client: SyftBoxClient) -> None:
-        config_path = get_rsync_config_path(syftbox_client)
-        config_path.write_text(self.model_dump_json(indent=2))
+        self.path(syftbox_client=syftbox_client).write_text(
+            self.model_dump_json(indent=2)
+        )
 
     @classmethod
     def load(cls, syftbox_client: SyftBoxClient) -> "RsyncConfig":
+        logger.debug(f"Loading rsync config from {syftbox_client.workspace.data_dir}")
         config_path = get_rsync_config_path(syftbox_client)
         if not config_path.exists():
             raise FileNotFoundError(
