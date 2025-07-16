@@ -4,8 +4,6 @@ from syft_runtimes.high_low.setup import (
     create_default_sync_config,
     sync,
     sync_dataset,
-    prepare_dataset_for_low_side,
-    prepare_datasets_from_high_side,
 )
 
 __all__ = [
@@ -14,6 +12,4 @@ __all__ = [
     "create_default_sync_config",
     "sync",
     "sync_dataset",
-    "prepare_dataset_for_low_side",
-    "prepare_datasets_from_high_side",
 ]

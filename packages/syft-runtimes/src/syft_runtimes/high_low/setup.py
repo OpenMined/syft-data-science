@@ -9,8 +9,6 @@ from pydantic import BaseModel
 from syft_core import Client as SyftBoxClient
 from syft_core import SyftClientConfig
 from syft_core.types import PathLike, to_path
-from syft_datasets import Dataset
-from syft_datasets.dataset_manager import SyftDatasetManager
 
 from syft_runtimes.high_low.rsync import (
     RsyncConfig,
@@ -281,77 +279,6 @@ def _execute_sync_commands(commands: list[str], verbose: bool) -> SyncResult:
         logger.error(f"❌ {num_failed} of {len(commands)} sync operations failed")
 
     return result
-
-
-def prepare_dataset_for_low_side(
-    dataset: Dataset,
-    syftbox_client: Optional[SyftBoxClient] = None,
-) -> None:
-    sync_config = RsyncConfig.load(syftbox_client or SyftBoxClient.load())
-    mock_dir = dataset.mock_dir
-    logger.debug(
-        f"Copying dataset {dataset.name} to {sync_config.public_dataset_dirs(Side.HIGH)}"
-    )
-
-    shutil.copytree(
-        mock_dir,
-        sync_config.public_dataset_dirs(Side.HIGH) / dataset.name,
-        dirs_exist_ok=True,
-    )
-
-
-def prepare_datasets_from_high_side(
-    high_side_name: str,
-    overwrite: bool = False,
-    syftbox_client: SyftBoxClient | None = None,
-) -> None:
-    syftbox_client = syftbox_client or SyftBoxClient.load()
-    high_side_runtime_folder = (
-        syftbox_client.workspace.data_dir
-        / "private"
-        / syftbox_client.email
-        / "syft_runtimes"
-        / high_side_name
-    )
-    if not high_side_runtime_folder.is_dir():
-        raise ValueError(
-            f"High side runtime folder {high_side_runtime_folder} does not exist or is not a directory."
-        )
-    high_datasets_dir = high_side_runtime_folder / "datasets"
-    if not high_datasets_dir.is_dir():
-        raise ValueError(
-            f"High side datasets directory {high_datasets_dir} does not exist or is not a directory."
-        )
-
-    dataset_manager = SyftDatasetManager(syftbox_client=syftbox_client)
-    local_mock_datasets_dir = dataset_manager.public_dir_for_datasite(
-        syftbox_client.email
-    )
-
-    # Foreach dataset in the high side datasets directory,
-    # check if it already exists (warning) and if not, copy it to the local mock datasets directory.
-    for dataset_path in high_datasets_dir.iterdir():
-        if not dataset_path.is_dir():
-            continue
-        dataset_name = dataset_path.name
-        local_dataset_path = local_mock_datasets_dir / dataset_name
-        if local_dataset_path.exists() and overwrite is False:
-            # If the dataset already exists, skip copying it.
-            logger.debug(
-                f"Dataset {dataset_name} already exists in local mock datasets directory. Skipping copy."
-            )
-            continue
-        logger.debug(
-            f"Copying dataset {dataset_name} to local mock datasets directory."
-        )
-        logger.debug(
-            f"Copying dataset {dataset_name}: source: {dataset_path}, destination: {local_dataset_path}"
-        )
-        shutil.copytree(
-            dataset_path,
-            local_dataset_path,
-            dirs_exist_ok=True,
-        )
 
 
 def _generate_high_side_name() -> str:
