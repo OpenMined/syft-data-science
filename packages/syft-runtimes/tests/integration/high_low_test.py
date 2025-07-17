@@ -1,6 +1,7 @@
 import tempfile
 import pytest
 from pathlib import Path
+
 from syft_core import Client as SyftBoxClient
 from syft_core import SyftClientConfig
 
@@ -459,7 +460,8 @@ def test_dataset_name_added_to_config(highside_client_and_config, lowside_client
 
 
 def test_multiple_datasets_sync(highside_client_and_config, lowside_client):
-    """Test syncing multiple datasets and verify config tracking.
+    """Test syncing multiple datasets (uploaded 4, sync 2) and verify that only the synced
+    datasets get synced, and the runtime config gets updated accordingly.
 
     high datasite (after creating multiple datasets):
     ├── config.json
@@ -470,16 +472,18 @@ def test_multiple_datasets_sync(highside_client_and_config, lowside_client):
         │           └── syft_datasets
         │               ├── dataset_1/
         │               ├── dataset_2/
-        │               └── dataset_3/
+        │               ├── dataset_3/
+        │               └── dataset_4/
         └── private
             └── test@openmined.org
                 ├── syft_datasets
                 │   ├── dataset_1/
                 │   ├── dataset_2/
-                │   └── dataset_3/
+                │   ├── dataset_3/
+                │   └── dataset_4/
                 └── syft_runtimes
                     └── test-highside-1234/
-                        └── config.yaml  # contains all 3 dataset names
+                        └── config.yaml  # contains all 4 dataset names
 
     low datasite (after sync):
     ├── config.json
@@ -489,16 +493,16 @@ def test_multiple_datasets_sync(highside_client_and_config, lowside_client):
         │       └── public
         │           └── syft_datasets
         │               ├── dataset_1/  # mock data only
-        │               ├── dataset_2/  # mock data only
-        │               └── dataset_3/  # mock data only
+        │               └── dataset_2/  # mock data only
         └── private
             └── test@openmined.org
                 └── syft_runtimes
                     └── test-highside-1234/
-                        └── config.yaml  # contains all 3 dataset names
+                        └── config.yaml  # contains only the 2 synced dataset names
     """
     highside_client, sync_config, _ = highside_client_and_config
-    dataset_names = ["dataset_1", "dataset_2", "dataset_3"]
+    dataset_names = ["dataset_1", "dataset_2", "dataset_3", "dataset_4"]
+    sync_dataset_names = ["dataset_1", "dataset_2"]
 
     # Create multiple datasets on high side
     high_dataset_manager = SyftDatasetManager(syftbox_client=highside_client)
@@ -511,6 +515,7 @@ def test_multiple_datasets_sync(highside_client_and_config, lowside_client):
             readme_path=DATA_DIR / "README.md",
         )
 
+    for dataset_name in sync_dataset_names:
         # Sync each dataset
         syhl.sync_dataset(
             dataset_name=dataset_name,
@@ -522,9 +527,9 @@ def test_multiple_datasets_sync(highside_client_and_config, lowside_client):
     low_dataset_manager = SyftDatasetManager(syftbox_client=lowside_client)
     low_datasets = low_dataset_manager.get_all()
 
-    assert len(low_datasets) == len(dataset_names)
+    assert len(low_datasets) == len(sync_dataset_names)
     low_dataset_names = [d.name for d in low_datasets]
-    for dataset_name in dataset_names:
+    for dataset_name in sync_dataset_names:
         assert dataset_name in low_dataset_names
 
     # Verify all dataset names are in config files
@@ -534,7 +539,7 @@ def test_multiple_datasets_sync(highside_client_and_config, lowside_client):
     low_runtime_dir = sync_config.high_low_runtime_dir(Side.LOW)
     low_config = HighLowRuntimeConfig.from_yaml(low_runtime_dir / "config.yaml")
 
-    for dataset_name in dataset_names:
+    for dataset_name in sync_dataset_names:
         assert dataset_name in high_config.datasets
         assert dataset_name in low_config.datasets
 
