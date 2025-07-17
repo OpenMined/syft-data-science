@@ -4,8 +4,8 @@ import json
 import hashlib
 from typing import Any, TypeAlias, Union, Literal, Optional
 import os
+from uuid import UUID, uuid4
 from IPython.display import HTML, display
-from datetime import datetime
 
 from loguru import logger
 from pydantic import (
@@ -16,6 +16,7 @@ from pydantic import (
 )
 
 from syft_notebook_ui.pydantic_html_repr import create_html_repr
+from syft_runtimes.consts import DEFAULT_RUNTIME
 import yaml
 
 PathLike: TypeAlias = Union[str, os.PathLike, Path]
@@ -200,56 +201,49 @@ class RuntimeUpdate(BaseModel):
 
 
 class JobConfig(BaseModel):
-    """Configuration for a job run"""
+    # Job identification
+    job_id: UUID = Field(default_factory=uuid4)
 
-    function_folder: Path
-    args: list[str]
-    data_path: Path
-    runtime: Runtime
-    job_folder: Optional[Path] = Field(
-        default_factory=lambda: Path("jobs") / datetime.now().strftime("%Y%m%d_%H%M%S")
-    )
-    timeout: int = 60
-    data_mount_dir: str = "/app/data"
-    extra_env: dict[str, str] = {}
-    blocking: bool = Field(default=True)
+    # Core execution parameters
+    dataset_name: str | None = None  # Name of the dataset to use
+    code_path: PathLike  # Path to the code file/folder to execute
+    entrypoint: str | None = None
+    runtime_name: str = DEFAULT_RUNTIME  # Which runtime to use
 
-    @property
-    def job_path(self) -> Path:
-        """Derived path for job folder"""
-        return Path(self.job_folder)
+    # Execution parameters
+    timeout: int = 300  # Timeout in seconds (5 minutes default)
+    args: list[str] = Field(default_factory=list)  # Command line arguments
+    env: dict[str, str] = Field(default_factory=dict)  # Environment variables
 
-    @property
-    def logs_dir(self) -> Path:
-        """Derived path for logs directory"""
-        return self.job_path / "logs"
+    # Status and metadata
+    status: str = "pending_code_review"
+    created_at: Optional[float] = None
+    completed_at: Optional[float] = None
 
-    @property
-    def output_dir(self) -> Path:
-        """Derived path for output directory"""
-        return self.job_path / "output"
+    @model_validator(mode="after")
+    def validate_code_path(self):
+        if self.code_path is not None:
+            code_path = Path(self.code_path).expanduser().resolve()
+            if not code_path.exists():
+                raise FileNotFoundError(f"Code path '{self.code_path}' does not exist")
+        return self
 
-    def get_env(self) -> dict[str, str]:
-        return self.extra_env | self._base_env
+    def save_to_yaml(self, config_path: PathLike) -> None:
+        """Save the config to a YAML file."""
+        yaml_dump = yaml.safe_dump(
+            self.model_dump(mode="json", exclude_none=True),
+            indent=2,
+            sort_keys=False,
+        )
+        Path(config_path).write_text(yaml_dump)
 
-    def get_env_as_docker_args(self) -> list[str]:
-        return [f"-e {k}={v}" for k, v in self.get_env().items()]
-
-    def get_extra_env_as_docker_args(self) -> list[str]:
-        return [f"-e {k}={v}" for k, v in self.extra_env.items()]
-
-    @property
-    def _base_env(self) -> dict[str, str]:
-        interpreter = " ".join(self.runtime.cmd)
-        # interpreter_str = f"'{interpreter}'" if " " in interpreter else interpreter
-        return {
-            "OUTPUT_DIR": str(self.output_dir.absolute()),
-            "DATA_DIR": str(self.data_path.absolute()),
-            "CODE_DIR": str(self.function_folder.absolute()),
-            "TIMEOUT": str(self.timeout),
-            "INPUT_FILE": str(self.function_folder / self.args[0]),
-            "INTERPRETER": interpreter,
-        }
+    @classmethod
+    def from_yaml(cls, config_path: Path) -> "JobConfig":
+        """Create instance from YAML file."""
+        with open(config_path, "r") as f:
+            config_dict = yaml.safe_load(f)
+        config_dict["config_path"] = config_path
+        return cls(**config_dict)
 
 
 class JobResults(BaseModel):
