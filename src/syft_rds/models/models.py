@@ -437,6 +437,7 @@ class DatasetCreate(ItemBaseCreate[Dataset]):
 
 class DatasetUpdate(ItemBaseUpdate[Dataset]):
     name: Optional[str] = None
+    path: str = Field(description="Path of the new private dataset directory")
     summary: Optional[str] = None
     auto_approval: Optional[list[str]] = Field(
         default_factory=list,

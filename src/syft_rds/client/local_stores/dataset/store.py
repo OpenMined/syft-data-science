@@ -173,6 +173,11 @@ class DatasetLocalStore(CRUDLocalStore[Dataset, DatasetCreate, DatasetUpdate]):
                 updated_dataset.mock = new_mock_url
                 updated_dataset.readme = new_readme_url
 
+            if update_item.path:
+                self._files_manager.copy_private_to_private_syftbox_dir(
+                    updated_dataset.name, update_item.path
+                )
+
             updated_dataset = self.store.update(updated_dataset.uid, updated_dataset)
             return updated_dataset._register_client_id_recursive(self.config.uid)
         except DatasetExistsError:
