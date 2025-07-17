@@ -10,7 +10,7 @@ class DatasetUrlManager:
 
     @staticmethod
     def get_mock_dataset_syftbox_url(
-        datasite_email: str, dataset_name: str, mock_path: Union[Path, str]
+        datasite_email: str, dataset_name: str, mock_path: Union[Path, str] = None
     ) -> SyftBoxURL:
         """Generate a SyftBox URL for the mock dataset."""
         return SyftBoxURL(
@@ -34,3 +34,15 @@ class DatasetUrlManager:
         return SyftBoxURL(
             f"syft://{datasite_email}/{DIRECTORY_PUBLIC}/{DIRECTORY_DATASETS}/{dataset_name}/{Path(readme_path).name}"
         )
+
+    @staticmethod
+    def update_readme_syftbox_url(
+        url: SyftBoxURL, *, dataset_name: str = None
+    ) -> SyftBoxURL:
+        path = Path(url.path)
+        datasite_email = url.host
+
+        if dataset_name:
+            path = path.parent.parent / dataset_name / path.name
+
+        return SyftBoxURL(f"syft://{datasite_email}/{path}")
