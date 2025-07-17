@@ -1,6 +1,7 @@
 from enum import StrEnum
 from pathlib import Path
 
+from loguru import logger
 from pydantic import BaseModel
 from syft_core import Client as SyftBoxClient
 
@@ -36,13 +37,20 @@ class RsyncEntry(BaseModel):
     def to_command(self, connection: SSHConnection | None = None) -> str:
         return generate_rsync_command(self, connection)
 
+    def show(self) -> str:
+        return (
+            f"   → Syncing {self.direction} from {self.local_dir} to {self.remote_dir}"
+        )
+
 
 class RsyncConfig(BaseModel):
+    # high_low_runtime_config: HighLowRuntimeConfig
     high_side_name: str
     high_syftbox_dir: Path
     low_syftbox_dir: Path
     connection_settings: SSHConnection | None = None
     entries: list[RsyncEntry] = []
+    syftbox_client_email: str | None = None
 
     @property
     def connection_type(self) -> ConnectionType:
@@ -50,12 +58,17 @@ class RsyncConfig(BaseModel):
             return ConnectionType.LOCAL
         return ConnectionType.SSH
 
+    def path(self, syftbox_client: SyftBoxClient) -> Path:
+        return get_rsync_config_path(syftbox_client)
+
     def save(self, syftbox_client: SyftBoxClient) -> None:
-        config_path = get_rsync_config_path(syftbox_client)
-        config_path.write_text(self.model_dump_json(indent=2))
+        self.path(syftbox_client=syftbox_client).write_text(
+            self.model_dump_json(indent=2)
+        )
 
     @classmethod
     def load(cls, syftbox_client: SyftBoxClient) -> "RsyncConfig":
+        logger.debug(f"Loading rsync config from {syftbox_client.workspace.data_dir}")
         config_path = get_rsync_config_path(syftbox_client)
         if not config_path.exists():
             raise FileNotFoundError(
@@ -71,18 +84,26 @@ class RsyncConfig(BaseModel):
             commands.append(command)
         return commands
 
-    def base_sync_dir(self, side: Side = Side.HIGH) -> Path:
+    def high_low_runtime_dir(self, side: Side = Side.HIGH) -> Path:
         base_dir = self.high_syftbox_dir if side == Side.HIGH else self.low_syftbox_dir
-        return base_dir / "private" / "job_runners" / self.high_side_name
+        return (
+            base_dir
+            / "private"
+            / self.syftbox_client_email
+            / "syft_runtimes"
+            / self.high_side_name
+        )
 
     def jobs_dir(self, side: Side = Side.HIGH) -> Path:
-        return self.base_sync_dir(side) / "jobs"
+        return self.high_low_runtime_dir(side) / "jobs"
 
     def outputs_dir(self, side: Side = Side.HIGH) -> Path:
-        return self.base_sync_dir(side) / "outputs"
+        return self.high_low_runtime_dir(side) / "done"
 
-    def datasets_dir(self, side: Side = Side.HIGH) -> Path:
-        return self.base_sync_dir(side) / "datasets"
+    def public_dataset_dirs(self, side: Side = Side.HIGH) -> Path:
+        # TODO: let's remove this datasets folder. We can keep an entry in the
+        # high low's runtime config.yaml file
+        return self.high_low_runtime_dir(side) / "datasets"
 
 
 def get_rsync_config_path(

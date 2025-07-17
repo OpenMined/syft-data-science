@@ -135,6 +135,18 @@ test: setup-test-env
     just test-notebooks &
     wait
     just clean
+
+[group('test')]
+test-syft-runtimes-integration: setup-test-env
+    #!/bin/sh
+    echo "{{ _cyan }}Running syft-runtimes integration tests {{ _nc }}"
+    uv run --with "pytest-xdist" pytest -{{ _test_verbosity }} --color=yes -n {{ _test_workers }} packages/syft-runtimes/tests/integration/
+
+[group('test')]
+test-syft-runtimes: setup-test-env
+    #!/bin/sh
+    echo "{{ _cyan }}Running all syft-runtimes tests{{ _nc }}"
+    just test-syft-runtimes-integration
 # ---------------------------------------------------------------------------------------------------------------------
 
 # Run a local syftbox client on any available port between 8080-9000
