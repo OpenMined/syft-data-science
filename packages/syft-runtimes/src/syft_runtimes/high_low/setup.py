@@ -20,7 +20,7 @@ from syft_runtimes.high_low.rsync import (
 )
 from syft_runtimes.high_low.consts import DEFAULT_HIGH_SIDE_DATA_DIR
 from syft_runtimes.models import BaseRuntimeConfig
-from syft_runtimes.runners import HighLowRuntime
+from syft_runtimes.runtimes import HighLowRuntime
 
 
 class HighLowRuntimeConfig(BaseRuntimeConfig):

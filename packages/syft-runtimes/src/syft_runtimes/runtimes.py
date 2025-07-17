@@ -1,13 +1,9 @@
 import os
 import subprocess
 import time
-import threading
-import json
-import shutil
-from abc import abstractmethod
 from pathlib import Path
 from typing import Callable, Optional, Type
-from uuid import uuid4
+from uuid import UUID
 
 from loguru import logger
 from syft_core import Client as SyftBoxClient
@@ -395,6 +391,7 @@ class DockerRunner(SyftRuntime):
 # ------- new runtime classes -------
 class FolderBasedRuntime:
     """Base class for folder-based syft runtimes that has the following structure:
+    Suppose that we are looking from the perspective of the 'do1@openmined.org'
     └── SyftBox
         ├── datasites/
         │   ├── do1@openmined.org
@@ -461,198 +458,46 @@ class FolderBasedRuntime:
         self.config.update(**kwargs)
 
     def submit_job(self, job_config: JobConfig) -> str:
-        """Submit a job to the execution queue"""
-        job_id = str(uuid4())
-        job_file = self.jobs_dir / f"{job_id}.json"
+        """Submit a job to the jobs (syft_runtimes/<runtime_name>/jobs) queue"""
+        raise NotImplementedError
 
-        # Serialize job config to JSON
-        job_data = {
-            "job_id": job_id,
-            "config": job_config.model_dump_json(),
-            "status": JobStatus.pending_code_review.value,
-            "created_at": time.time(),
-        }
+    def get_job_status(self, job_id: UUID) -> JobStatus:
+        """Get the current status of a job which can be pending (in `jobs/`),
+        in progress (in `running/`), or finished (in `done/`).
+        """
+        raise NotImplementedError
 
-        job_file.write_text(json.dumps(job_data, indent=2))
-        logger.info(f"Job {job_id} submitted to {job_file}")
-        return job_id
+    def get_job_results(self, job_id: UUID) -> JobResults:
+        """Get the results of a completed job (in the `done/` folder)"""
+        raise NotImplementedError
 
-    def get_job_status(self, job_id: str) -> JobStatus:
-        """Get the current status of a job"""
-        # Check in execution queue
-        job_file = self.jobs_dir / f"{job_id}.json"
-        if job_file.exists():
-            job_data = json.loads(job_file.read_text())
-            return JobStatus(job_data["status"])
+    def _get_job_config(self, job_id: UUID) -> JobConfig:
+        """Get the job config for a particular job"""
+        raise NotImplementedError
 
-        # Check in done folder
-        done_file = self.done_dir / f"{job_id}.json"
-        if done_file.exists():
-            job_data = json.loads(done_file.read_text())
-            return JobStatus(job_data["status"])
+    def _polling_jobs(self) -> None:
+        """Polling for new jobs by watching the `jobs/` folder"""
+        raise NotImplementedError
 
-        # Check status updates
-        status_file = self.running_dir / f"{job_id}_status.json"
-        if status_file.exists():
-            status_data = json.loads(status_file.read_text())
-            return JobStatus(status_data["status"])
+    def _stop_polling_jobs(self) -> None:
+        """Stop polling for jobs by watching the `jobs/` folder"""
+        raise NotImplementedError
 
-        raise ValueError(f"Job {job_id} not found")
+    def _move_to_running(self, job_id: UUID) -> None:
+        """Move a pending job from `jobs/` to the `running/` folder"""
+        raise NotImplementedError
 
-    def get_job_results(self, job_id: str) -> JobResults:
-        """Get the results of a completed job"""
-        done_file = self.done_dir / f"{job_id}.json"
-        if not done_file.exists():
-            raise ValueError(f"Job {job_id} is not completed or not found")
+    def _process_job_queue(self) -> None:
+        """Process all pending jobs in the `jobs/` folder"""
+        raise NotImplementedError
 
-        job_data = json.loads(done_file.read_text())
-        if job_data["status"] != JobStatus.job_run_finished.value:
-            raise ValueError(f"Job {job_id} has not finished successfully")
-
-        results_dir = self.done_dir / f"{job_id}_results"
-        if not results_dir.exists():
-            raise ValueError(f"Results directory for job {job_id} not found")
-
-        return JobResults(results_dir=results_dir)
-
-    def watch_folders(self) -> None:
-        """Start watching the folders for new jobs (non-blocking)"""
-        if self._running:
-            logger.warning("Folder watching is already running")
-            return
-
-        self._running = True
-        self._watch_thread = threading.Thread(target=self._watch_loop, daemon=True)
-        self._watch_thread.start()
-        logger.info("Started folder watching thread")
-
-    def stop_watching(self) -> None:
-        """Stop watching folders"""
-        self._running = False
-        if self._watch_thread:
-            self._watch_thread.join(timeout=5)
-        logger.info("Stopped folder watching")
-
-    def _watch_loop(self) -> None:
-        """Main loop for watching and processing jobs"""
-        while self._running:
-            try:
-                self.process_job_queue()
-                time.sleep(1)  # Check every second
-            except Exception as e:
-                logger.error(f"Error in watch loop: {e}")
-                time.sleep(5)  # Wait longer on error
-
-    def process_job_queue(self) -> None:
-        """Process all pending jobs in the queue"""
-        job_files = list(self.jobs_dir.glob("*.json"))
-
-        for job_file in job_files:
-            try:
-                job_data = json.loads(job_file.read_text())
-                job_id = job_data["job_id"]
-
-                # Skip if not pending
-                if job_data["status"] != JobStatus.pending_code_review.value:
-                    continue
-
-                logger.info(f"Processing job {job_id}")
-
-                # Load job config
-                job_config = JobConfig.model_validate_json(job_data["config"])
-
-                # Execute the job
-                self._execute_job(job_id, job_config, job_data)
-
-            except Exception as e:
-                logger.error(f"Error processing job file {job_file}: {e}")
-
-    def _execute_job(self, job_id: str, job_config: JobConfig, job_data: dict) -> None:
+    def _execute_job(self, job_id: UUID) -> None:
         """Execute a single job"""
-        try:
-            # Update status to in progress
-            job_data["status"] = JobStatus.job_in_progress.value
-            job_file = self.jobs_dir / f"{job_id}.json"
-            job_file.write_text(json.dumps(job_data, indent=2))
+        raise NotImplementedError
 
-            # Run the job
-            result = self.run(job_config)
-
-            if isinstance(result, tuple):
-                return_code, error_message = result
-            else:
-                # Handle non-blocking case - for folder-based runner, we'll make it blocking
-                return_code = result.wait()
-                error_message = None
-                if return_code != 0:
-                    stderr_output = result.stderr.read() if result.stderr else ""
-                    error_message = stderr_output
-
-            # Update job status based on result
-            if return_code == 0:
-                job_data["status"] = JobStatus.job_run_finished.value
-                job_data["error"] = JobErrorKind.no_error.value
-                job_data["error_message"] = None
-            else:
-                job_data["status"] = JobStatus.job_run_failed.value
-                job_data["error"] = JobErrorKind.execution_failed.value
-                job_data["error_message"] = error_message
-
-            job_data["completed_at"] = time.time()
-
-            # Move to done folder
-            self.move_to_done(job_id, job_data, job_config)
-
-        except Exception as e:
-            logger.error(f"Error executing job {job_id}: {e}")
-            job_data["status"] = JobStatus.job_run_failed.value
-            job_data["error"] = JobErrorKind.execution_failed.value
-            job_data["error_message"] = str(e)
-            job_data["completed_at"] = time.time()
-            self.move_to_done(job_id, job_data, job_config)
-
-    def move_to_done(self, job_id: str, job_data: dict, job_config: JobConfig) -> None:
-        """Move a completed job to the done folder"""
-        # Save job metadata to done folder
-        done_file = self.done_dir
-        done_file.write_text(json.dumps(job_data, indent=2))
-
-        # Copy job results (output and logs) to done folder if they exist
-        if job_config.output_dir.exists():
-            results_dir = self.done_jobs_dir / f"{job_id}_results"
-            if results_dir.exists():
-                shutil.rmtree(results_dir)
-            shutil.copytree(job_config.job_path, results_dir)
-
-        # Remove from execution queue
-        job_file = self.jobs_to_execute_dir / f"{job_id}.json"
-        if job_file.exists():
-            job_file.unlink()
-
-        logger.info(
-            f"Job {job_id} moved to done folder with status {job_data['status']}"
-        )
-
-    @abstractmethod
-    def _prepare_job_folders(self, job_config: JobConfig) -> None:
-        """Prepare job-specific folders - to be implemented by subclasses"""
-        pass
-
-    @abstractmethod
-    def _validate_paths(self, job_config: JobConfig) -> None:
-        """Validate job paths - to be implemented by subclasses"""
-        pass
-
-    @abstractmethod
-    def _run_subprocess(
-        self,
-        cmd: list[str],
-        job_config: JobConfig,
-        env: dict | None = None,
-        blocking: bool = True,
-    ) -> tuple[int, str | None] | subprocess.Popen:
-        """Run subprocess - to be implemented by subclasses"""
-        pass
+    def _move_to_done(self, job_id: UUID) -> None:
+        """Move a completed or errored job from the `running/` to the `done/` folder"""
+        raise NotImplementedError
 
 
 class HighLowRuntime:
@@ -670,6 +515,12 @@ class HighLowRuntime:
     def init_runtime_dir(self) -> None:
         self.highside_runtime.init_runtime_dir()
         self.lowside_runtime.init_runtime_dir()
+
+
+class PythonRuntime(FolderBasedRuntime):
+    """Python runtime that runs a Python job in a local subprocess."""
+
+    pass
 
 
 def get_runner_cls(job_config: JobConfig) -> Type[SyftRuntime]:
