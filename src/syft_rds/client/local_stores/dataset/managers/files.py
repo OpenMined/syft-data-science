@@ -3,6 +3,8 @@ from pathlib import Path
 from typing import Union
 from loguru import logger
 
+from syft_rds.models.models import DatasetCreate
+
 from .path import DatasetPathManager
 
 
@@ -119,7 +121,7 @@ class DatasetFilesManager:
         path: Union[str, Path],
     ) -> Path:
         """Copy private data to the private SyftBox directory."""
-        private_dataset_dir: Path = self._path_manager.get_syftbox_private_dataset_dir(
+        private_dataset_dir: Path = self._path_manager.get_local_private_dataset_dir(
             dataset_name
         )
         return self.copy_directory(path, private_dataset_dir)
@@ -140,6 +142,18 @@ class DatasetFilesManager:
         shutil.copy2(description_path, dest_path)
         return dest_path
 
+    def copy_dataset_files(self, dataset_create: DatasetCreate) -> None:
+        """Copy all necessary files for a new dataset."""
+        self.copy_mock_to_public_syftbox_dir(
+            dataset_create.name, dataset_create.mock_path
+        )
+        self.copy_description_file_to_public_syftbox_dir(
+            dataset_create.name, dataset_create.description_path
+        )
+        self.copy_private_to_private_syftbox_dir(
+            dataset_create.name, dataset_create.path
+        )
+
     def cleanup_dataset_files(self, name: str) -> None:
         """
         Remove all dataset files for a given dataset name.
@@ -152,13 +166,44 @@ class DatasetFilesManager:
         """
         try:
             public_dir = self._path_manager.get_local_public_dataset_dir(name)
-            private_dir = self._path_manager.get_syftbox_private_dataset_dir(name)
+            private_dir = self._path_manager.get_local_private_dataset_dir(name)
 
             self._safe_remove_directory(public_dir)
             self._safe_remove_directory(private_dir)
         except Exception as e:
             logger.error(f"Failed to cleanup dataset files: {str(e)}")
             raise RuntimeError(f"Failed to clean up dataset '{name}'") from e
+
+    def move_dataset_files(
+        self, src_dataset_name: str, dst_dataset_name: str, overwrite: bool = False
+    ) -> None:
+        src_public_dir = self._path_manager.get_local_public_dataset_dir(
+            src_dataset_name
+        )
+        src_private_dir: Path = self._path_manager.get_local_private_dataset_dir(
+            src_dataset_name
+        )
+
+        if not src_public_dir.exists() or not src_private_dir.exists():
+            raise FileNotFoundError("Source directories don't exist.")
+
+        dst_public_dir: Path = self._path_manager.get_local_public_dataset_dir(
+            dst_dataset_name
+        )
+        dst_private_dir: Path = self._path_manager.get_local_private_dataset_dir(
+            dst_dataset_name
+        )
+
+        if not overwrite and (dst_public_dir.exists() or dst_private_dir.exists()):
+            raise FileExistsError("Destination directories already exist.")
+
+        if dst_public_dir.exists():
+            shutil.rmtree(dst_public_dir)
+        if dst_private_dir.exists():
+            shutil.rmtree(dst_private_dir)
+
+        shutil.move(src_public_dir, dst_public_dir)
+        shutil.move(src_private_dir, dst_private_dir)
 
     def _safe_remove_directory(self, directory: Path) -> None:
         """Safely remove a directory if it exists."""
