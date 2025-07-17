@@ -12,3 +12,7 @@ class DatasetExistsError(RDSClientError):
 
 class DatasetNotFoundError(RDSClientError):
     pass
+
+
+class JobNotFoundError(RDSClientError):
+    pass
