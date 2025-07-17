@@ -1,5 +1,7 @@
 from pathlib import Path
+import traceback
 from typing import TYPE_CHECKING, Final, Type, Union
+from syft_rds.client.exceptions import DatasetExistsError, DatasetNotFoundError
 from syft_rds.client.local_stores.base import CRUDLocalStore
 from syft_rds.models.models import (
     Dataset,
@@ -10,11 +12,12 @@ from syft_rds.models.models import (
 )
 from syft_core import Client as SyftBoxClient
 
-
-from .managers.files import DatasetFilesManager
-from .managers.path import DatasetPathManager
-from .managers.url import DatasetUrlManager
-from .managers.schema import DatasetSchemaManager
+from .managers import (
+    DatasetPathManager,
+    DatasetFilesManager,
+    DatasetUrlManager,
+    DatasetSchemaManager,
+)
 
 if TYPE_CHECKING:
     from syft_rds.client.rds_client import RDSClientConfig
@@ -34,7 +37,7 @@ class DatasetLocalStore(CRUDLocalStore[Dataset, DatasetCreate, DatasetUpdate]):
             syftbox_client: The SyftBox client
         """
         super().__init__(config, syftbox_client)
-        self._path_manager = DatasetPathManager(self.syftbox_client, self.config.host)
+        self._path_manager = DatasetPathManager(self.syftbox_client)
         self._files_manager = DatasetFilesManager(self._path_manager)
         self._schema_manager = DatasetSchemaManager(self._path_manager, self.store)
 
@@ -53,7 +56,9 @@ class DatasetLocalStore(CRUDLocalStore[Dataset, DatasetCreate, DatasetUpdate]):
             mock_path: Path to mock data
 
         Raises:
-            ValueError: If validation fails
+            DatasetExistsError: if the Dataset name already exists
+            FileNotFoundError: if the private/mock paths don't exist
+            NotADirectoryError: if the provided private/mock paths are not directories
         """
         self._validate_dataset_name_unique(name)
         self._validate_path_existence(path, mock_path)
@@ -63,9 +68,9 @@ class DatasetLocalStore(CRUDLocalStore[Dataset, DatasetCreate, DatasetUpdate]):
         """Validate that dataset name is unique."""
         if (
             self._path_manager.get_local_public_dataset_dir(name).exists()
-            or self._path_manager.get_syftbox_private_dataset_dir(name).exists()
+            or self._path_manager.get_local_private_dataset_dir(name).exists()
         ):
-            raise ValueError(f"Dataset with name '{name}' already exists")
+            raise DatasetExistsError(f"Dataset with name '{name}' already exists")
 
     def _validate_path_existence(
         self, path: Union[str, Path], mock_path: Union[str, Path]
@@ -100,7 +105,7 @@ class DatasetLocalStore(CRUDLocalStore[Dataset, DatasetCreate, DatasetUpdate]):
             dataset_create.mock_path,
         )
         try:
-            self._copy_dataset_files(dataset_create)
+            self._files_manager.copy_dataset_files(dataset_create)
             dataset = self._schema_manager.create(dataset_create)
             return dataset._register_client_id_recursive(self.config.uid)
         except Exception as e:
@@ -109,18 +114,6 @@ class DatasetLocalStore(CRUDLocalStore[Dataset, DatasetCreate, DatasetUpdate]):
             raise RuntimeError(
                 f"Failed to create dataset '{dataset_create.name}': {str(e)}"
             ) from e
-
-    def _copy_dataset_files(self, dataset_create: DatasetCreate) -> None:
-        """Copy all necessary files for a new dataset."""
-        self._files_manager.copy_mock_to_public_syftbox_dir(
-            dataset_create.name, dataset_create.mock_path
-        )
-        self._files_manager.copy_description_file_to_public_syftbox_dir(
-            dataset_create.name, dataset_create.description_path
-        )
-        self._files_manager.copy_private_to_private_syftbox_dir(
-            dataset_create.name, dataset_create.path
-        )
 
     def get_all(self, request: GetAllRequest) -> list[Dataset]:
         """
@@ -150,19 +143,42 @@ class DatasetLocalStore(CRUDLocalStore[Dataset, DatasetCreate, DatasetUpdate]):
         try:
             existing_dataset = self.store.get_by_uid(update_item.uid)
             if existing_dataset is None:
-                raise ValueError(f"Dataset with uid {update_item.uid} not found")
+                raise DatasetNotFoundError(
+                    f"Dataset with uid {update_item.uid} not found"
+                )
 
-            updated_dataset = existing_dataset.apply_update(update_item)
+            updated_dataset = existing_dataset.apply_update(update_item, in_place=False)
 
             if update_item.name:
+                self._validate_dataset_name_unique(update_item.name)
                 syftbox_client_email = self._path_manager.syftbox_client_email
-                new_private_url = DatasetUrlManager.get_private_dataset_syftbox_url(
-                    syftbox_client_email, update_item.name
-                )
-                update_item = new_private_url
+                old_dataset_name = existing_dataset.name
+                new_dataset_name = update_item.name
 
-            return self.store.update(updated_dataset.uid, updated_dataset)
+                self._files_manager.move_dataset_files(
+                    old_dataset_name, new_dataset_name
+                )
+
+                new_private_url = DatasetUrlManager.get_private_dataset_syftbox_url(
+                    syftbox_client_email, updated_dataset.name
+                )
+                new_mock_url = DatasetUrlManager.get_mock_dataset_syftbox_url(
+                    syftbox_client_email, updated_dataset.name
+                )
+                new_readme_url = DatasetUrlManager.update_readme_syftbox_url(
+                    updated_dataset.readme, dataset_name=updated_dataset.name
+                )
+
+                updated_dataset.private = new_private_url
+                updated_dataset.mock = new_mock_url
+                updated_dataset.readme = new_readme_url
+
+            updated_dataset = self.store.update(updated_dataset.uid, updated_dataset)
+            return updated_dataset._register_client_id_recursive(self.config.uid)
+        except DatasetExistsError:
+            raise
         except Exception as e:
+            print(traceback.format_exc())
             raise RuntimeError(
                 f"Failed to update dataset with uid {update_item.uid}: {str(e)}"
             )
