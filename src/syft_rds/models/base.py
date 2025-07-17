@@ -83,14 +83,14 @@ class ItemBase(BaseModel, ABC):
                 f"Cannot apply update with UID {other.uid} to instance with UID {self.uid}"
             )
         if isinstance(other, type(self)):
-            update_dict = other.model_dump()
+            update_dict = other.model_dump(exclude_unset=True, exclude_none=True)
         elif isinstance(other, ItemBaseUpdate):
             update_target_type = other.get_target_model()
             if other.get_target_model() is not type(self):
                 raise ValueError(
                     f"Attempted to apply update for {update_target_type} to {type(self)}"
                 )
-            update_dict = other.model_dump(exclude_unset=True)
+            update_dict = other.model_dump(exclude_unset=True, exclude_none=True)
             update_dict["updated_at"] = _utcnow()
         else:
             raise TypeError(
