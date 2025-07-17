@@ -8,7 +8,7 @@ from ..constants import DIRECTORY_DATASETS, DIRECTORY_PRIVATE, DIRECTORY_PUBLIC
 class DatasetPathManager:
     """Manages filesystem paths for dataset operations."""
 
-    def __init__(self, syftbox_client: SyftBoxClient, host: str):
+    def __init__(self, syftbox_client: SyftBoxClient):
         """
         Initialize the path manager.
 
@@ -17,7 +17,6 @@ class DatasetPathManager:
             host: The host identifier
         """
         self.syftbox_client = syftbox_client
-        self._host = host
 
     def get_local_public_dataset_dir(self, dataset_name: str) -> Path:
         """Get the local public directory path for a dataset."""
@@ -28,34 +27,18 @@ class DatasetPathManager:
             / dataset_name
         )
 
-    def get_remote_public_dataset_dir(self, dataset_name: str) -> Path:
-        """Get the remote public directory path for a dataset."""
+    def get_local_private_dataset_dir(self, dataset_name: str) -> Path:
+        """Get the local private directory path for a dataset."""
         return (
-            self.syftbox_client.datasites
-            / self._host
-            / DIRECTORY_PUBLIC
-            / DIRECTORY_DATASETS
-            / dataset_name
-        )
-
-    def get_syftbox_private_dataset_dir(self, dataset_name: str) -> Path:
-        """Get the private directory path for a dataset."""
-        return (
-            self.syftbox_client.datasites
-            / self._host
+            self.syftbox_client.my_datasite
             / DIRECTORY_PRIVATE
             / DIRECTORY_DATASETS
             / dataset_name
         )
 
-    def get_remote_public_datasets_dir(self) -> Path:
-        """Get the base public directory for all datasets."""
-        return (
-            self.syftbox_client.datasites
-            / self._host
-            / DIRECTORY_PUBLIC
-            / DIRECTORY_DATASETS
-        )
+    def get_local_public_datasets_dir(self) -> Path:
+        """Get the local base public directory for all datasets."""
+        return self.syftbox_client.my_datasite / DIRECTORY_PUBLIC / DIRECTORY_DATASETS
 
     @property
     def syftbox_client_email(self) -> str:
@@ -73,7 +56,7 @@ class DatasetPathManager:
             ValueError: If the path doesn't exist
         """
         if not Path(path).exists():
-            raise ValueError(f"Path does not exist: {path}")
+            raise FileNotFoundError(f"Path does not exist: {path}")
 
     def validate_directory_paths(
         self, path: Union[str, Path], mock_path: Union[str, Path]
@@ -90,6 +73,6 @@ class DatasetPathManager:
         """
         path, mock_path = Path(path), Path(mock_path)
         if not (path.is_dir() and mock_path.is_dir()):
-            raise ValueError(
+            raise NotADirectoryError(
                 f"Mock and private data paths must be directories: {path} and {mock_path}"
             )
