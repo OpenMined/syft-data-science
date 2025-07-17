@@ -73,15 +73,23 @@ def highside_client_and_config(lowside_client, temp_directories):
 
 
 def test_high_runtime_dir_structure(highside_client_and_config):
-    """Test that the runtime directory structure matches the expected layout from the folder picture."""
-    highside_client, sync_config, highside_identifier = highside_client_and_config
+    """Test that the runtime directory structure matches the expected layout from the folder picture.
 
-    # Expected high datasite's structure:
-    # SyftBox/private/{email}/syft_runtimes/{runtime_name}/
-    #   ├── jobs/
-    #   ├── running/
-    #   ├── done/
-    #   └── config.yaml
+    Expected high datasite structure:
+    ├── config.json
+    └── SyftBox
+        ├── datasites
+        │   └── test@openmined.org
+        └── private
+            └── test@openmined.org
+                └── syft_runtimes
+                    └── test-highside-1234
+                        ├── config.yaml
+                        ├── done/
+                        ├── jobs/
+                        └── running/
+    """
+    highside_client, sync_config, highside_identifier = highside_client_and_config
 
     # Test high side structure
     high_runtime_dir = sync_config.high_low_runtime_dir(Side.HIGH)
@@ -319,7 +327,44 @@ def test_basic_sync_operations(highside_client_and_config):
 
 
 def test_dataset_creation_and_sync(highside_client_and_config, lowside_client):
-    """Test dataset creation on high side and syncing to low side."""
+    """Test dataset creation on high side and syncing to low side.
+
+    high datasite (before and after sync):
+    ├── config.json
+    └── SyftBox
+        ├── datasites
+        │   └── test@openmined.org
+        │       └── public
+        │           └── syft_datasets
+        │               └── test_dataset/
+        │                   ├── dataset.yaml
+        │                   ├── mock_data.csv
+        │                   └── README.md
+        └── private
+            └── test@openmined.org
+                ├── syft_datasets
+                │   └── test_dataset/
+                │       ├── private_data.csv
+                │       └── private_metadata.yaml
+                └── syft_runtimes
+                    └── test-highside-1234/
+
+    low datasite (after sync):
+    ├── config.json
+    └── SyftBox
+        ├── datasites
+        │   └── test@openmined.org
+        │       └── public
+        │           └── syft_datasets
+        │               └── test_dataset/  # synced from high side (mock data only)
+        │                   ├── dataset.yaml
+        │                   ├── mock_data.csv
+        │                   └── README.md
+        └── private
+            └── test@openmined.org
+                └── syft_runtimes
+                    └── test-highside-1234/
+    """
     highside_client, sync_config, _ = highside_client_and_config
     dataset_name = "test_dataset"
 
@@ -370,7 +415,20 @@ def test_dataset_creation_and_sync(highside_client_and_config, lowside_client):
 
 
 def test_dataset_name_added_to_config(highside_client_and_config, lowside_client):
-    """Test that dataset names are properly added to runtime config files."""
+    """Test that dataset names are properly added to runtime config files.
+
+    After dataset creation and sync, both high and low side config.yaml files should contain:
+
+    high datasite config.yaml:
+        config_path: /path/to/private/test@openmined.org/syft_runtimes/test-highside-1234/config.yaml
+        datasets:
+        - test_dataset
+
+    low datasite config.yaml:
+        config_path: /path/to/private/test@openmined.org/syft_runtimes/test-highside-1234/config.yaml
+        datasets:
+        - test_dataset
+    """
     highside_client, sync_config, _ = highside_client_and_config
     dataset_name = "test_dataset"
 
@@ -401,7 +459,44 @@ def test_dataset_name_added_to_config(highside_client_and_config, lowside_client
 
 
 def test_multiple_datasets_sync(highside_client_and_config, lowside_client):
-    """Test syncing multiple datasets and verify config tracking."""
+    """Test syncing multiple datasets and verify config tracking.
+
+    high datasite (after creating multiple datasets):
+    ├── config.json
+    └── SyftBox
+        ├── datasites
+        │   └── test@openmined.org
+        │       └── public
+        │           └── syft_datasets
+        │               ├── dataset_1/
+        │               ├── dataset_2/
+        │               └── dataset_3/
+        └── private
+            └── test@openmined.org
+                ├── syft_datasets
+                │   ├── dataset_1/
+                │   ├── dataset_2/
+                │   └── dataset_3/
+                └── syft_runtimes
+                    └── test-highside-1234/
+                        └── config.yaml  # contains all 3 dataset names
+
+    low datasite (after sync):
+    ├── config.json
+    └── SyftBox
+        ├── datasites
+        │   └── test@openmined.org
+        │       └── public
+        │           └── syft_datasets
+        │               ├── dataset_1/  # mock data only
+        │               ├── dataset_2/  # mock data only
+        │               └── dataset_3/  # mock data only
+        └── private
+            └── test@openmined.org
+                └── syft_runtimes
+                    └── test-highside-1234/
+                        └── config.yaml  # contains all 3 dataset names
+    """
     highside_client, sync_config, _ = highside_client_and_config
     dataset_names = ["dataset_1", "dataset_2", "dataset_3"]
 
@@ -445,7 +540,44 @@ def test_multiple_datasets_sync(highside_client_and_config, lowside_client):
 
 
 def test_sync_config_persistence(highside_client_and_config):
-    """Test that sync configuration can be saved and loaded correctly."""
+    """Test that sync configuration can be saved and loaded correctly.
+
+    high datasite structure with persisted sync config:
+    ├── config.json
+    └── SyftBox
+        ├── high_side_sync_config.json  # saved sync configuration
+        ├── datasites
+        │   └── test@openmined.org
+        └── private
+            └── test@openmined.org
+                └── syft_runtimes
+                    └── test-highside-1234/
+
+    The sync config looks something like below:
+    RsyncConfig:
+        high_side_name: "test-highside-1234"
+        syftbox_client_email: "test@openmined.org"
+        connection_settings: None  # Local sync, no SSH
+
+        directories:
+            high_syftbox_dir: "/tmp/tmp8i696ubs/high_datasite/SyftBox"
+            low_syftbox_dir:  "/tmp/tmpqt3lktte/SyftBox"
+
+        sync_entries:
+            1. Jobs Sync (Low → High):
+            direction: REMOTE_TO_LOCAL
+            local_dir:  "high_datasite/SyftBox/private/test@openmined.org/syft_runtimes/test-highside-1234/jobs"
+            remote_dir: "SyftBox/private/test@openmined.org/syft_runtimes/test-highside-1234/jobs"
+            ignore_existing: true
+            # Jobs flow from low-side to high-side for processing
+
+            2. Results Sync (High → Low):
+            direction: LOCAL_TO_REMOTE
+            local_dir:  "high_datasite/SyftBox/private/test@openmined.org/syft_runtimes/test-highside-1234/done"
+            remote_dir: "SyftBox/private/test@openmined.org/syft_runtimes/test-highside-1234/done"
+            ignore_existing: false
+            # Completed jobs flow from high-side back to low-side
+    """
     highside_client, sync_config, highside_identifier = highside_client_and_config
 
     # Save sync config
@@ -463,7 +595,24 @@ def test_sync_config_persistence(highside_client_and_config):
 
 
 def test_error_handling_nonexistent_dataset(highside_client_and_config, lowside_client):
-    """Test error handling when trying to sync non-existent dataset."""
+    """Test error handling when trying to sync non-existent dataset.
+
+    Attempting to sync a dataset that doesn't exist on the high side should raise a FileNotFoundError:
+
+    high datasite (no datasets created):
+    ├── config.json
+    └── SyftBox
+        ├── datasites
+        │   └── test@openmined.org
+        │       └── public
+        │           └── syft_datasets/  # empty - no datasets
+        └── private
+            └── test@openmined.org
+                └── syft_runtimes
+                    └── test-highside-1234/
+
+    Expected: FileNotFoundError when attempting to sync 'nonexistent_dataset'
+    """
     highside_client, _, _ = highside_client_and_config
 
     with pytest.raises(
