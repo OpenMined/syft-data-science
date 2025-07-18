@@ -1,7 +1,6 @@
 import secrets
 import shutil
 import subprocess
-from pathlib import Path
 from typing import Optional
 
 from loguru import logger
@@ -20,7 +19,132 @@ from syft_runtimes.high_low.rsync import (
 )
 from syft_runtimes.high_low.consts import DEFAULT_HIGH_SIDE_DATA_DIR
 from syft_runtimes.models import BaseRuntimeConfig
-from syft_runtimes.runners import HighLowRuntime
+
+
+class HighSideClient(SyftBoxClient):
+    """Specialized SyftBox client for high-side operations in air-gapped environments."""
+
+    def __init__(
+        self,
+        email: str,
+        highside_identifier: str,
+        data_dir: PathLike,
+    ):
+        super().__init__(conf=self._create_highside_config(email, data_dir))
+        self.highside_identifier = highside_identifier
+
+    def _create_highside_config(
+        self, email: str, data_dir: PathLike
+    ) -> SyftClientConfig:
+        """Create SyftBox configuration for high-side."""
+        config_path = to_path(data_dir) / "config.json"
+        syftbox_data_dir = to_path(data_dir) / "SyftBox"
+
+        logger.debug(f"Creating SyftBox configuration at: {config_path}")
+        syft_config = SyftClientConfig(
+            email=email,
+            client_url="http://testserver:5000",
+            path=config_path,
+            data_dir=syftbox_data_dir,
+        )
+        syft_config.save()
+        return syft_config
+
+    @classmethod
+    def initialize(
+        cls,
+        email: str,
+        highside_identifier: str,
+        data_dir: PathLike,
+        force_overwrite: bool = False,
+    ) -> "HighSideClient":
+        """Initialize a high datasite."""
+        data_dir = _init_highside_data_dir(email, data_dir, force_overwrite)
+
+        # Create the client
+        client = cls(
+            email=email, highside_identifier=highside_identifier, data_dir=data_dir
+        )
+
+        # Initialize runtime directories
+        client.datasite_path.mkdir(parents=True, exist_ok=True)
+
+        return client
+
+    def lowside_connect(
+        self,
+        highlow_identifier: str,
+        ssh_config: Optional[dict] = None,
+        force_overwrite: bool = False,
+    ) -> SyftBoxClient:
+        """Connect to low side and create sync configuration, creates the low-side runtimes structure."""
+        ssh_config = ssh_config or {}
+
+        logger.debug(f"Connecting to low side with ssh config: {ssh_config}")
+        return None
+
+    def _create_sync_config_with_ssh(
+        self,
+        lowside_client: SyftBoxClient,
+        highlow_identifier: str,
+        ssh_config: dict,
+        force_overwrite: bool = False,
+    ) -> RsyncConfig:
+        """Create sync configuration with SSH settings."""
+        return _create_default_sync_config(
+            highside_client=self,
+            lowside_client=lowside_client,
+            highside_identifier=highlow_identifier,
+            force_overwrite=force_overwrite,
+            **ssh_config,
+        )
+
+    def sync_dataset(self, dataset_name: str, verbose: bool = True) -> None:
+        """Sync dataset mock data to low side."""
+        if not self._sync_config or not self._lowside_client:
+            raise RuntimeError(
+                "Low-side connection not established. Call lowside_connect() first."
+            )
+
+        sync_dataset(
+            dataset_name=dataset_name,
+            highside_client=self,
+            lowside_client=self._lowside_client,
+            verbose=verbose,
+        )
+
+    def sync_pending_jobs(self, verbose: bool = True) -> None:
+        """Sync jobs from low side to high side."""
+        if not self._sync_config:
+            raise RuntimeError(
+                "Sync configuration not found. Call lowside_connect() first."
+            )
+
+        sync(
+            direction=SyncDirection.REMOTE_TO_LOCAL,
+            syftbox_client=self,
+            rsync_config=self._sync_config,
+            verbose=verbose,
+        )
+
+    def sync_done_jobs(self, verbose: bool = True) -> None:
+        """Sync completed job results to low side."""
+        if not self._sync_config:
+            raise RuntimeError(
+                "Sync configuration not found. Call lowside_connect() first."
+            )
+
+        sync(
+            direction=SyncDirection.LOCAL_TO_REMOTE,
+            syftbox_client=self,
+            rsync_config=self._sync_config,
+            verbose=verbose,
+        )
+
+    @property
+    def sync_config(self) -> Optional[RsyncConfig]:
+        """Get the current sync configuration."""
+        return self._sync_config
 
 
 class HighLowRuntimeConfig(BaseRuntimeConfig):
@@ -65,45 +189,25 @@ class SyncResult(BaseModel):
 
 
 def initialize_high_datasite(
-    highside_identifier: str,
+    email: str,
+    highlow_identifier: str,
     force_overwrite: bool = False,
-    highside_data_dir: Optional[PathLike] = None,
-    lowside_syftbox_client: Optional[SyftBoxClient] = None,
-) -> Path:
-    """Initialize a high datasite with SyftBox configuration."""
-    lowside_syftbox_client = lowside_syftbox_client or SyftBoxClient.load()
-    email = lowside_syftbox_client.email
-    highside_data_dir = _init_highside_data_dir(
-        email, highside_data_dir, force_overwrite
-    )
-    highside_client = _init_highside_client(email, highside_data_dir)
-    _init_highlow_runtime(highside_client, highside_identifier, lowside_syftbox_client)
+    data_dir: Optional[PathLike] = None,
+) -> HighSideClient:
+    """Initialize a high datasite with SyftBox configuration.
 
-    return highside_data_dir
-
-
-def high_side_connect(email: str, data_dir: PathLike | None = None) -> SyftBoxClient:
-    """Connect to a high datasite using the provided email."""
-    if data_dir:
-        data_dir = to_path(data_dir)
-    else:
-        data_dir = to_path(DEFAULT_HIGH_SIDE_DATA_DIR / email)
-
-    config_path = data_dir / "config.json"
-    syftbox_client = SyftBoxClient.load(config_path)
-    if syftbox_client.email != email:
-        raise ValueError(
-            f"Provided email ({email}) does not match the email in the config file at {config_path}, which is "
-        )
-
-    logger.debug(
-        f"Connected to high datasite {syftbox_client.email} at {syftbox_client.workspace.data_dir}"
+    Returns:
+        HighSideClient: Initialized high-side client
+    """
+    return HighSideClient.initialize(
+        email=email,
+        highside_identifier=highlow_identifier,
+        data_dir=data_dir,
+        force_overwrite=force_overwrite,
     )
 
-    return syftbox_client
 
-
-def create_default_sync_config(
+def _create_default_sync_config(
     highside_client: SyftBoxClient,
     lowside_client: SyftBoxClient,
     highside_identifier: Optional[str] = None,
@@ -285,40 +389,13 @@ def _generate_high_side_name() -> str:
     return f"high-side-{secrets.token_hex(4)}"
 
 
-def _init_highlow_runtime(
-    highside_client: SyftBoxClient,
-    highside_identifier: str,
-    lowside_syftbox_client: SyftBoxClient,
-) -> Path:
-    high_low_runtime = HighLowRuntime(
-        highside_client, highside_identifier, lowside_syftbox_client
-    )
-    high_low_runtime.init_runtime_dir()
-
-
-def _init_highside_client(email: str, data_dir: PathLike) -> SyftBoxClient:
-    config_path = data_dir / "config.json"
-    data_dir = data_dir / "SyftBox"
-
-    logger.debug(f"Saving SyftBox configuration to: {config_path}")
-    syft_config = SyftClientConfig(
-        email=email,
-        client_url="http://testserver:5000",
-        path=config_path,
-        data_dir=data_dir,
-    )
-    syft_config.save()
-
-    high_side_client = SyftBoxClient(conf=syft_config)
-    high_side_client.datasite_path.mkdir(parents=True, exist_ok=True)
-
-    return high_side_client
-
-
 def _init_highside_data_dir(
-    email: str, data_dir: PathLike | None = None, force_overwrite: bool = False
+    email: str, data_dir: PathLike | None, force_overwrite: bool = False
 ) -> PathLike:
-    data_dir = data_dir or DEFAULT_HIGH_SIDE_DATA_DIR / email
+    if data_dir:
+        data_dir = to_path(data_dir)
+    else:
+        data_dir = to_path(DEFAULT_HIGH_SIDE_DATA_DIR / email)
 
     if data_dir.exists() and not force_overwrite:
         raise FileExistsError(

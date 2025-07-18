@@ -394,26 +394,25 @@ class DockerRunner(SyftRuntime):
 
 # ------- new runtime classes -------
 class FolderBasedRuntime:
-    """Base class for folder-based syft runtimes that has the following structure:
-    └── SyftBox
-        ├── datasites/
-        │   ├── do1@openmined.org
-        │   ├── do2@openmined.org
-        │   └── ds@openmined.org
-        └── private/
-            └── do1@openmined.org/
-                ├── syft_datasets/
-                │   ├── dataset_01
-                │   └── dataset_02
-                └── syft_runtimes/
-                    ├── runtime_name/
-                    │   ├── jobs/
-                    │   ├── running/
-                    │   ├── done/
-                    │   └── config.yaml
-    """
-
     def __init__(self, syftbox_client: SyftBoxClient, runtime_name: str):
+        """Base class for folder-based syft runtimes that has the following structure:
+        └── SyftBox
+            ├── datasites/
+            │   ├── do1@openmined.org
+            │   ├── do2@openmined.org
+            │   └── ds@openmined.org
+            └── private/
+                └── do1@openmined.org/
+                    ├── syft_datasets/
+                    │   ├── dataset_01
+                    │   └── dataset_02
+                    └── syft_runtimes/
+                        ├── runtime_name/
+                        │   ├── jobs/
+                        │   ├── running/
+                        │   ├── done/
+                        │   └── config.yaml
+        """
         self.syftbox_client = syftbox_client
         self.syft_runtimes_dir = (
             self.syftbox_client.workspace.data_dir
@@ -655,21 +654,15 @@ class FolderBasedRuntime:
         pass
 
 
-class HighLowRuntime:
+class HighLowRuntime(FolderBasedRuntime):
+    """High-low runtime that uses the folder-based runtime structure."""
+
     def __init__(
         self,
         highside_client: SyftBoxClient,
         highside_identifier: str,
-        lowside_syftbox_client: SyftBoxClient,
     ) -> None:
-        self.highside_runtime = FolderBasedRuntime(highside_client, highside_identifier)
-        self.lowside_runtime = FolderBasedRuntime(
-            lowside_syftbox_client, highside_identifier
-        )
-
-    def init_runtime_dir(self) -> None:
-        self.highside_runtime.init_runtime_dir()
-        self.lowside_runtime.init_runtime_dir()
+        super().__init__(highside_client, highside_identifier)
 
 
 def get_runner_cls(job_config: JobConfig) -> Type[SyftRuntime]:

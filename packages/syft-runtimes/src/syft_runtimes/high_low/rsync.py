@@ -1,5 +1,6 @@
 from enum import StrEnum
 from pathlib import Path
+from typing import Union
 
 from loguru import logger
 from pydantic import BaseModel
@@ -26,6 +27,10 @@ class SSHConnection(BaseModel):
     port: int = 22
     user: str
     ssh_key_path: Path | None = None
+
+
+class LocalConnection(BaseModel):
+    lowside_syftbox_dir: Union[Path, str]
 
 
 class RsyncEntry(BaseModel):
@@ -99,11 +104,6 @@ class RsyncConfig(BaseModel):
 
     def outputs_dir(self, side: Side = Side.HIGH) -> Path:
         return self.high_low_runtime_dir(side) / "done"
-
-    def public_dataset_dirs(self, side: Side = Side.HIGH) -> Path:
-        # TODO: let's remove this datasets folder. We can keep an entry in the
-        # high low's runtime config.yaml file
-        return self.high_low_runtime_dir(side) / "datasets"
 
 
 def get_rsync_config_path(
