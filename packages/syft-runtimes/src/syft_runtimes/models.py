@@ -44,7 +44,7 @@ class BaseRuntimeConfig(BaseModel):
         if self.config_path is None:
             raise ValueError("config_path is not set")
         yaml_dump = yaml.safe_dump(
-            self.model_dump(mode="json", exclude_none=True),
+            self.model_dump(mode="json", exclude_none=True, exclude={"config_path"}),
             indent=2,
             sort_keys=False,
         )

@@ -9,7 +9,7 @@ dependencies = [
     "fastapi[multipart]>=0.115.14",
     "fastsyftbox>=0.1.17",
     "pydantic>=2.11.3",
-    "syft-core>=0.2.5",
+    "syft-core>=0.2.8",
 ]
 
 [project.scripts]

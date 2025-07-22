@@ -659,10 +659,10 @@ class HighLowRuntime(FolderBasedRuntime):
 
     def __init__(
         self,
-        highside_client: SyftBoxClient,
+        client: SyftBoxClient,
         highside_identifier: str,
     ) -> None:
-        super().__init__(highside_client, highside_identifier)
+        super().__init__(client, highside_identifier)
 
 
 def get_runner_cls(job_config: JobConfig) -> Type[SyftRuntime]:

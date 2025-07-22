@@ -1,0 +1,6 @@
+{
+  "data_dir": "/Users/khoaguin/.syftbox/high-datasites/flower-test-group-2@openmined.org/SyftBox",
+  "server_url": "https://my-private-server.org",
+  "client_url": "http://testserver:5000/",
+  "email": "flower-test-group-2@openmined.org"
+}

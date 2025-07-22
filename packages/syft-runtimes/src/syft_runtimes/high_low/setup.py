@@ -1,12 +1,9 @@
 import secrets
 import shutil
-import subprocess
 from typing import Optional
 
 from loguru import logger
-from pydantic import BaseModel
 from syft_core import Client as SyftBoxClient
-from syft_core import SyftClientConfig
 from syft_core.types import PathLike, to_path
 
 from syft_runtimes.high_low.rsync import (
@@ -19,132 +16,7 @@ from syft_runtimes.high_low.rsync import (
 )
 from syft_runtimes.high_low.consts import DEFAULT_HIGH_SIDE_DATA_DIR
 from syft_runtimes.models import BaseRuntimeConfig
-
-
-class HighSideClient(SyftBoxClient):
-    """Specialized SyftBox client for high-side operations in air-gapped environments."""
-
-    def __init__(
-        self,
-        email: str,
-        highside_identifier: str,
-        data_dir: PathLike,
-    ):
-        super().__init__(conf=self._create_highside_config(email, data_dir))
-        self.highside_identifier = highside_identifier
-
-    def _create_highside_config(
-        self, email: str, data_dir: PathLike
-    ) -> SyftClientConfig:
-        """Create SyftBox configuration for high-side."""
-        config_path = to_path(data_dir) / "config.json"
-        syftbox_data_dir = to_path(data_dir) / "SyftBox"
-
-        logger.debug(f"Creating SyftBox configuration at: {config_path}")
-        syft_config = SyftClientConfig(
-            email=email,
-            client_url="http://testserver:5000",
-            path=config_path,
-            data_dir=syftbox_data_dir,
-        )
-        syft_config.save()
-        return syft_config
-
-    @classmethod
-    def initialize(
-        cls,
-        email: str,
-        highside_identifier: str,
-        data_dir: PathLike,
-        force_overwrite: bool = False,
-    ) -> "HighSideClient":
-        """Initialize a high datasite."""
-        data_dir = _init_highside_data_dir(email, data_dir, force_overwrite)
-
-        # Create the client
-        client = cls(
-            email=email, highside_identifier=highside_identifier, data_dir=data_dir
-        )
-
-        # Initialize runtime directories
-        client.datasite_path.mkdir(parents=True, exist_ok=True)
-
-        return client
-
-    def lowside_connect(
-        self,
-        highlow_identifier: str,
-        ssh_config: Optional[dict] = None,
-        force_overwrite: bool = False,
-    ) -> SyftBoxClient:
-        """Connect to low side and create sync configuration, creates the low-side runtimes structure."""
-        ssh_config = ssh_config or {}
-
-        logger.debug(f"Connecting to low side with ssh config: {ssh_config}")
-        return None
-
-    def _create_sync_config_with_ssh(
-        self,
-        lowside_client: SyftBoxClient,
-        highlow_identifier: str,
-        ssh_config: dict,
-        force_overwrite: bool = False,
-    ) -> RsyncConfig:
-        """Create sync configuration with SSH settings."""
-        return _create_default_sync_config(
-            highside_client=self,
-            lowside_client=lowside_client,
-            highside_identifier=highlow_identifier,
-            force_overwrite=force_overwrite,
-            **ssh_config,
-        )
-
-    def sync_dataset(self, dataset_name: str, verbose: bool = True) -> None:
-        """Sync dataset mock data to low side."""
-        if not self._sync_config or not self._lowside_client:
-            raise RuntimeError(
-                "Low-side connection not established. Call lowside_connect() first."
-            )
-
-        sync_dataset(
-            dataset_name=dataset_name,
-            highside_client=self,
-            lowside_client=self._lowside_client,
-            verbose=verbose,
-        )
-
-    def sync_pending_jobs(self, verbose: bool = True) -> None:
-        """Sync jobs from low side to high side."""
-        if not self._sync_config:
-            raise RuntimeError(
-                "Sync configuration not found. Call lowside_connect() first."
-            )
-
-        sync(
-            direction=SyncDirection.REMOTE_TO_LOCAL,
-            syftbox_client=self,
-            rsync_config=self._sync_config,
-            verbose=verbose,
-        )
-
-    def sync_done_jobs(self, verbose: bool = True) -> None:
-        """Sync completed job results to low side."""
-        if not self._sync_config:
-            raise RuntimeError(
-                "Sync configuration not found. Call lowside_connect() first."
-            )
-
-        sync(
-            direction=SyncDirection.LOCAL_TO_REMOTE,
-            syftbox_client=self,
-            rsync_config=self._sync_config,
-            verbose=verbose,
-        )
-
-    @property
-    def sync_config(self) -> Optional[RsyncConfig]:
-        """Get the current sync configuration."""
-        return self._sync_config
+from syft_runtimes.high_low.lowside_client import LowSideClient
 
 
 class HighLowRuntimeConfig(BaseRuntimeConfig):
@@ -175,41 +47,9 @@ class HighLowRuntimeConfig(BaseRuntimeConfig):
         return False
 
 
-class SyncResult(BaseModel):
-    """Result of a sync operation."""
-
-    commands_executed: int
-    successful_syncs: int
-    failed_syncs: int
-    errors: list[str]
-
-    @property
-    def success(self) -> bool:
-        return self.failed_syncs == 0
-
-
-def initialize_high_datasite(
-    email: str,
-    highlow_identifier: str,
-    force_overwrite: bool = False,
-    data_dir: Optional[PathLike] = None,
-) -> HighSideClient:
-    """Initialize a high datasite with SyftBox configuration.
-
-    Returns:
-        HighSideClient: Initialized high-side client
-    """
-    return HighSideClient.initialize(
-        email=email,
-        highside_identifier=highlow_identifier,
-        data_dir=data_dir,
-        force_overwrite=force_overwrite,
-    )
-
-
 def _create_default_sync_config(
     highside_client: SyftBoxClient,
-    lowside_client: SyftBoxClient,
+    lowside_client: LowSideClient,
     highside_identifier: Optional[str] = None,
     low_ssh_host: Optional[str] = None,
     low_ssh_user: Optional[str] = None,
@@ -238,6 +78,14 @@ def _create_default_sync_config(
     return rsync_config
 
 
+def _get_default_sync_entries():
+    pass
+
+
+def _get_sync_commands():
+    pass
+
+
 def sync(
     direction: Optional[str | SyncDirection] = None,
     syftbox_client: Optional[SyftBoxClient] = None,
@@ -260,7 +108,7 @@ def sync(
         logger.debug("No runtime sync commands to execute.")
         return
 
-    _execute_sync_commands(commands, verbose)
+    # _execute_sync_commands(commands, verbose)
 
     return None
 
@@ -268,7 +116,7 @@ def sync(
 def sync_dataset(
     dataset_name: str,
     highside_client: SyftBoxClient,
-    lowside_client: SyftBoxClient,
+    lowside_client: LowSideClient,
     verbose: bool = True,
 ) -> None:
     """Sync the public part of a specific dataset from high-side to low-side.
@@ -283,9 +131,7 @@ def sync_dataset(
     high_dataset_dir = (
         highside_client.my_datasite / "public" / "syft_datasets" / dataset_name
     )
-    low_dataset_dir = (
-        lowside_client.my_datasite / "public" / "syft_datasets" / dataset_name
-    )
+    low_dataset_dir = lowside_client.get_dataset_path(dataset_name, private=False)
     rsync_config = _load_client_sync_config(highside_client)
 
     # Validate that the dataset exists on high-side
@@ -303,86 +149,29 @@ def sync_dataset(
     )
 
     # Ensure the parent directory exists on low-side
-    low_dataset_dir.parent.mkdir(parents=True, exist_ok=True)
+    lowside_client.ensure_directory_exists(low_dataset_dir.parent)
 
     # Generate and execute the rsync command
     command = dataset_entry.to_command(rsync_config.connection_settings)
+    print(command)
 
     if verbose:
         logger.info(f"Syncing dataset '{dataset_name}' from high-side to low-side")
         logger.info(f"Source: {high_dataset_dir}")
         logger.info(f"Destination: {low_dataset_dir}")
-        logger.debug(_parse_rsync_command_for_display(command))
+        # logger.debug(_parse_rsync_command_for_display(command))
 
-    _execute_sync_commands([command], verbose=verbose)
+    # _execute_sync_commands([command], verbose=verbose)
 
     _add_dataset_name_to_config(dataset_name, highside_client, Side.HIGH, rsync_config)
-    _add_dataset_name_to_config(dataset_name, lowside_client, Side.LOW, rsync_config)
+    # For local connections, also update the low-side config
+    if lowside_client.is_local():
+        local_client = (
+            lowside_client.syftbox_client
+        )  # Access the underlying SyftBoxClient
+        _add_dataset_name_to_config(dataset_name, local_client, Side.LOW, rsync_config)
 
     return None
-
-
-def _execute_sync_commands(commands: list[str], verbose: bool) -> SyncResult:
-    """Execute rsync commands and return detailed results."""
-
-    if not commands:
-        logger.info("No sync commands to execute")
-        return SyncResult(
-            commands_executed=0, successful_syncs=0, failed_syncs=0, errors=[]
-        )
-
-    logger.info(f"Executing {len(commands)} sync command(s)")
-
-    num_success = 0
-    errors = []
-
-    for i, command in enumerate(commands, 1):
-        try:
-            logger.debug(f"Executing command {i}/{len(commands)}")
-
-            # Safer command execution - split command properly
-            result = subprocess.run(
-                command,
-                shell=True,  # Still need shell for rsync with SSH
-                check=True,
-                capture_output=True,
-                text=True,
-                timeout=300,  # 5 minute timeout
-            )
-
-            num_success += 1
-            if verbose:
-                logger.info(f"✓ Sync command {i} completed successfully")
-
-        except subprocess.TimeoutExpired:
-            error_msg = f"Command {i} timed out after 5 minutes"
-            logger.error(error_msg)
-            errors.append(error_msg)
-
-        except subprocess.CalledProcessError as e:
-            error_msg = f"Command {i} failed with exit code {e.returncode}: {e.stderr}"
-            logger.error(error_msg)
-            errors.append(error_msg)
-
-        except Exception as e:
-            error_msg = f"Unexpected error in command {i}: {str(e)}"
-            logger.error(error_msg)
-            errors.append(error_msg)
-
-    num_failed = len(commands) - num_success
-    result = SyncResult(
-        commands_executed=len(commands),
-        successful_syncs=num_success,
-        failed_syncs=num_failed,
-        errors=errors,
-    )
-
-    if result.success:
-        logger.info(f"✅ All {num_success} sync operations completed successfully")
-    else:
-        logger.error(f"❌ {num_failed} of {len(commands)} sync operations failed")
-
-    return result
 
 
 def _generate_high_side_name() -> str:
@@ -414,7 +203,7 @@ def _init_highside_data_dir(
 
 def _create_empty_sync_config(
     highside_client: SyftBoxClient,
-    lowside_client: SyftBoxClient,
+    lowside_client: LowSideClient,
     highside_identifier: Optional[str] = None,
     low_ssh_host: Optional[str] = None,
     low_ssh_user: Optional[str] = None,
@@ -423,7 +212,13 @@ def _create_empty_sync_config(
     force_overwrite: bool = False,
 ) -> RsyncConfig:
     """Create empty sync configurations"""
-    lowside_syftbox_dir = to_path(lowside_client.workspace.data_dir)
+    # Get the appropriate data directories based on client type
+    if lowside_client.is_local():
+        lowside_syftbox_dir = to_path(lowside_client.syftbox_client.workspace.data_dir)
+    else:
+        # For SSH clients, use the parent of the datasite path
+        lowside_syftbox_dir = lowside_client.datasite_path.parent
+
     highside_syftbox_dir = to_path(highside_client.workspace.data_dir)
 
     low_ssh_key_path = to_path(low_ssh_key_path) if low_ssh_key_path else None
@@ -460,28 +255,28 @@ def _create_empty_sync_config(
     return rsync_config
 
 
-def _get_default_sync_entries(rsync_config: RsyncConfig) -> list[RsyncEntry]:
-    """
-    Creates the default sync entries between the low and high datasites.
-    We call this from the high side
-    - jobs: sync from low to high (low = remote => REMOTE_TO_LOCAL)
-    - outputs: sync from high to low (high = local => LOCAL_TO_REMOTE)
-    """
+# def _get_default_sync_entries(rsync_config: RsyncConfig) -> list[RsyncEntry]:
+#     """
+#     Creates the default sync entries between the low and high datasites.
+#     We call this from the high side
+#     - jobs: sync from low to high (low = remote => REMOTE_TO_LOCAL)
+#     - outputs: sync from high to low (high = local => LOCAL_TO_REMOTE)
+#     """
 
-    return [
-        RsyncEntry(
-            local_dir=rsync_config.jobs_dir(Side.HIGH),
-            remote_dir=rsync_config.jobs_dir(Side.LOW),
-            direction=SyncDirection.REMOTE_TO_LOCAL,
-            ignore_existing=True,
-        ),
-        RsyncEntry(
-            local_dir=rsync_config.outputs_dir(Side.HIGH),
-            remote_dir=rsync_config.outputs_dir(Side.LOW),
-            direction=SyncDirection.LOCAL_TO_REMOTE,
-            ignore_existing=False,
-        ),
-    ]
+#     return [
+#         RsyncEntry(
+#             local_dir=rsync_config.jobs_dir(Side.HIGH),
+#             remote_dir=rsync_config.jobs_dir(Side.LOW),
+#             direction=SyncDirection.REMOTE_TO_LOCAL,
+#             ignore_existing=True,
+#         ),
+#         RsyncEntry(
+#             local_dir=rsync_config.outputs_dir(Side.HIGH),
+#             remote_dir=rsync_config.outputs_dir(Side.LOW),
+#             direction=SyncDirection.LOCAL_TO_REMOTE,
+#             ignore_existing=False,
+#         ),
+#     ]
 
 
 def _validate_runtime_sync_config(rsync_config: RsyncConfig) -> None:
@@ -626,63 +421,3 @@ def _load_client_sync_config(syftbox_client: Optional[SyftBoxClient]) -> RsyncCo
     except Exception as e:
         logger.error(f"Failed to load sync configuration: {e}")
         raise
-
-
-def _validate_sync_direction(
-    direction: Optional[str | SyncDirection],
-) -> Optional[SyncDirection]:
-    """Validate and convert direction parameter to SyncDirection enum."""
-    if direction is None:
-        return None
-
-    if isinstance(direction, str):
-        try:
-            return SyncDirection(direction)
-        except ValueError as e:
-            raise ValueError(f"Invalid sync direction: {direction}") from e
-
-
-def _get_sync_commands(
-    rsync_config: RsyncConfig,
-    direction: Optional[str | SyncDirection] = None,
-    verbose: bool = True,
-) -> list[str]:
-    """Get rsync commands for configured sync entries, optionally filtered by direction."""
-    direction = _validate_sync_direction(direction)
-
-    if direction is None:
-        commands: list[str] = rsync_config.get_rsync_commands()
-        if verbose:
-            for command in commands:
-                logger.debug(_parse_rsync_command_for_display(command))
-        return commands
-
-    filtered_entries: list[RsyncEntry] = [
-        entry for entry in rsync_config.entries if entry.direction == direction
-    ]
-    commands: list[str] = []
-
-    for entry in filtered_entries:
-        command = entry.to_command(rsync_config.connection_settings)
-        commands.append(command)
-        if verbose:
-            logger.info(f"Rsync command: {entry.show()}")
-
-    return commands
-
-
-def _parse_rsync_command_for_display(command: str) -> str:
-    """Parse rsync command to create human-readable description."""
-
-    # Extract source and destination from the command
-    # rsync -avP --human-readable --ignore-existing /path/source/ /path/dest/
-    parts = command.split()
-
-    # Find source and destination (last two non-flag arguments)
-    paths = [part for part in parts if not part.startswith("-") and part != "rsync"]
-    if len(paths) < 2:
-        return "Unknown sync operation"
-
-    source, dest = paths[-2], paths[-1]
-
-    return f"   → Syncing from {source} to {dest}"
