@@ -258,6 +258,14 @@ class HighSideClient(SyftBoxClient):
             verbose=verbose,
         )
 
+    def run_private(self, job_id: str) -> dict:
+        """Run a private job on high-side.
+
+        Args:
+            job_id: ID of the job to run
+        """
+        pass
+
     def _sync_with_rsync(
         self,
         local_dir: Path,

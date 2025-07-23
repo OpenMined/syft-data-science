@@ -37,7 +37,7 @@ jobs:
     with:
       test-type: test-syft-datasets
 
-  # call-pr-tests-syft-runtimes:
-  #   uses: ./.github/workflows/pr-tests-base.yml
-  #   with:
-  #     test-type: test-syft-runtimes
+  call-pr-tests-syft-runtimes:
+    uses: ./.github/workflows/pr-tests-base.yml
+    with:
+      test-type: test-syft-runtimes
