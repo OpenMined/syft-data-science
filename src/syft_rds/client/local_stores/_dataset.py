@@ -129,7 +129,7 @@ class DatasetUrlManager:
 
     @staticmethod
     def get_private_dataset_syftbox_url(
-        datasite_email: str, dataset_name: str, path: Union[Path, str]
+        datasite_email: str, dataset_name: str, path: Union[Path, str] = None
     ) -> SyftBoxURL:
         """Generate a SyftBox URL for the private dataset."""
         return SyftBoxURL(
