@@ -146,10 +146,39 @@ class KubernetesRuntimeConfig(BaseRuntimeConfig):
 
 
 class HighLowRuntimeConfig(BaseRuntimeConfig):
-    pass
+    """Configuration for high-low runtime with dataset tracking."""
+
+    def add_dataset(self, dataset_name: str) -> bool:
+        """Add a dataset to the config if not already present.
+
+        Returns:
+            True if dataset was added, False if already present
+        """
+        if dataset_name not in self.datasets:
+            self.datasets.append(dataset_name)
+            self.save_to_yaml()
+            return True
+        return False
+
+    def remove_dataset(self, dataset_name: str) -> bool:
+        """Remove a dataset from the config.
+
+        Returns:
+            True if dataset was removed, False if not found
+        """
+        if dataset_name in self.datasets:
+            self.datasets.remove(dataset_name)
+            self.save_to_yaml()
+            return True
+        return False
 
 
-RuntimeConfig = PythonRuntimeConfig | DockerRuntimeConfig | KubernetesRuntimeConfig
+RuntimeConfig = (
+    PythonRuntimeConfig
+    | DockerRuntimeConfig
+    | KubernetesRuntimeConfig
+    | HighLowRuntimeConfig
+)
 
 
 class Runtime(BaseModel):

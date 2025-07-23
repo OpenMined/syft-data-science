@@ -46,7 +46,7 @@ class RsyncEntry(BaseModel):
     ignore_existing: bool = True
     exclude_patterns: list[str] = []
 
-    def to_command(self, connection: SSHConnection | None = None) -> str:
+    def to_command(self, connection: LowSideConnection | None = None) -> str:
         return generate_rsync_command(self, connection)
 
     def show(self) -> str:
@@ -195,9 +195,23 @@ def get_rsync_config_path(
     return syftbox_client.workspace.data_dir / "high_side_sync_config.json"
 
 
+def _format_path_for_rsync(path: Path, is_file: bool) -> str:
+    """Format a path for rsync, adding trailing slash for directories."""
+    path_str = str(path)
+    if not is_file:
+        path_str += "/"
+    return path_str
+
+
+def _build_ssh_path(connection: SSHConnection, path: Path, is_file: bool) -> str:
+    """Build SSH path in format user@host:path with proper trailing slash."""
+    formatted_path = _format_path_for_rsync(path, is_file)
+    return f"{connection.user}@{connection.host}:{formatted_path}"
+
+
 def generate_rsync_command(
     entry: RsyncEntry,
-    connection: SSHConnection | None = None,
+    connection: LowSideConnection | None = None,
 ) -> str:
     # Base rsync flags: archive, verbose, progress, partial, human-readable
     flags = "-avP --human-readable --mkpath"
@@ -208,51 +222,34 @@ def generate_rsync_command(
     for pattern in entry.exclude_patterns:
         flags += f" --exclude='{pattern}'"
 
-    # Detect if we're syncing a file (has file extension) vs directory
+    # Detect if we're syncing files vs directories
     local_is_file = entry.local_dir.suffix != ""
     remote_is_file = entry.remote_dir.suffix != ""
 
-    if connection is None:
-        if entry.direction == SyncDirection.REMOTE_TO_LOCAL:
-            source = str(entry.remote_dir)
-            dest = str(entry.local_dir)
-            # Only add trailing slash for directories
-            if not remote_is_file:
-                source += "/"
-            if not local_is_file:
-                dest += "/"
-            return f"rsync {flags} {source} {dest}"
-        else:
-            source = str(entry.local_dir)
-            dest = str(entry.remote_dir)
-            # Only add trailing slash for directories
-            if not local_is_file:
-                source += "/"
-            if not remote_is_file:
-                dest += "/"
-            return f"rsync {flags} {source} {dest}"
-    else:
-        # SSH rsync
+    # Determine source and destination paths based on direction and connection type
+    if entry.direction == SyncDirection.REMOTE_TO_LOCAL:
+        if connection is None or isinstance(connection, LocalConnection):
+            source = _format_path_for_rsync(entry.remote_dir, remote_is_file)
+            dest = _format_path_for_rsync(entry.local_dir, local_is_file)
+        else:  # SSHConnection
+            source = _build_ssh_path(connection, entry.remote_dir, remote_is_file)
+            dest = _format_path_for_rsync(entry.local_dir, local_is_file)
+    else:  # LOCAL_TO_REMOTE
+        if connection is None or isinstance(connection, LocalConnection):
+            source = _format_path_for_rsync(entry.local_dir, local_is_file)
+            dest = _format_path_for_rsync(entry.remote_dir, remote_is_file)
+        else:  # SSHConnection
+            source = _format_path_for_rsync(entry.local_dir, local_is_file)
+            dest = _build_ssh_path(connection, entry.remote_dir, remote_is_file)
+
+    # Build the final command
+    if connection is None or isinstance(connection, LocalConnection):
+        return f"rsync {flags} {source} {dest}"
+    else:  # SSHConnection
         ssh_opts = f"-p {connection.port}"
         if connection.ssh_key_path:
             ssh_opts += f" -i {connection.ssh_key_path}"
-
-        if entry.direction == SyncDirection.REMOTE_TO_LOCAL:
-            remote_path = f"{connection.user}@{connection.host}:{entry.remote_dir}"
-            local_path = str(entry.local_dir)
-            if not remote_is_file:
-                remote_path += "/"
-            if not local_is_file:
-                local_path += "/"
-            return f"rsync {flags} -e 'ssh {ssh_opts}' {remote_path} {local_path}"
-        else:
-            local_path = str(entry.local_dir)
-            remote_path = f"{connection.user}@{connection.host}:{entry.remote_dir}"
-            if not local_is_file:
-                local_path += "/"
-            if not remote_is_file:
-                remote_path += "/"
-            return f"rsync {flags} -e 'ssh {ssh_opts}' {local_path} {remote_path}"
+        return f"rsync {flags} -e 'ssh {ssh_opts}' {source} {dest}"
 
 
 def create_connection_from_config(
@@ -340,7 +337,7 @@ def detect_connection_type(
         raise ValueError("Must specify either ssh_config or lowside_data_dir.")
 
 
-def _get_initial_sync_entries(rsync_config: RsyncConfig) -> list[RsyncEntry]:
+def get_initial_sync_entries(rsync_config: RsyncConfig) -> list[RsyncEntry]:
     """
     Creates the initial sync entries to create the runtime structure on the low side
     We sync the runtime folder (`jobs/`, `done/` and `config.yaml`), except for the `running/` dir
@@ -390,7 +387,7 @@ def _get_default_sync_entries(rsync_config: RsyncConfig) -> list[RsyncEntry]:
     ]
 
 
-def _get_sync_commands(
+def get_sync_commands(
     rsync_config: RsyncConfig,
     direction: Optional[str | SyncDirection] = None,
     verbose: bool = True,
@@ -400,7 +397,7 @@ def _get_sync_commands(
         commands: list[str] = rsync_config.get_rsync_commands()
         if verbose:
             for command in commands:
-                logger.debug(_parse_rsync_command_for_display(command))
+                logger.debug(parse_rsync_command_for_display(command))
         return commands
 
     filtered_entries: list[RsyncEntry] = [
@@ -417,7 +414,7 @@ def _get_sync_commands(
     return commands
 
 
-def _execute_sync_commands(commands: list[str], verbose: bool) -> SyncResult:
+def execute_sync_commands(commands: list[str], verbose: bool) -> SyncResult:
     """Execute rsync commands and return detailed results."""
 
     if not commands:
@@ -480,7 +477,7 @@ def _execute_sync_commands(commands: list[str], verbose: bool) -> SyncResult:
     return result
 
 
-def _parse_rsync_command_for_display(command: str) -> str:
+def parse_rsync_command_for_display(command: str) -> str:
     """Parse rsync command to create human-readable description."""
 
     # Extract source and destination from the command

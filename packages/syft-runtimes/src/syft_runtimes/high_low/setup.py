@@ -1,5 +1,4 @@
 import secrets
-import shutil
 from typing import Optional
 
 from loguru import logger
@@ -9,42 +8,11 @@ from syft_core.types import PathLike, to_path
 from syft_runtimes.high_low.rsync import (
     RsyncConfig,
     RsyncEntry,
-    Side,
     SSHConnection,
     SyncDirection,
     get_rsync_config_path,
 )
-from syft_runtimes.high_low.consts import DEFAULT_HIGH_SIDE_DATA_DIR
-from syft_runtimes.models import BaseRuntimeConfig
 from syft_runtimes.high_low.lowside_client import LowSideClient
-
-
-class HighLowRuntimeConfig(BaseRuntimeConfig):
-    """Configuration for high-low runtime with dataset tracking."""
-
-    def add_dataset(self, dataset_name: str) -> bool:
-        """Add a dataset to the config if not already present.
-
-        Returns:
-            True if dataset was added, False if already present
-        """
-        if dataset_name not in self.datasets:
-            self.datasets.append(dataset_name)
-            self.save_to_yaml()
-            return True
-        return False
-
-    def remove_dataset(self, dataset_name: str) -> bool:
-        """Remove a dataset from the config.
-
-        Returns:
-            True if dataset was removed, False if not found
-        """
-        if dataset_name in self.datasets:
-            self.datasets.remove(dataset_name)
-            self.save_to_yaml()
-            return True
-        return False
 
 
 def _create_default_sync_config(
@@ -113,92 +81,8 @@ def sync(
     return None
 
 
-def sync_dataset(
-    dataset_name: str,
-    highside_client: SyftBoxClient,
-    lowside_client: LowSideClient,
-    verbose: bool = True,
-) -> None:
-    """Sync the public part of a specific dataset from high-side to low-side.
-
-    Args:
-        dataset_name: Name of the dataset to sync
-        highside_client: The high-side syftbox client
-        lowside_client: The low-side syftbox client
-        verbose: print more info if True
-    """
-    # Get dataset directories on high and low sides
-    high_dataset_dir = (
-        highside_client.my_datasite / "public" / "syft_datasets" / dataset_name
-    )
-    low_dataset_dir = lowside_client.get_dataset_path(dataset_name, private=False)
-    rsync_config = _load_client_sync_config(highside_client)
-
-    # Validate that the dataset exists on high-side
-    if not high_dataset_dir.exists():
-        raise FileNotFoundError(
-            f"Dataset '{dataset_name}' not found on high-side at {high_dataset_dir}"
-        )
-
-    # Create the dataset sync entry
-    dataset_entry = RsyncEntry(
-        local_dir=high_dataset_dir,
-        remote_dir=low_dataset_dir,
-        direction=SyncDirection.LOCAL_TO_REMOTE,
-        ignore_existing=False,  # Overwrite existing files to ensure updates
-    )
-
-    # Ensure the parent directory exists on low-side
-    lowside_client.ensure_directory_exists(low_dataset_dir.parent)
-
-    # Generate and execute the rsync command
-    command = dataset_entry.to_command(rsync_config.connection_settings)
-    print(command)
-
-    if verbose:
-        logger.info(f"Syncing dataset '{dataset_name}' from high-side to low-side")
-        logger.info(f"Source: {high_dataset_dir}")
-        logger.info(f"Destination: {low_dataset_dir}")
-        # logger.debug(_parse_rsync_command_for_display(command))
-
-    # _execute_sync_commands([command], verbose=verbose)
-
-    _add_dataset_name_to_config(dataset_name, highside_client, Side.HIGH, rsync_config)
-    # For local connections, also update the low-side config
-    if lowside_client.is_local():
-        local_client = (
-            lowside_client.syftbox_client
-        )  # Access the underlying SyftBoxClient
-        _add_dataset_name_to_config(dataset_name, local_client, Side.LOW, rsync_config)
-
-    return None
-
-
 def _generate_high_side_name() -> str:
     return f"high-side-{secrets.token_hex(4)}"
-
-
-def _init_highside_data_dir(
-    email: str, data_dir: PathLike | None, force_overwrite: bool = False
-) -> PathLike:
-    if data_dir:
-        data_dir = to_path(data_dir)
-    else:
-        data_dir = to_path(DEFAULT_HIGH_SIDE_DATA_DIR / email)
-
-    if data_dir.exists() and not force_overwrite:
-        raise FileExistsError(
-            f"Directory {data_dir} already exists. Use force_overwrite=True to reset."
-        )
-
-    if force_overwrite and data_dir.exists():
-        logger.debug(f"Overwriting existing directory: {data_dir}")
-        shutil.rmtree(data_dir)
-
-    logger.debug(f"Creating directory: {data_dir}")
-    data_dir.mkdir(parents=True, exist_ok=True)
-
-    return data_dir
 
 
 def _create_empty_sync_config(
@@ -360,53 +244,6 @@ def _initialize_sync_dirs(
         except OSError as e:
             logger.error(f"Failed to create directory {entry.local_dir}: {e}")
             raise
-
-
-def _add_dataset_name_to_config(
-    dataset_name: str,
-    client: SyftBoxClient,
-    side: Side,
-    rsync_config: Optional[RsyncConfig] = None,
-) -> None:
-    """Add a dataset name to the runtime config.yaml file if not already present.
-
-    Args:
-        dataset_name: Name of the dataset to add to config
-        client: The syftbox client
-        side: Side of the runtime config to update (HIGH or LOW)
-        rsync_config: Optional rsync config, will load if not provided
-    """
-    if rsync_config is None:
-        rsync_config = _load_client_sync_config(client)
-
-    # Get the runtime directory using the existing utility
-    runtime_dir = rsync_config.high_low_runtime_dir(side=side)
-    runtime_config_path = runtime_dir / "config.yaml"
-
-    try:
-        # Try to load existing config
-        if runtime_config_path.exists():
-            runtime_config = HighLowRuntimeConfig.from_yaml(runtime_config_path)
-        else:
-            # Create new config
-            runtime_config = HighLowRuntimeConfig(
-                config_path=runtime_config_path, datasets=[dataset_name]
-            )
-    except Exception as e:
-        logger.warning(f"Failed to load existing config, creating new one: {e}")
-        runtime_config = HighLowRuntimeConfig(
-            config_path=runtime_config_path, datasets=[dataset_name]
-        )
-
-    # Add dataset using the model's method
-    if runtime_config.add_dataset(dataset_name):
-        logger.info(
-            f"Added dataset '{dataset_name}' to runtime config at {runtime_config_path}"
-        )
-    else:
-        logger.debug(
-            f"Dataset '{dataset_name}' already exists in runtime config at {runtime_config_path}"
-        )
 
 
 def _load_client_sync_config(syftbox_client: Optional[SyftBoxClient]) -> RsyncConfig:

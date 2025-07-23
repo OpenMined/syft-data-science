@@ -5,7 +5,7 @@ from loguru import logger
 
 from syft_core import Client as SyftBoxClient
 
-from syft_runtimes.high_low.rsync import ConnectionType
+from syft_runtimes.high_low.rsync import ConnectionType, SSHConnection
 from syft_runtimes.runtimes.base import Runtime
 from syft_runtimes.runtimes.runtime_factory import (
     create_local_runtime,
@@ -16,9 +16,12 @@ from syft_runtimes.runtimes.runtime_factory import (
 class LowSideClient(ABC):
     """Abstract base class for low-side clients (local and SSH)."""
 
-    def __init__(self, email: str, connection_type: ConnectionType):
+    def __init__(
+        self, email: str, connection_type: ConnectionType, highlow_identifier: str
+    ):
         self.email = email
         self.connection_type = connection_type
+        self.highlow_identifier = highlow_identifier
 
     @property
     @abstractmethod
@@ -34,6 +37,11 @@ class LowSideClient(ABC):
     @property
     def data_dir(self) -> Path:
         """Get the path to the SyftBox directory."""
+        pass
+
+    @property
+    def runtime_dir(self) -> Path:
+        """Get the path for a specific runtime."""
         pass
 
     @abstractmethod
@@ -68,16 +76,6 @@ class LowSideClient(ABC):
         """Get the path for a specific dataset."""
         pass
 
-    @abstractmethod
-    def get_private_dataset_path(self, dataset_name: str) -> Path:
-        """Get the path for a specific dataset."""
-        pass
-
-    @abstractmethod
-    def get_runtime_path(self, highlow_identifier: str) -> Path:
-        """Get the path for a specific runtime."""
-        pass
-
     def is_local(self) -> bool:
         """Check if this is a local connection."""
         return self.connection_type == ConnectionType.LOCAL
@@ -90,8 +88,8 @@ class LowSideClient(ABC):
 class LocalLowSideClient(LowSideClient):
     """Local low-side client using direct file operations."""
 
-    def __init__(self, syftbox_client: SyftBoxClient):
-        super().__init__(syftbox_client.email, ConnectionType.LOCAL)
+    def __init__(self, syftbox_client: SyftBoxClient, highlow_identifier: str):
+        super().__init__(syftbox_client.email, ConnectionType.LOCAL, highlow_identifier)
         self.syftbox_client = syftbox_client
 
     @property
@@ -103,6 +101,17 @@ class LocalLowSideClient(LowSideClient):
     def data_dir(self) -> Path:
         """Get the path to the SyftBox directory."""
         return self.syftbox_client.workspace.data_dir
+
+    @property
+    def runtime_dir(self) -> Path:
+        """Get runtime path."""
+        return (
+            self.data_dir
+            / "private"
+            / self.email
+            / "syft_runtimes"
+            / self.highlow_identifier
+        )
 
     def ensure_directory_exists(self, path: Path) -> bool:
         """Create directory locally."""
@@ -118,23 +127,10 @@ class LocalLowSideClient(LowSideClient):
         self.runtime = create_local_runtime(self.syftbox_client, highlow_identifier)
         return self.runtime
 
-    def get_runtime_path(self, highlow_identifier: str) -> Path:
-        """Get runtime path."""
-        return self.data_dir / "private" / "syft_runtimes" / highlow_identifier
-
     def get_mock_dataset_path(self, dataset_name: str) -> Path:
         """Get the path for a specific dataset."""
         return (
             self.syftbox_client.my_datasite / "public" / "syft_datasets" / dataset_name
-        )
-
-    def get_private_dataset_path(self, dataset_name: str) -> Path:
-        """Get the path for a specific dataset."""
-        return (
-            self.syftbox_client.workspace.data_dir
-            / "private"
-            / "syft_datasets"
-            / dataset_name
         )
 
     def runtime(self) -> Runtime:
@@ -145,11 +141,17 @@ class LocalLowSideClient(LowSideClient):
 class SSHLowSideClient(LowSideClient):
     """SSH low-side client using remote operations."""
 
-    def __init__(self, email: str, ssh_config: dict, remote_syftbox_dir: Path):
-        super().__init__(email, ConnectionType.SSH)
-        self.ssh_config = ssh_config
+    def __init__(
+        self,
+        email: str,
+        ssh_connection: SSHConnection,
+        remote_syftbox_dir: Path,
+        highlow_identifier: str,
+    ):
+        super().__init__(email, ConnectionType.SSH, highlow_identifier)
+        self.ssh_connection = ssh_connection
         self.remote_syftbox_dir = remote_syftbox_dir
-        self.connection_string = f"{ssh_config['user']}@{ssh_config['host']}"
+        self.connection_string = f"{ssh_connection.user}@{ssh_connection.host}"
 
     @property
     def datasite_path(self) -> Path:
@@ -174,7 +176,7 @@ class SSHLowSideClient(LowSideClient):
         """Create an SSH runtime."""
         self.runtime = create_ssh_runtime(
             runtime_name=highlow_identifier,
-            ssh_config=self.ssh_config,
+            ssh_config=self.ssh_connection.model_dump(),
             remote_base_dir=self.remote_syftbox_dir,
         )
         return self.runtime
@@ -183,18 +185,25 @@ class SSHLowSideClient(LowSideClient):
         """Get the runtime instance for this client."""
         return self.runtime
 
-    def get_runtime_path(self, highlow_identifier: str) -> Path:
+    @property
+    def runtime_dir(self) -> Path:
         """Get remote runtime path."""
-        return self.data_dir / "private" / "syft_runtimes" / highlow_identifier
+        return (
+            self.data_dir
+            / "private"
+            / self.email
+            / "syft_runtimes"
+            / self.highlow_identifier
+        )
 
     def _execute_ssh_command(self, command: str) -> tuple[str, str, int]:
         """Execute SSH command and return stdout, stderr, exit_code."""
         ssh_cmd = ["ssh"]
 
-        if self.ssh_config.get("ssh_key_path"):
-            ssh_cmd.extend(["-i", str(self.ssh_config["ssh_key_path"])])
-        if self.ssh_config.get("port", 22) != 22:
-            ssh_cmd.extend(["-p", str(self.ssh_config["port"])])
+        if self.ssh_connection.ssh_key_path:
+            ssh_cmd.extend(["-i", str(self.ssh_connection.ssh_key_path)])
+        if self.ssh_connection.port != 22:
+            ssh_cmd.extend(["-p", str(self.ssh_connection.port)])
 
         ssh_cmd.extend([self.connection_string, command])
 
@@ -202,9 +211,12 @@ class SSHLowSideClient(LowSideClient):
         return result.stdout, result.stderr, result.returncode
 
     def get_mock_dataset_path(self, dataset_name: str) -> Path:
-        """Get the path for a specific dataset."""
-        return self.data_dir / "public" / "syft_datasets" / dataset_name
-
-    def get_private_dataset_path(self, dataset_name: str) -> Path:
-        """Get the path for a specific dataset."""
-        return self.data_dir / "private" / "syft_datasets" / dataset_name
+        """Get the mock path for a specific dataset."""
+        return (
+            self.data_dir
+            / "datasites"
+            / self.email
+            / "public"
+            / "syft_datasets"
+            / dataset_name
+        )
