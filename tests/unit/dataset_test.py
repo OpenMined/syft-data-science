@@ -146,3 +146,38 @@ def test_readme_content(do_rds_client: RDSClient) -> None:
         original_content = f.read()
 
     assert readme_content == original_content
+
+
+def test_permission_error_private_path_access(
+    do_rds_client: RDSClient, ds_rds_client: RDSClient
+) -> None:
+    """Test that non-admin users cannot access private paths even when dataset exists."""
+    assert do_rds_client.is_admin
+    assert not ds_rds_client.is_admin
+
+    # Create a dataset as admin
+    create_dataset(do_rds_client, "TestPrivateAccess")
+
+    # Get the same dataset through the non-admin client
+    non_admin_dataset = ds_rds_client.dataset.get(name="TestPrivateAccess")
+
+    # Non-admin should be able to access mock path
+    mock_path = non_admin_dataset.get_mock_path()
+    assert mock_path.exists()
+
+    # But should get PermissionError when trying to access private path
+    with pytest.raises(
+        PermissionError, match="You must be the datasite admin to access private data"
+    ):
+        non_admin_dataset.get_private_path()
+
+    # Also test the property access
+    with pytest.raises(
+        PermissionError, match="You must be the datasite admin to access private data"
+    ):
+        _ = non_admin_dataset.private_path
+
+    # Admin dataset
+    admin_dataset = do_rds_client.dataset.get(name="TestPrivateAccess")
+    assert admin_dataset.get_mock_path().exists()
+    assert admin_dataset.get_private_path().exists()

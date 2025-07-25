@@ -48,9 +48,17 @@ class Dataset(ItemBase):
 
     def get_private_path(self) -> Path:
         """
-        Will always raise FileNotFoundError for non-admin since the
-        private path will never by synced
+        Will always raise PermissionError for non-admin users since they
+        don't have permission to access private data.
         """
+        # Check if user is admin before attempting to access private path
+        if not self._is_admin():
+            raise PermissionError(
+                f"You must be the datasite admin to access private data. "
+                f"Your SyftBox email: '{self._syftbox_client.email}'. "
+                f"Host email: '{self._client.config.host}'"
+            )
+
         private_path: Path = self.private.to_local_path(
             datasites_path=self._syftbox_client.datasites
         )
@@ -88,10 +96,10 @@ class Dataset(ItemBase):
             "mock_path",
         ]
         try:
-            # Only include private path if it exists
+            # Only include private path if it exists and user has permission
             _ = self.private_path
             field_to_include.append("private_path")
-        except FileNotFoundError:
+        except (FileNotFoundError, PermissionError):
             pass
 
         description = create_html_repr(
@@ -101,6 +109,10 @@ class Dataset(ItemBase):
         )
 
         display(HTML(description))
+
+    def _is_admin(self) -> bool:
+        """Check if the current user is admin by comparing email with host."""
+        return self._client.email == self._client.host
 
 
 class DatasetUpdate(ItemBaseUpdate[Dataset]):
