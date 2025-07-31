@@ -100,7 +100,7 @@ class RsyncConfig(BaseModel):
         high_side_name: str,
         high_syftbox_dir: Path,
         syftbox_client_email: str,
-        lowside_data_dir: Optional[PathLike] = None,
+        lowside_syftbox_dir: Optional[PathLike] = None,
         ssh_config: Optional[Dict] = None,
     ) -> "RsyncConfig":
         """
@@ -119,7 +119,7 @@ class RsyncConfig(BaseModel):
                 high_side_name="my-runtime",
                 high_syftbox_dir="/path/to/high/syftbox",
                 syftbox_client_email="user@example.com",
-                lowside_data_dir="/path/to/low/syftbox"
+                lowside_syftbox_dir="/path/to/low/syftbox"
             )
 
             # SSH connection
@@ -135,13 +135,13 @@ class RsyncConfig(BaseModel):
                 }
             )
         """
-        connection = create_connection_from_config(lowside_data_dir, ssh_config)
+        connection = create_connection_from_config(lowside_syftbox_dir, ssh_config)
 
         if isinstance(connection, LocalConnection):
             low_syftbox_dir = Path(connection.lowside_syftbox_dir)
             connection_settings = None
         else:  # SSHConnection
-            low_syftbox_dir = Path(lowside_data_dir)
+            low_syftbox_dir = Path(lowside_syftbox_dir)
             connection_settings = connection
 
         return cls(

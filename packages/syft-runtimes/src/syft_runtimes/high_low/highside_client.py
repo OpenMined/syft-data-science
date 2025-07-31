@@ -12,7 +12,6 @@ from syft_runtimes.high_low.consts import DEFAULT_HIGH_SIDE_DATA_DIR
 from syft_runtimes.high_low.rsync import (
     RsyncConfig,
     RsyncEntry,
-    SSHConnection,
     SyncDirection,
     SyncResult,
     create_connection_from_config,
@@ -20,11 +19,7 @@ from syft_runtimes.high_low.rsync import (
     parse_rsync_command_for_display,
 )
 from syft_runtimes import HighLowRuntime
-from syft_runtimes.high_low.lowside_client import (
-    LowSideClient,
-    LocalLowSideClient,
-    SSHLowSideClient,
-)
+
 from syft_runtimes.high_low.rsync import (
     get_initial_sync_entries,
     get_sync_commands,
@@ -40,14 +35,22 @@ class HighSideClient(SyftBoxClient):
         self,
         email: str,
         highside_identifier: str,
-        data_dir: PathLike,
+        syftbox_dir: PathLike,
+        lowside_syftbox_dir: Optional[PathLike] = None,
+        connection_config: Optional[Dict] = None,
         force_overwrite: bool = False,
     ):
         # Initialize data directory first
-        data_dir = _init_highside_data_dir(email, data_dir, force_overwrite)
+        syftbox_dir = HighSideClient._init_highside_syftbox_dir(
+            email, syftbox_dir, force_overwrite
+        )
 
-        super().__init__(conf=self._create_highside_config(email, data_dir))
+        super().__init__(conf=self._create_highside_config(email, syftbox_dir))
         self.highside_identifier = highside_identifier
+
+        # Store connection details
+        self.connection = None
+        self.lowside_syftbox_dir = None
 
         # Create datasite directory
         self.datasite_path.mkdir(parents=True, exist_ok=True)
@@ -59,6 +62,14 @@ class HighSideClient(SyftBoxClient):
         )
         self.runtime.init_runtime_dir()
 
+        # Setup lowside connection if parameters provided
+        if connection_config is not None or lowside_syftbox_dir is not None:
+            self._setup_lowside_connection(
+                highlow_identifier=highside_identifier,
+                lowside_syftbox_dir=lowside_syftbox_dir,
+                connection_config=connection_config,
+            )
+
     @property
     def runtime_dir(self) -> Path:
         """Get the runtime directory path."""
@@ -69,93 +80,20 @@ class HighSideClient(SyftBoxClient):
         cls,
         email: str,
         highside_identifier: str,
-        data_dir: PathLike,
+        syftbox_dir: PathLike,
+        lowside_syftbox_dir: Optional[PathLike] = None,
+        connection_config: Optional[Dict] = None,
         force_overwrite: bool = False,
     ) -> "HighSideClient":
-        """Initialize a high datasite (now just delegates to __init__)."""
+        """Initialize a high datasite and optionally connect to lowside."""
         return cls(
             email=email,
             highside_identifier=highside_identifier,
-            data_dir=data_dir,
+            syftbox_dir=syftbox_dir,
+            lowside_syftbox_dir=lowside_syftbox_dir,
+            connection_config=connection_config,
             force_overwrite=force_overwrite,
         )
-
-    def lowside_connect(
-        self,
-        highlow_identifier: str,
-        lowside_data_dir: Optional[PathLike] = None,
-        ssh_config: Optional[Dict] = None,
-        force_overwrite: bool = False,
-    ) -> LowSideClient:
-        """
-        Connect to low side and create sync configuration.
-
-        Args:
-            highlow_identifier: Unique identifier for this high-low runtime connection
-            lowside_data_dir: Path to local SyftBox directory (for local connections)
-            ssh_config: Dict with SSH connection details (for remote connections)
-                Required keys: 'host', 'user'
-                Optional keys: 'port' (default: 22), 'ssh_key_path'
-            force_overwrite: Whether to overwrite existing configuration
-
-        Returns:
-            SyftBoxClient: The low-side client
-
-        Examples:
-            # Local connection
-            lowside_client = highside_client.lowside_connect(
-                highlow_identifier="my-runtime",
-                lowside_data_dir="/path/to/local/syftbox"
-            )
-
-            # SSH connection
-            lowside_client = highside_client.lowside_connect(
-                highlow_identifier="my-runtime",
-                ssh_config={
-                    "host": "lowside.example.com",
-                    "user": "myuser",
-                    "port": 2222,
-                    "ssh_key_path": "/path/to/key"
-                }
-            )
-        """
-        logger.debug(f"Connecting to low side with identifier: {highlow_identifier}")
-
-        # Validate inputs using our helper function
-        self.connection = create_connection_from_config(lowside_data_dir, ssh_config)
-
-        # Create lowside client based on connection type
-        if isinstance(self.connection, LocalConnection):
-            self.lowside_client = self._create_local_lowside_client(
-                self.connection, force_overwrite
-            )
-        else:  # SSHConnection
-            self.lowside_client = self._create_ssh_lowside_client(
-                self.connection, lowside_data_dir
-            )
-
-        # Create sync configuration using the new user-friendly method
-        sync_config = RsyncConfig.create_from_user_input(
-            high_side_name=highlow_identifier,
-            high_syftbox_dir=self.workspace.data_dir,
-            syftbox_client_email=self.email,
-            lowside_data_dir=lowside_data_dir,
-            ssh_config=ssh_config,
-        )
-
-        # Initial sync entries to create low side runtime structure
-        default_entries = get_initial_sync_entries(sync_config)
-        sync_config.entries.extend(default_entries)
-
-        commands: list[str] = get_sync_commands(rsync_config=sync_config)
-        sync_result = execute_sync_commands(commands, verbose=True)
-
-        logger.debug(f"Initial sync result: {sync_result}")
-        logger.info(
-            f"Connected to low side with high-low identifier: {highlow_identifier}"
-        )
-
-        return self.lowside_client
 
     def sync_dataset(
         self,
@@ -172,7 +110,7 @@ class HighSideClient(SyftBoxClient):
         high_mock_dataset_dir = (
             self.my_datasite / "public" / "syft_datasets" / dataset_name
         )
-        low_mock_dataset_dir = self.lowside_client.get_mock_dataset_path(dataset_name)
+        low_mock_dataset_dir = self._get_lowside_dataset_path(dataset_name)
 
         # Validate that the dataset exists on high-side
         if not high_mock_dataset_dir.exists():
@@ -206,7 +144,7 @@ class HighSideClient(SyftBoxClient):
         # Sync the config.yaml to low side
         config_sync_result = self._sync_with_rsync(
             local_dir=runtime_config_path,
-            remote_dir=self.lowside_client.runtime_dir / RUNTIME_CONFIG_FILE,
+            remote_dir=self._get_lowside_runtime_dir() / RUNTIME_CONFIG_FILE,
             direction=SyncDirection.LOCAL_TO_REMOTE,
             operation_description="config.yaml to low side",
             verbose=verbose,
@@ -231,7 +169,7 @@ class HighSideClient(SyftBoxClient):
         """
         return self._sync_with_rsync(
             local_dir=self.runtime_dir / "jobs",
-            remote_dir=self.lowside_client.runtime_dir / "jobs",
+            remote_dir=self._get_lowside_runtime_dir() / "jobs",
             direction=SyncDirection.REMOTE_TO_LOCAL,
             ignore_existing=ignore_existing,
             operation_description="jobs from low-side to high-side",
@@ -251,7 +189,7 @@ class HighSideClient(SyftBoxClient):
         """
         return self._sync_with_rsync(
             local_dir=self.runtime_dir / "done",
-            remote_dir=self.lowside_client.runtime_dir / "done",
+            remote_dir=self._get_lowside_runtime_dir() / "done",
             direction=SyncDirection.LOCAL_TO_REMOTE,
             ignore_existing=ignore_existing,
             operation_description="done jobs from high-side to low-side",
@@ -265,6 +203,94 @@ class HighSideClient(SyftBoxClient):
             job_id: ID of the job to run
         """
         pass
+
+    @staticmethod
+    def _init_highside_syftbox_dir(
+        email: str, syftbox_dir: PathLike | None, force_overwrite: bool = False
+    ) -> PathLike:
+        """Initialize the highside data directory."""
+        if syftbox_dir:
+            syftbox_dir = to_path(syftbox_dir)
+        else:
+            syftbox_dir = to_path(DEFAULT_HIGH_SIDE_DATA_DIR / email)
+
+        if syftbox_dir.exists() and not force_overwrite:
+            raise FileExistsError(
+                f"Directory {syftbox_dir} already exists. Use force_overwrite=True to reset."
+            )
+
+        if force_overwrite and syftbox_dir.exists():
+            logger.debug(f"Overwriting existing directory: {syftbox_dir}")
+            shutil.rmtree(syftbox_dir)
+
+        logger.debug(f"Creating high side SyftBox directory: {syftbox_dir}")
+        syftbox_dir.mkdir(parents=True, exist_ok=True)
+
+        return syftbox_dir
+
+    def _create_highside_config(
+        self, email: str, data_dir: PathLike
+    ) -> SyftClientConfig:
+        """Create SyftBox configuration for high-side."""
+        config_path = to_path(data_dir) / "config.json"
+        syftbox_data_dir = to_path(data_dir) / "SyftBox"
+
+        logger.debug(f"Creating SyftBox configuration at: {config_path}")
+        syft_config = SyftClientConfig(
+            email=email,
+            client_url="http://testserver:5000",
+            path=config_path,
+            data_dir=syftbox_data_dir,
+        )
+        syft_config.save()
+        return syft_config
+
+    def _setup_lowside_connection(
+        self,
+        highlow_identifier: str,
+        lowside_syftbox_dir: Optional[PathLike] = None,
+        connection_config: Optional[Dict] = None,
+    ) -> None:
+        """Setup connection to lowside and perform initial sync."""
+        logger.debug(
+            f"Setting up lowside connection with identifier: {highlow_identifier}"
+        )
+
+        # Create connection object
+        self.connection = create_connection_from_config(
+            lowside_data_dir=lowside_syftbox_dir, ssh_config=connection_config
+        )
+
+        # Store remote syftbox directory
+        if isinstance(self.connection, LocalConnection):
+            self.lowside_syftbox_dir = Path(self.connection.lowside_syftbox_dir)
+        else:  # SSHConnection
+            self.lowside_syftbox_dir = (
+                Path(lowside_syftbox_dir)
+                if lowside_syftbox_dir
+                else Path("/home") / self.connection.user / "SyftBox"
+            )
+
+        # Create sync configuration
+        sync_config = RsyncConfig.create_from_user_input(
+            high_side_name=highlow_identifier,
+            high_syftbox_dir=self.workspace.data_dir,
+            syftbox_client_email=self.email,
+            lowside_syftbox_dir=lowside_syftbox_dir,
+            ssh_config=connection_config,
+        )
+
+        # Initial sync entries to create low side runtime structure
+        default_entries = get_initial_sync_entries(sync_config)
+        sync_config.entries.extend(default_entries)
+
+        commands: list[str] = get_sync_commands(rsync_config=sync_config)
+        sync_result = execute_sync_commands(commands, verbose=True)
+
+        logger.debug(f"Initial sync result: {sync_result}")
+        logger.info(
+            f"Connected to low side with high-low identifier: {highlow_identifier}"
+        )
 
     def _sync_with_rsync(
         self,
@@ -320,67 +346,47 @@ class HighSideClient(SyftBoxClient):
 
         return sync_result
 
-    def _create_highside_config(
-        self, email: str, data_dir: PathLike
-    ) -> SyftClientConfig:
-        """Create SyftBox configuration for high-side."""
-        config_path = to_path(data_dir) / "config.json"
-        syftbox_data_dir = to_path(data_dir) / "SyftBox"
-
-        logger.debug(f"Creating SyftBox configuration at: {config_path}")
-        syft_config = SyftClientConfig(
-            email=email,
-            client_url="http://testserver:5000",
-            path=config_path,
-            data_dir=syftbox_data_dir,
-        )
-        syft_config.save()
-        return syft_config
-
-    def _create_local_lowside_client(
-        self, connection: LocalConnection, force_overwrite: bool = False
-    ) -> LocalLowSideClient:
-        """Create a LocalLowSideClient for local low-side connection."""
-        lowside_data_dir = to_path(connection.lowside_syftbox_dir)
-
-        # Create config and data directories
-        config_path = lowside_data_dir / "config.json"
-
-        if config_path.exists() and not force_overwrite:
-            logger.debug(f"Loading existing low-side client from {config_path}")
-            config = SyftClientConfig.load(config_path)
-        else:
-            logger.debug(f"Creating new low-side client at {config_path}")
-            config = SyftClientConfig(
-                email=self.email,  # Use same email as high-side
-                client_url="http://testserver:5000",  # Default for local development
-                path=config_path,
-                data_dir=lowside_data_dir,
+    def _get_lowside_dataset_path(self, dataset_name: str) -> Path:
+        """Calculate the path for a dataset on the lowside."""
+        if not self.lowside_syftbox_dir:
+            raise ValueError(
+                "Lowside connection not configured. Call _setup_lowside_connection first."
             )
-            config.save()
 
-        syftbox_client = SyftBoxClient(conf=config)
-        syftbox_client.datasite_path.mkdir(parents=True, exist_ok=True)
+        if isinstance(self.connection, LocalConnection):
+            # For local connections, use standard datasite structure
+            return (
+                self.lowside_syftbox_dir
+                / "datasites"
+                / self.email
+                / "public"
+                / "syft_datasets"
+                / dataset_name
+            )
+        else:
+            # For SSH connections, use remote datasite structure
+            return (
+                self.lowside_syftbox_dir
+                / "datasites"
+                / self.email
+                / "public"
+                / "syft_datasets"
+                / dataset_name
+            )
 
-        return LocalLowSideClient(
-            syftbox_client, highlow_identifier=self.highside_identifier
-        )
+    def _get_lowside_runtime_dir(self) -> Path:
+        """Calculate the runtime directory path on the lowside."""
+        if not self.lowside_syftbox_dir:
+            raise ValueError(
+                "Lowside connection not configured. Call _setup_lowside_connection first."
+            )
 
-    def _create_ssh_lowside_client(
-        self,
-        connection: SSHConnection,
-        remote_syftbox_dir: Optional[PathLike] = None,
-    ) -> SSHLowSideClient:
-        """Create an SSHLowSideClient for SSH low-side connection."""
-        remote_syftbox_dir = (
-            Path(remote_syftbox_dir) or Path("/home") / connection.user / "SyftBox"
-        )
-
-        return SSHLowSideClient(
-            email=self.email,
-            ssh_connection=connection,
-            remote_syftbox_dir=remote_syftbox_dir,
-            highlow_identifier=self.highside_identifier,
+        return (
+            self.lowside_syftbox_dir
+            / "private"
+            / self.email
+            / "syft_runtimes"
+            / self.highside_identifier
         )
 
 
@@ -388,39 +394,28 @@ def initialize_high_datasite(
     email: str,
     highlow_identifier: str,
     force_overwrite: bool = False,
-    data_dir: Optional[PathLike] = None,
+    connection_config: Optional[Dict] = None,
+    lowside_syftbox_dir: Optional[PathLike] = None,
+    syftbox_dir: Optional[PathLike] = None,
 ) -> HighSideClient:
-    """Initialize a high datasite with SyftBox configuration.
+    """Initialize a high datasite with SyftBox configuration and connect to lowside.
+
+    Args:
+        email: Email address for the datasite
+        highlow_identifier: Unique identifier for the high-low runtime connection
+        force_overwrite: Whether to overwrite existing directories
+        connection_config: SSH connection configuration (for remote lowside)
+        lowside_syftbox_dir: Path to SyftBox directory on lowside
+        syftbox_dir: Path for highside SyftBox directory (optional)
 
     Returns:
-        HighSideClient: Initialized high-side client
+        HighSideClient: Initialized high-side client with lowside connection
     """
     return HighSideClient.initialize(
         email=email,
         highside_identifier=highlow_identifier,
-        data_dir=data_dir,
+        syftbox_dir=syftbox_dir,
+        lowside_syftbox_dir=lowside_syftbox_dir,
+        connection_config=connection_config,
         force_overwrite=force_overwrite,
     )
-
-
-def _init_highside_data_dir(
-    email: str, data_dir: PathLike | None, force_overwrite: bool = False
-) -> PathLike:
-    if data_dir:
-        data_dir = to_path(data_dir)
-    else:
-        data_dir = to_path(DEFAULT_HIGH_SIDE_DATA_DIR / email)
-
-    if data_dir.exists() and not force_overwrite:
-        raise FileExistsError(
-            f"Directory {data_dir} already exists. Use force_overwrite=True to reset."
-        )
-
-    if force_overwrite and data_dir.exists():
-        logger.debug(f"Overwriting existing directory: {data_dir}")
-        shutil.rmtree(data_dir)
-
-    logger.debug(f"Creating directory: {data_dir}")
-    data_dir.mkdir(parents=True, exist_ok=True)
-
-    return data_dir
