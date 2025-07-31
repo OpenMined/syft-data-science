@@ -1,18 +1,26 @@
 import os
 import subprocess
 import time
+import threading
+import json
+import shutil
+from abc import abstractmethod
 from pathlib import Path
 from typing import Callable, Optional, Type
+from uuid import uuid4
 
 from loguru import logger
+from syft_core import Client as SyftBoxClient
 
 from syft_runtimes.models import (
+    BaseRuntimeConfig,
     DockerMount,
     JobConfig,
     RuntimeKind,
     JobStatus,
     JobErrorKind,
     JobStatusUpdate,
+    JobResults,
 )
 from syft_runtimes.mounts import get_mount_provider
 from syft_runtimes.output_handler import JobOutputHandler
@@ -22,7 +30,7 @@ DEFAULT_WORKDIR = "/app"
 DEFAULT_OUTPUT_DIR = DEFAULT_WORKDIR + "/output"
 
 
-class JobRunner:
+class SyftRuntime:
     """Base class for running jobs."""
 
     def __init__(
@@ -151,7 +159,7 @@ class JobRunner:
         return return_code, error_message
 
 
-class PythonRunner(JobRunner):
+class PythonRunner(SyftRuntime):
     """Runs a Python job in a local subprocess."""
 
     def run(
@@ -180,7 +188,7 @@ class PythonRunner(JobRunner):
         ]
 
 
-class DockerRunner(JobRunner):
+class DockerRunner(SyftRuntime):
     """Runs a job in a Docker container."""
 
     def run(
@@ -384,7 +392,280 @@ class DockerRunner(JobRunner):
         return docker_run_cmd
 
 
-def get_runner_cls(job_config: JobConfig) -> Type[JobRunner]:
+# ------- new runtime classes -------
+class FolderBasedRuntime:
+    def __init__(self, syftbox_client: SyftBoxClient, runtime_name: str):
+        """Base class for folder-based syft runtimes that has the following structure:
+        └── SyftBox
+            ├── datasites/
+            │   ├── do1@openmined.org
+            │   ├── do2@openmined.org
+            │   └── ds@openmined.org
+            └── private/
+                └── do1@openmined.org/
+                    ├── syft_datasets/
+                    │   ├── dataset_01
+                    │   └── dataset_02
+                    └── syft_runtimes/
+                        ├── runtime_name/
+                        │   ├── jobs/
+                        │   ├── running/
+                        │   ├── done/
+                        │   └── config.yaml
+        """
+        self.syftbox_client = syftbox_client
+        self.syft_runtimes_dir = (
+            self.syftbox_client.workspace.data_dir
+            / "private"
+            / self.syftbox_client.email
+            / "syft_runtimes"
+        )
+        self.runtime_dir = self.syft_runtimes_dir / runtime_name
+        self.config: BaseRuntimeConfig = BaseRuntimeConfig(
+            config_path=self.runtime_dir / "config.yaml"
+        )
+
+    @property
+    def config_path(self) -> Path:
+        """Get the path to the config YAML file."""
+        return self.config.config_path
+
+    def init_runtime_dir(self) -> Path:
+        """Initialize the runtime directory."""
+        self.runtime_dir.mkdir(parents=True, exist_ok=True)
+        self.jobs_dir = self.runtime_dir / "jobs"
+        self.running_dir = self.runtime_dir / "running"
+        self.done_dir = self.runtime_dir / "done"
+
+        self.jobs_dir.mkdir(exist_ok=True)
+        self.running_dir.mkdir(exist_ok=True)
+        self.done_dir.mkdir(exist_ok=True)
+
+        self.config.save_to_yaml()
+
+        logger.debug(f"Initialized runtime directory: {self.runtime_dir}")
+
+        return self.runtime_dir
+
+    def load_config(self) -> BaseRuntimeConfig:
+        """Load the config from the YAML file."""
+        return BaseRuntimeConfig.from_yaml(self.config_path)
+
+    def update_config(self, **kwargs) -> None:
+        """Update config with new values and save to file.
+
+        Args:
+            **kwargs: Config fields to update
+        """
+        self.config.update(**kwargs)
+
+    def submit_job(self, job_config: JobConfig) -> str:
+        """Submit a job to the execution queue"""
+        job_id = str(uuid4())
+        job_file = self.jobs_dir / f"{job_id}.json"
+
+        # Serialize job config to JSON
+        job_data = {
+            "job_id": job_id,
+            "config": job_config.model_dump_json(),
+            "status": JobStatus.pending_code_review.value,
+            "created_at": time.time(),
+        }
+
+        job_file.write_text(json.dumps(job_data, indent=2))
+        logger.info(f"Job {job_id} submitted to {job_file}")
+        return job_id
+
+    def get_job_status(self, job_id: str) -> JobStatus:
+        """Get the current status of a job"""
+        # Check in execution queue
+        job_file = self.jobs_dir / f"{job_id}.json"
+        if job_file.exists():
+            job_data = json.loads(job_file.read_text())
+            return JobStatus(job_data["status"])
+
+        # Check in done folder
+        done_file = self.done_dir / f"{job_id}.json"
+        if done_file.exists():
+            job_data = json.loads(done_file.read_text())
+            return JobStatus(job_data["status"])
+
+        # Check status updates
+        status_file = self.running_dir / f"{job_id}_status.json"
+        if status_file.exists():
+            status_data = json.loads(status_file.read_text())
+            return JobStatus(status_data["status"])
+
+        raise ValueError(f"Job {job_id} not found")
+
+    def get_job_results(self, job_id: str) -> JobResults:
+        """Get the results of a completed job"""
+        done_file = self.done_dir / f"{job_id}.json"
+        if not done_file.exists():
+            raise ValueError(f"Job {job_id} is not completed or not found")
+
+        job_data = json.loads(done_file.read_text())
+        if job_data["status"] != JobStatus.job_run_finished.value:
+            raise ValueError(f"Job {job_id} has not finished successfully")
+
+        results_dir = self.done_dir / f"{job_id}_results"
+        if not results_dir.exists():
+            raise ValueError(f"Results directory for job {job_id} not found")
+
+        return JobResults(results_dir=results_dir)
+
+    def watch_folders(self) -> None:
+        """Start watching the folders for new jobs (non-blocking)"""
+        if self._running:
+            logger.warning("Folder watching is already running")
+            return
+
+        self._running = True
+        self._watch_thread = threading.Thread(target=self._watch_loop, daemon=True)
+        self._watch_thread.start()
+        logger.info("Started folder watching thread")
+
+    def stop_watching(self) -> None:
+        """Stop watching folders"""
+        self._running = False
+        if self._watch_thread:
+            self._watch_thread.join(timeout=5)
+        logger.info("Stopped folder watching")
+
+    def _watch_loop(self) -> None:
+        """Main loop for watching and processing jobs"""
+        while self._running:
+            try:
+                self.process_job_queue()
+                time.sleep(1)  # Check every second
+            except Exception as e:
+                logger.error(f"Error in watch loop: {e}")
+                time.sleep(5)  # Wait longer on error
+
+    def process_job_queue(self) -> None:
+        """Process all pending jobs in the queue"""
+        job_files = list(self.jobs_dir.glob("*.json"))
+
+        for job_file in job_files:
+            try:
+                job_data = json.loads(job_file.read_text())
+                job_id = job_data["job_id"]
+
+                # Skip if not pending
+                if job_data["status"] != JobStatus.pending_code_review.value:
+                    continue
+
+                logger.info(f"Processing job {job_id}")
+
+                # Load job config
+                job_config = JobConfig.model_validate_json(job_data["config"])
+
+                # Execute the job
+                self._execute_job(job_id, job_config, job_data)
+
+            except Exception as e:
+                logger.error(f"Error processing job file {job_file}: {e}")
+
+    def _execute_job(self, job_id: str, job_config: JobConfig, job_data: dict) -> None:
+        """Execute a single job"""
+        try:
+            # Update status to in progress
+            job_data["status"] = JobStatus.job_in_progress.value
+            job_file = self.jobs_dir / f"{job_id}.json"
+            job_file.write_text(json.dumps(job_data, indent=2))
+
+            # Run the job
+            result = self.run(job_config)
+
+            if isinstance(result, tuple):
+                return_code, error_message = result
+            else:
+                # Handle non-blocking case - for folder-based runner, we'll make it blocking
+                return_code = result.wait()
+                error_message = None
+                if return_code != 0:
+                    stderr_output = result.stderr.read() if result.stderr else ""
+                    error_message = stderr_output
+
+            # Update job status based on result
+            if return_code == 0:
+                job_data["status"] = JobStatus.job_run_finished.value
+                job_data["error"] = JobErrorKind.no_error.value
+                job_data["error_message"] = None
+            else:
+                job_data["status"] = JobStatus.job_run_failed.value
+                job_data["error"] = JobErrorKind.execution_failed.value
+                job_data["error_message"] = error_message
+
+            job_data["completed_at"] = time.time()
+
+            # Move to done folder
+            self.move_to_done(job_id, job_data, job_config)
+
+        except Exception as e:
+            logger.error(f"Error executing job {job_id}: {e}")
+            job_data["status"] = JobStatus.job_run_failed.value
+            job_data["error"] = JobErrorKind.execution_failed.value
+            job_data["error_message"] = str(e)
+            job_data["completed_at"] = time.time()
+            self.move_to_done(job_id, job_data, job_config)
+
+    def move_to_done(self, job_id: str, job_data: dict, job_config: JobConfig) -> None:
+        """Move a completed job to the done folder"""
+        # Save job metadata to done folder
+        done_file = self.done_dir
+        done_file.write_text(json.dumps(job_data, indent=2))
+
+        # Copy job results (output and logs) to done folder if they exist
+        if job_config.output_dir.exists():
+            results_dir = self.done_jobs_dir / f"{job_id}_results"
+            if results_dir.exists():
+                shutil.rmtree(results_dir)
+            shutil.copytree(job_config.job_path, results_dir)
+
+        # Remove from execution queue
+        job_file = self.jobs_to_execute_dir / f"{job_id}.json"
+        if job_file.exists():
+            job_file.unlink()
+
+        logger.info(
+            f"Job {job_id} moved to done folder with status {job_data['status']}"
+        )
+
+    @abstractmethod
+    def _prepare_job_folders(self, job_config: JobConfig) -> None:
+        """Prepare job-specific folders - to be implemented by subclasses"""
+        pass
+
+    @abstractmethod
+    def _validate_paths(self, job_config: JobConfig) -> None:
+        """Validate job paths - to be implemented by subclasses"""
+        pass
+
+    @abstractmethod
+    def _run_subprocess(
+        self,
+        cmd: list[str],
+        job_config: JobConfig,
+        env: dict | None = None,
+        blocking: bool = True,
+    ) -> tuple[int, str | None] | subprocess.Popen:
+        """Run subprocess - to be implemented by subclasses"""
+        pass
+
+
+class HighLowRuntime(FolderBasedRuntime):
+    """High-low runtime that uses the folder-based runtime structure."""
+
+    def __init__(
+        self,
+        client: SyftBoxClient,
+        highside_identifier: str,
+    ) -> None:
+        super().__init__(client, highside_identifier)
+
+
+def get_runner_cls(job_config: JobConfig) -> Type[SyftRuntime]:
     """Factory to get the appropriate runner class for a job config."""
     runtime_kind = job_config.runtime.kind
     if runtime_kind == RuntimeKind.PYTHON:

@@ -16,6 +16,7 @@ from pydantic import (
 )
 
 from syft_notebook_ui.pydantic_html_repr import create_html_repr
+import yaml
 
 PathLike: TypeAlias = Union[str, os.PathLike, Path]
 
@@ -29,11 +30,40 @@ class RuntimeKind(str, Enum):
 class BaseRuntimeConfig(BaseModel):
     """Base configuration for runtime environments."""
 
+    config_path: PathLike | None = None
+    datasets: list[str] | None = Field(default_factory=list)
+    runtime_name: str | None = None
     cmd: list[str] | None = None
 
     def validate_config(self) -> bool:
         """Override in subclasses for custom validation."""
         return True
+
+    def save_to_yaml(self) -> None:
+        """Save the config to a YAML file."""
+        if self.config_path is None:
+            raise ValueError("config_path is not set")
+        yaml_dump = yaml.safe_dump(
+            self.model_dump(mode="json", exclude_none=True, exclude={"config_path"}),
+            indent=2,
+            sort_keys=False,
+        )
+        self.config_path.write_text(yaml_dump)
+
+    @classmethod
+    def from_yaml(cls, config_path: PathLike) -> "BaseRuntimeConfig":
+        """Create instance from YAML file."""
+        with open(config_path, "r") as f:
+            config_dict = yaml.safe_load(f)
+        config_dict["config_path"] = config_path
+        return cls(**config_dict)
+
+    def update(self, **kwargs) -> None:
+        """Update config with new values and save to file."""
+        config_dict = self.model_dump(mode="json", exclude_none=True)
+        config_dict.update(kwargs)
+        self.model_validate(config_dict)
+        self.save_to_yaml()
 
 
 class PythonRuntimeConfig(BaseRuntimeConfig):
@@ -115,7 +145,40 @@ class KubernetesRuntimeConfig(BaseRuntimeConfig):
     cmd: list[str] = Field(default_factory=list)
 
 
-RuntimeConfig = PythonRuntimeConfig | DockerRuntimeConfig | KubernetesRuntimeConfig
+class HighLowRuntimeConfig(BaseRuntimeConfig):
+    """Configuration for high-low runtime with dataset tracking."""
+
+    def add_dataset(self, dataset_name: str) -> bool:
+        """Add a dataset to the config if not already present.
+
+        Returns:
+            True if dataset was added, False if already present
+        """
+        if dataset_name not in self.datasets:
+            self.datasets.append(dataset_name)
+            self.save_to_yaml()
+            return True
+        return False
+
+    def remove_dataset(self, dataset_name: str) -> bool:
+        """Remove a dataset from the config.
+
+        Returns:
+            True if dataset was removed, False if not found
+        """
+        if dataset_name in self.datasets:
+            self.datasets.remove(dataset_name)
+            self.save_to_yaml()
+            return True
+        return False
+
+
+RuntimeConfig = (
+    PythonRuntimeConfig
+    | DockerRuntimeConfig
+    | KubernetesRuntimeConfig
+    | HighLowRuntimeConfig
+)
 
 
 class Runtime(BaseModel):

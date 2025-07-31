@@ -1,6 +1,8 @@
 from syft_runtimes.runners import (
     DockerRunner,
     PythonRunner,
+    FolderBasedRuntime,
+    HighLowRuntime,
     get_runner_cls,
 )
 from syft_runtimes.output_handler import (
@@ -13,6 +15,8 @@ from syft_runtimes.models import JobConfig, JobStatusUpdate, JobErrorKind, JobSt
 __all__ = [
     "DockerRunner",
     "PythonRunner",
+    "FolderBasedRuntime",
+    "HighLowRuntime",
     "FileOutputHandler",
     "RichConsoleUI",
     "TextUI",

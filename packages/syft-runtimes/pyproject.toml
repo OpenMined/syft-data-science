@@ -10,7 +10,7 @@ requires-python = ">=3.9"
 dependencies = [
     "loguru>=0.7.3",
     "pydantic>=2.11.7",
-    "syft-core>=0.2.5",
+    "syft-core>=0.2.8",
     "syft-notebook-ui",
 ]
 
