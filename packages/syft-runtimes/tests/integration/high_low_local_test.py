@@ -69,13 +69,16 @@ def lowside_stack(test_email, temp_dirs):
 
 
 @pytest.fixture
-def highside_client(test_email, highlow_identifier, temp_dirs):
+def highside_client(test_email, highlow_identifier, temp_dirs, lowside_stack):
     highside_syftbox_dir = temp_dirs["high_dir"] / "high_datasites"
+    lowside_syftbox_dir = lowside_stack.client.workspace.data_dir
 
     return syhl.initialize_high_datasite(
         email=test_email,
         highlow_identifier=highlow_identifier,
-        data_dir=highside_syftbox_dir,
+        syftbox_dir=highside_syftbox_dir,
+        lowside_syftbox_dir=lowside_syftbox_dir,
+        connection_config=None,  # default to local lowside connection
         force_overwrite=True,
     )
 
@@ -104,13 +107,9 @@ def create_test_dataset(highside_client, dataset_name, test_dataset_data, temp_d
     )
 
 
-def connect_to_lowside(highside_client, lowside_stack):
-    """Helper function to connect highside to lowside."""
-    lowside_syftbox_dir = lowside_stack.client.workspace.data_dir
-    return highside_client.lowside_connect(
-        highlow_identifier=highside_client.highside_identifier,
-        lowside_data_dir=lowside_syftbox_dir,
-    )
+def get_lowside_client(lowside_stack):
+    """Helper function to get the lowside client."""
+    return lowside_stack.client
 
 
 def create_mock_job(lowside_stack, highlow_identifier: str, dataset_name: str):
@@ -181,7 +180,9 @@ def verify_lowside_datasets(lowside_stack, expected_count, expected_names=None):
     return lowside_datasets
 
 
-def verify_runtime_config_datasets(highside_client, lowside_client, dataset_names):
+def verify_runtime_config_datasets(
+    highside_client: syhl.HighSideClient, dataset_names: list[str]
+):
     """Helper function to verify dataset names are in runtime configs on both sides."""
     # Ensure dataset_names is a list
     if isinstance(dataset_names, str):
@@ -194,21 +195,25 @@ def verify_runtime_config_datasets(highside_client, lowside_client, dataset_name
         assert dataset_name in high_runtime_config.datasets
 
     # Verify lowside runtime config
-    low_runtime_config_path = lowside_client.runtime_dir / "config.yaml"
+    lowside_runtime_dir = highside_client._get_lowside_runtime_dir()
+    low_runtime_config_path = lowside_runtime_dir / "config.yaml"
     assert low_runtime_config_path.exists()
     low_runtime_config = HighLowRuntimeConfig.from_yaml(low_runtime_config_path)
     for dataset_name in dataset_names:
         assert dataset_name in low_runtime_config.datasets
 
 
-def test_initialize_high_datasite(test_email, highlow_identifier, temp_dirs):
+def test_initialize_high_datasite(
+    test_email, highlow_identifier, temp_dirs, lowside_stack
+):
     """Test initializing a high datasite."""
     highside_syftbox_dir = temp_dirs["high_dir"] / "high_datasites"
 
     highside_client = syhl.initialize_high_datasite(
         email=test_email,
         highlow_identifier=highlow_identifier,
-        data_dir=highside_syftbox_dir,
+        lowside_syftbox_dir=lowside_stack.client.workspace.data_dir,
+        syftbox_dir=highside_syftbox_dir,
         force_overwrite=True,
     )
 
@@ -221,19 +226,6 @@ def test_initialize_high_datasite(test_email, highlow_identifier, temp_dirs):
     assert highside_client.datasite_path.exists()
     assert highside_client.runtime_dir.exists()
 
-    # Verify runtime directory structure
-    runtime_dir = highside_client.runtime_dir
-    assert (runtime_dir / "config.yaml").exists()
-    assert (runtime_dir / "jobs").exists()
-    assert (runtime_dir / "done").exists()
-    assert (runtime_dir / "running").exists()
-
-
-def test_directory_structure_integrity(highside_client, lowside_stack):
-    """Test that directory structures are created correctly."""
-    connect_to_lowside(highside_client, lowside_stack)
-
-    # Verify highside structure
     high_runtime_dir = highside_client.runtime_dir
     assert (high_runtime_dir / "jobs").exists()
     assert (high_runtime_dir / "done").exists()
@@ -243,14 +235,7 @@ def test_directory_structure_integrity(highside_client, lowside_stack):
     show_dir(high_runtime_dir)
 
     # Verify lowside structure
-    lowside_syftbox_client = lowside_stack.client
-    low_runtime_dir = (
-        lowside_syftbox_client.workspace.data_dir
-        / "private"
-        / lowside_syftbox_client.email
-        / "syft_runtimes"
-        / highside_client.highside_identifier
-    )
+    low_runtime_dir = highside_client._get_lowside_runtime_dir()
     assert low_runtime_dir.exists()
     assert (low_runtime_dir / "jobs").exists()
     assert (low_runtime_dir / "done").exists()
@@ -273,10 +258,7 @@ def test_create_and_sync_single_dataset(
     assert dataset.mock_dir.exists()
     assert dataset.private_dir.exists()
 
-    # Connect to lowside
-    lowside_client = connect_to_lowside(highside_client, lowside_stack)
-
-    # Sync dataset
+    # Sync dataset (connection already established via fixture)
     sync_result = highside_client.sync_dataset(dataset_name=dataset_name, verbose=True)
     assert isinstance(sync_result, SyncResult)
     assert sync_result.success
@@ -287,7 +269,7 @@ def test_create_and_sync_single_dataset(
     )
 
     # Verify dataset name is added to runtime configs on both sides
-    verify_runtime_config_datasets(highside_client, lowside_client, dataset_name)
+    verify_runtime_config_datasets(highside_client, dataset_name)
 
 
 @pytest.mark.parametrize("num_datasets", [2, 3, 5])
@@ -301,10 +283,7 @@ def test_sync_multiple_datasets(
     for dataset_name in dataset_names:
         create_test_dataset(highside_client, dataset_name, test_dataset_data, temp_dirs)
 
-    # Connect to lowside
-    lowside_client = connect_to_lowside(highside_client, lowside_stack)
-
-    # Sync all datasets
+    # Sync all datasets (connection already established via fixture)
     for dataset_name in dataset_names:
         sync_result = highside_client.sync_dataset(
             dataset_name=dataset_name, verbose=False
@@ -317,7 +296,7 @@ def test_sync_multiple_datasets(
     )
 
     # Verify all dataset names are added to runtime configs on both sides
-    verify_runtime_config_datasets(highside_client, lowside_client, dataset_names)
+    verify_runtime_config_datasets(highside_client, dataset_names)
 
 
 def test_complete_job_workflow(
@@ -326,14 +305,13 @@ def test_complete_job_workflow(
     """Test the complete job workflow: create dataset -> sync -> submit job -> run -> sync results."""
     dataset_name = "job_workflow_dataset"
 
-    # Create and sync dataset
+    # Create and sync dataset (connection already established via fixture)
     create_test_dataset(highside_client, dataset_name, test_dataset_data, temp_dirs)
-    lowside_client = connect_to_lowside(highside_client, lowside_stack)
     sync_result = highside_client.sync_dataset(dataset_name=dataset_name, verbose=False)
     assert sync_result.success
 
     # Verify dataset name is added to runtime configs on both sides
-    verify_runtime_config_datasets(highside_client, lowside_client, dataset_name)
+    verify_runtime_config_datasets(highside_client, dataset_name)
 
     # Create mock job on lowside
     job_id = create_mock_job(
@@ -377,32 +355,23 @@ def test_complete_job_workflow(
     highside_client.sync_done_jobs(ignore_existing=False)
 
     # Verify results on lowside
-    low_runtime_dir = lowside_client.runtime_dir
+    low_runtime_dir = highside_client._get_lowside_runtime_dir()
     low_done_dir = low_runtime_dir / "done"
     assert (low_done_dir / job_id).exists()
     assert (low_done_dir / job_id / "result.json").exists()
 
 
-def test_sync_nonexistent_dataset(highside_client, lowside_stack):
+def test_sync_nonexistent_dataset(highside_client):
     """Test error handling when syncing non-existent dataset."""
-    connect_to_lowside(highside_client, lowside_stack)
-
     with pytest.raises(
         FileNotFoundError, match="Dataset 'nonexistent_dataset' not found"
     ):
         highside_client.sync_dataset(dataset_name="nonexistent_dataset")
 
 
-def test_invalid_lowside_connection(highside_client):
-    """Test error handling for invalid lowside connection."""
-    with pytest.raises(Exception):
-        highside_client.lowside_connect(
-            highlow_identifier=highside_client.highside_identifier,
-            lowside_data_dir="/nonexistent/path",
-        )
-
-
-def test_reinitialize_with_force_overwrite(test_email, highlow_identifier, temp_dirs):
+def test_reinitialize_with_force_overwrite(
+    test_email, highlow_identifier, temp_dirs, lowside_stack
+):
     """Test reinitializing high datasite with force overwrite."""
     highside_syftbox_dir = temp_dirs["high_dir"] / "high_datasites"
 
@@ -410,7 +379,8 @@ def test_reinitialize_with_force_overwrite(test_email, highlow_identifier, temp_
     highside_client1 = syhl.initialize_high_datasite(
         email=test_email,
         highlow_identifier=highlow_identifier,
-        data_dir=highside_syftbox_dir,
+        lowside_syftbox_dir=lowside_stack.client.workspace.data_dir,
+        syftbox_dir=highside_syftbox_dir,
         force_overwrite=True,
     )
     assert highside_client1.workspace.data_dir.exists()
@@ -419,7 +389,8 @@ def test_reinitialize_with_force_overwrite(test_email, highlow_identifier, temp_
     highside_client2 = syhl.initialize_high_datasite(
         email=test_email,
         highlow_identifier=highlow_identifier,
-        data_dir=highside_syftbox_dir,
+        lowside_syftbox_dir=lowside_stack.client.workspace.data_dir,
+        syftbox_dir=highside_syftbox_dir,
         force_overwrite=True,
     )
     assert highside_client2.workspace.data_dir.exists()
@@ -432,6 +403,7 @@ def test_reinitialize_with_force_overwrite(test_email, highlow_identifier, temp_
         syhl.initialize_high_datasite(
             email=test_email,
             highlow_identifier=highlow_identifier,
-            data_dir=highside_syftbox_dir,
+            lowside_syftbox_dir=lowside_stack.client.workspace.data_dir,
+            syftbox_dir=highside_syftbox_dir,
             force_overwrite=False,
         )

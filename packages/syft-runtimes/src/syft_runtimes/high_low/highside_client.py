@@ -35,8 +35,8 @@ class HighSideClient(SyftBoxClient):
         self,
         email: str,
         highside_identifier: str,
-        syftbox_dir: PathLike,
-        lowside_syftbox_dir: Optional[PathLike] = None,
+        lowside_syftbox_dir: PathLike,
+        syftbox_dir: Optional[PathLike] = None,
         connection_config: Optional[Dict] = None,
         force_overwrite: bool = False,
     ):
@@ -50,7 +50,7 @@ class HighSideClient(SyftBoxClient):
 
         # Store connection details
         self.connection = None
-        self.lowside_syftbox_dir = None
+        self.lowside_syftbox_dir = lowside_syftbox_dir
 
         # Create datasite directory
         self.datasite_path.mkdir(parents=True, exist_ok=True)
@@ -80,8 +80,8 @@ class HighSideClient(SyftBoxClient):
         cls,
         email: str,
         highside_identifier: str,
-        syftbox_dir: PathLike,
-        lowside_syftbox_dir: Optional[PathLike] = None,
+        lowside_syftbox_dir: PathLike,
+        syftbox_dir: Optional[PathLike] = None,
         connection_config: Optional[Dict] = None,
         force_overwrite: bool = False,
     ) -> "HighSideClient":
@@ -89,8 +89,8 @@ class HighSideClient(SyftBoxClient):
         return cls(
             email=email,
             highside_identifier=highside_identifier,
-            syftbox_dir=syftbox_dir,
             lowside_syftbox_dir=lowside_syftbox_dir,
+            syftbox_dir=syftbox_dir,
             connection_config=connection_config,
             force_overwrite=force_overwrite,
         )
@@ -393,20 +393,20 @@ class HighSideClient(SyftBoxClient):
 def initialize_high_datasite(
     email: str,
     highlow_identifier: str,
-    force_overwrite: bool = False,
-    connection_config: Optional[Dict] = None,
-    lowside_syftbox_dir: Optional[PathLike] = None,
+    lowside_syftbox_dir: PathLike,
     syftbox_dir: Optional[PathLike] = None,
+    connection_config: Optional[Dict] = None,
+    force_overwrite: bool = False,
 ) -> HighSideClient:
     """Initialize a high datasite with SyftBox configuration and connect to lowside.
 
     Args:
         email: Email address for the datasite
         highlow_identifier: Unique identifier for the high-low runtime connection
-        force_overwrite: Whether to overwrite existing directories
-        connection_config: SSH connection configuration (for remote lowside)
         lowside_syftbox_dir: Path to SyftBox directory on lowside
         syftbox_dir: Path for highside SyftBox directory (optional)
+        connection_config: SSH connection configuration (for remote lowside)
+        force_overwrite: Whether to overwrite existing directories
 
     Returns:
         HighSideClient: Initialized high-side client with lowside connection
