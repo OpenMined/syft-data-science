@@ -11,6 +11,7 @@ def create(
     private_path: PathLike,
     summary: str | None = None,
     readme_path: PathLike | None = None,
+    location: str | None = None,
     tags: list[str] | None = None,
     syftbox_config_path: PathLike | None = None,
 ) -> Dataset:
@@ -21,6 +22,7 @@ def create(
         private_path=private_path,
         summary=summary,
         readme_path=readme_path,
+        location=location,
         tags=tags,
     )
 

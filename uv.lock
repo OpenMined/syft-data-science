@@ -2341,7 +2341,7 @@ wheels = [
 
 [[package]]
 name = "syft-core"
-version = "0.2.5"
+version = "0.2.8"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "pydantic", extra = ["email"] },
@@ -2349,9 +2349,9 @@ dependencies = [
     { name = "typing-extensions" },
     { name = "wcmatch" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/82/6d/d7768967c367b4d4cdaf4e247c6ab76950fe81a8780d265d13a3a908efd0/syft_core-0.2.5.tar.gz", hash = "sha256:461c4f8d09ed4d9aad7d228e137bab772b194a91d6f36b4b8be2eda4b57fee85", size = 15997, upload-time = "2025-06-24T14:12:15.156Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/41/63/a68eb1c684dee2e10799152a8ce4e6420f5035e40eaddeae4ea001ec1178/syft_core-0.2.8.tar.gz", hash = "sha256:834319e51786ce4448382a8e15c20e923fb713e8ecf9925f064df58208622df1", size = 16231, upload-time = "2025-07-12T21:08:24.555Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/4a/bc/c87e40c811ec74f9040e3d481690b18dcd65c77acd705a7f2f987e1bc9a9/syft_core-0.2.5-py3-none-any.whl", hash = "sha256:24127e34471e4b8e5b095b98f5b2a42140a2ba420196af2fa2b3574e39ce9718", size = 14346, upload-time = "2025-06-24T14:12:13.835Z" },
+    { url = "https://files.pythonhosted.org/packages/4a/fc/88818d165b201352759f5bb6da47f4f9204b53d0222919216a0f39812802/syft_core-0.2.8-py3-none-any.whl", hash = "sha256:7c3511b7dfef9cc5bff6f72e24d7e5aa66bd02dcee8e088d852755c017063444", size = 14500, upload-time = "2025-07-12T21:08:23.308Z" },
 ]
 
 [[package]]
@@ -2409,12 +2409,12 @@ requires-dist = [
     { name = "fastapi", extras = ["multipart"], specifier = ">=0.115.14" },
     { name = "fastsyftbox", specifier = ">=0.1.17" },
     { name = "pydantic", specifier = ">=2.11.3" },
-    { name = "syft-core", specifier = ">=0.2.5" },
+    { name = "syft-core", specifier = ">=0.2.8" },
 ]
 
 [[package]]
 name = "syft-event"
-version = "0.2.7"
+version = "0.2.8"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "loguru" },
@@ -2423,9 +2423,9 @@ dependencies = [
     { name = "syft-rpc" },
     { name = "watchdog" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/b3/87/6ed4002b95c505665bf06e89ebd4e5eaf4933c24c32388872b735b104a9a/syft_event-0.2.7.tar.gz", hash = "sha256:82bc95294786a3b64c1ab1fb731dca178bc7517307f95570c8473d2de1be0c13", size = 9764, upload-time = "2025-06-27T09:47:13.515Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/23/db/30cb16d456bbe8d97fcc27bc6c872654be01b6e6a00752c7ea224580e190/syft_event-0.2.8.tar.gz", hash = "sha256:fa92c3918fb7c8088e19788b823f6686da5aee2aa08d5851a7c3bb157cb773bd", size = 9780, upload-time = "2025-07-12T21:09:13.025Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/35/79/a488f72524f5f24ea15756b068a2d7f8cf742ab0b06ad85275dc5caa952e/syft_event-0.2.7-py3-none-any.whl", hash = "sha256:89de5c5acbdc10f66c787908e3978324bd0ab83e50a52f6c127daf36f888b830", size = 10955, upload-time = "2025-06-27T09:47:11.806Z" },
+    { url = "https://files.pythonhosted.org/packages/02/8d/941b0ba95e2bf12997263d7c48e659c8d07e766b046a475aee7fa6e3161e/syft_event-0.2.8-py3-none-any.whl", hash = "sha256:c06e746ef4944a730bdf501c0868a67b51145b858381e35dc6d6f3611c481011", size = 10978, upload-time = "2025-07-12T21:09:11.682Z" },
 ]
 
 [[package]]
@@ -2480,11 +2480,11 @@ requires-dist = [
     { name = "pydantic", extras = ["email"], specifier = ">=2.10.4" },
     { name = "pyyaml", specifier = ">=6.0.2" },
     { name = "rich", specifier = ">=14.0.0" },
-    { name = "syft-core", specifier = "==0.2.5" },
+    { name = "syft-core", specifier = ">=0.2.8" },
     { name = "syft-datasets", editable = "packages/syft-datasets" },
-    { name = "syft-event", specifier = "==0.2.7" },
+    { name = "syft-event", specifier = "==0.2.8" },
     { name = "syft-notebook-ui", editable = "packages/syft-notebook-ui" },
-    { name = "syft-rpc", specifier = "==0.2.4" },
+    { name = "syft-rpc", specifier = ">=0.2.8" },
     { name = "syft-runtimes", editable = "packages/syft-runtimes" },
     { name = "typer", specifier = ">=0.12.5" },
     { name = "typing-extensions", specifier = ">=4.14.0" },
@@ -2492,16 +2492,16 @@ requires-dist = [
 
 [[package]]
 name = "syft-rpc"
-version = "0.2.4"
+version = "0.2.8"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "pydantic" },
     { name = "syft-core" },
     { name = "typing-extensions" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/a8/be/8092c946cd8b7d48b1d804458062e5df42b2b608dc2ef898619846892229/syft_rpc-0.2.4.tar.gz", hash = "sha256:768fbdac72cdbfaad59501b8dac5e867502f939a7541a1c66aaf482fd040fb82", size = 10663, upload-time = "2025-06-24T14:46:48.278Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/0a/96/d2cd2d0ccd5cf2e075af57cf8261c9a233451cc2eb68d633aa47fa212db7/syft_rpc-0.2.8.tar.gz", hash = "sha256:b66525334b34cc4bd2d484467e5de62f12deb134dbb3ac3014eaa6ea5bb8aa58", size = 10663, upload-time = "2025-07-12T21:08:46.217Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/79/fb/b2d452d540a7c4fc043016eb9f68a537248760362fbb2d2a5232ad7097f0/syft_rpc-0.2.4-py3-none-any.whl", hash = "sha256:78e9453c9c092512a3b08f6ca8a07af9498509801f4ca2ef3614f07acb2aab2b", size = 11070, upload-time = "2025-06-24T14:46:47.294Z" },
+    { url = "https://files.pythonhosted.org/packages/32/6f/88f13192de72a1c1c87864348043be6c9f1256c00d2c6bbb373850ae9f1b/syft_rpc-0.2.8-py3-none-any.whl", hash = "sha256:4e11dce495de3b0cb3e142e04a879057d63768512234a19703e6b92abd1dc873", size = 11073, upload-time = "2025-07-12T21:08:45.025Z" },
 ]
 
 [[package]]
@@ -2510,12 +2510,16 @@ version = "0.1.0"
 source = { editable = "packages/syft-runtimes" }
 dependencies = [
     { name = "loguru" },
+    { name = "pydantic" },
+    { name = "syft-core" },
     { name = "syft-notebook-ui" },
 ]
 
 [package.metadata]
 requires-dist = [
     { name = "loguru", specifier = ">=0.7.3" },
+    { name = "pydantic", specifier = ">=2.11.7" },
+    { name = "syft-core", specifier = ">=0.2.8" },
     { name = "syft-notebook-ui", editable = "packages/syft-notebook-ui" },
 ]
 
