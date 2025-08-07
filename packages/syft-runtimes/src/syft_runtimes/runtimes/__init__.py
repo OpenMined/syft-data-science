@@ -7,8 +7,6 @@ from syft_runtimes.runtimes.base import (
     LocalRuntime,
 )
 
-from syft_runtimes.runtimes.ssh import SSHConnection, SSHRuntime
-
 __all__ = [
     "RuntimeType",
     "Runtime",
@@ -16,6 +14,4 @@ __all__ = [
     "RemoteConnection",
     "RemoteRuntime",
     "LocalRuntime",
-    "SSHConnection",
-    "SSHRuntime",
 ]
