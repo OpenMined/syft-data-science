@@ -17,7 +17,6 @@ class RuntimeType(str, Enum):
     """Types of runtime execution environments."""
 
     LOCAL = "local"
-    SSH = "ssh"
     DOCKER_SWARM = "docker"
     KUBERNETES = "kubernetes"
     # some other possible runtime types
