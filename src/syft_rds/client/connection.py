@@ -175,11 +175,9 @@ class MockRPCConnection(BlockingRPCConnection):
         receiver_local_path = syft_url.to_local_path(
             self.receiver_client.workspace.datasites
         )
-        handler = self.app._SyftEvents__rpc.get(receiver_local_path)
+        handler = self.app.get_handler(receiver_local_path)
         if handler is None:
-            raise ValueError(
-                f"No handler found for: {receiver_local_path}, got {self.app._SyftEvents__rpc.keys()}"
-            )
+            raise ValueError(f"No handler found for: {receiver_local_path}")
         kwargs = func_args_from_request(handler, syft_request, self.app)
 
         response_body = handler(**kwargs)
