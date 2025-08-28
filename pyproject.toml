@@ -1,6 +1,6 @@
 [project]
 name = "syft-rds"
-version = "0.2.0"
+version = "0.2.1"
 description = "Doing remote data science with SyftBox"
 readme = "README.md"
 requires-python = ">=3.9"

@@ -1,6 +1,6 @@
 from abc import ABC
 from datetime import datetime, timezone
-from typing import (
+from typing_extensions import (
     TYPE_CHECKING,
     Any,
     ClassVar,
