@@ -123,6 +123,7 @@ def setup_rds_stack(
     # We also save the config files in the root dir
     do_client_config = SyftClientConfig(
         email=do_email,
+        server_url="http://localhost:8080",  # Explicit server_url for proper bootstrap
         client_url="http://localhost:5000",  # not used, just for local dev
         path=root_dir / "do_config.json",
         data_dir=root_dir,
@@ -133,6 +134,7 @@ def setup_rds_stack(
 
     ds_client_config = SyftClientConfig(
         email=ds_email,
+        server_url="http://localhost:8080",  # Explicit server_url for proper bootstrap
         client_url="http://localhost:5001",  # not used, just for local dev
         path=root_dir / "ds_config.json",
         data_dir=root_dir,
@@ -184,6 +186,7 @@ def _get_syftbox_client(
     # We also save the config files in the root dir
     client_config = SyftClientConfig(
         email=email,
+        server_url="http://localhost:8080",  # Explicit server_url for proper bootstrap
         client_url="http://localhost:5000",  # not used, just for local dev
         path=root_dir / f"{email}.config.json",
         data_dir=root_dir,
