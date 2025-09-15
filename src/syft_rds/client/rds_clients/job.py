@@ -284,3 +284,124 @@ class JobRDSClient(RDSClientModule[Job]):
     def update_job_status(self, job_update: JobUpdate, job: Job) -> Job:
         new_job = self.rpc.job.update(job_update)
         return job.apply_update(new_job)
+
+    def delete(self, job: Job | UUID, delete_orphaned_usercode: bool = True) -> bool:
+        """Delete a single job by Job object or UUID.
+
+        Args:
+            job: Job object or UUID of the job to delete
+            delete_orphaned_usercode: If True, also delete UserCode if not used by other jobs
+
+        Returns:
+            True if deletion was successful
+
+        Raises:
+            RDSValidationError: If user is not admin
+        """
+        if not self.is_admin:
+            raise RDSValidationError("Only admins can delete jobs")
+
+        # Get the full job object if we only have UUID
+        if isinstance(job, UUID):
+            try:
+                job = self.get(uid=job, mode="local")
+            except ValueError:
+                logger.warning(f"Job {job} not found for deletion")
+                return False
+
+        # Delete job output folders
+        self._delete_job_outputs(job)
+
+        # Delete Job YAML file from local store
+        deleted = self.local_store.job.delete_by_id(job.uid)
+        if not deleted:
+            logger.warning(f"Job {job.uid} not found for deletion")
+            return False
+
+        logger.info(f"Deleted job {job.uid} successfully")
+
+        # Conditionally delete orphaned UserCode
+        if delete_orphaned_usercode and job.user_code_id:
+            self._delete_orphaned_usercode(job.user_code_id, job.uid)
+
+        return True
+
+    def delete_all(self, delete_orphaned_usercode: bool = True, **filters) -> int:
+        """Delete all jobs matching the given filters.
+
+        Args:
+            delete_orphaned_usercode: If True, also delete UserCode if not used by other jobs
+            **filters: Filter criteria for jobs to delete (e.g., status=JobStatus.rejected)
+
+        Returns:
+            Number of jobs deleted
+
+        Raises:
+            RDSValidationError: If user is not admin
+        """
+        if not self.is_admin:
+            raise RDSValidationError("Only admins can delete jobs")
+
+        # Get all jobs matching the filters
+        jobs_to_delete = self.get_all(mode="local", **filters)
+
+        deleted_count = 0
+        for job in jobs_to_delete:
+            if self.delete(job, delete_orphaned_usercode=delete_orphaned_usercode):
+                deleted_count += 1
+
+        logger.info(f"Deleted {deleted_count} jobs out of {len(jobs_to_delete)} found")
+        return deleted_count
+
+    def _delete_job_outputs(self, job: Job) -> None:
+        """Delete job output folders."""
+        # Delete job output folder using the job's output_url
+        if job.output_url:
+            job_output_path = job.output_url.to_local_path(
+                self._syftbox_client.datasites
+            )
+            if job_output_path.exists():
+                shutil.rmtree(job_output_path)
+                logger.debug(f"Deleted job output path: {job_output_path}")
+
+        # Delete job results from runner output folder
+        job_runner_output = self.config.runner_config.job_output_folder / job.uid.hex
+        if job_runner_output.exists():
+            shutil.rmtree(job_runner_output)
+            logger.debug(f"Deleted job runner output: {job_runner_output}")
+
+    def _delete_orphaned_usercode(
+        self, user_code_id: UUID, excluded_job_uid: UUID
+    ) -> None:
+        """Delete UserCode if it's not used by any other jobs."""
+        # Check if UserCode is used by other jobs
+        other_jobs = [
+            j
+            for j in self.get_all(mode="local", user_code_id=user_code_id)
+            if j.uid != excluded_job_uid
+        ]
+
+        if other_jobs:
+            logger.debug(
+                f"UserCode {user_code_id} is still used by {len(other_jobs)} other job(s)"
+            )
+            return
+
+        # UserCode is orphaned, delete it
+        try:
+            usercode = self.rds.user_code.get(uid=user_code_id, mode="local")
+
+            # Delete UserCode files
+            if usercode.dir_url:
+                usercode_path = usercode.dir_url.to_local_path(
+                    self._syftbox_client.datasites
+                )
+                if usercode_path.exists():
+                    shutil.rmtree(usercode_path)
+                    logger.debug(f"Deleted UserCode folder: {usercode_path}")
+
+            # Delete UserCode YAML
+            if self.local_store.user_code.delete_by_id(user_code_id):
+                logger.debug(f"Deleted orphaned UserCode {user_code_id}")
+        except Exception as e:
+            logger.warning(f"Failed to delete orphaned UserCode {user_code_id}: {e}")
