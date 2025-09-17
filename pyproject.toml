@@ -1,11 +1,12 @@
 [project]
 name = "syft-rds"
-version = "0.2.2"
+version = "0.3.0"
 description = "Doing remote data science with SyftBox"
 readme = "README.md"
 requires-python = ">=3.9"
 dependencies = [
-  "syft-event>=0.3.0",
+  "syft-event>=0.4.0",
+  "syft-rpc>=0.4.0",
   "loguru>=0.7.3",
   "pydantic[email]>=2.11.9",
   "rich>=13.5.0,<14.0.0",
@@ -16,7 +17,6 @@ dependencies = [
   "jinja2>=3.1.6",
   "ipython>=8.18.1",
 ]
-
 
 [tool.uv]
 dev-dependencies = [

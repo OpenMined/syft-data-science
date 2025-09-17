@@ -251,6 +251,58 @@ run-rds-stack client_names="data_owner@openmined.org data_scientist@openmined.or
 
 # ---------------------------------------------------------------------------------------------------------------------
 
+# Bump version in pyproject.toml and __init__.py
+# Usage: just bump-version patch/minor/major
+[group('build')]
+bump-version version_type="patch":
+    #!/bin/bash
+    set -eou pipefail
+
+    # Check if version_type is valid
+    if [[ "{{ version_type }}" != "patch" && "{{ version_type }}" != "minor" && "{{ version_type }}" != "major" ]]; then
+        echo "{{ _red }}Error: Invalid version type '{{ version_type }}'. Use: patch, minor, or major{{ _nc }}"
+        exit 1
+    fi
+
+    # Get current version from pyproject.toml
+    CURRENT_VERSION=$(grep '^version = ' pyproject.toml | sed 's/version = "\(.*\)"/\1/')
+
+    # Parse version components
+    IFS='.' read -r MAJOR MINOR PATCH <<< "$CURRENT_VERSION"
+
+    # Bump version based on type
+    if [[ "{{ version_type }}" == "major" ]]; then
+        NEW_MAJOR=$((MAJOR + 1))
+        NEW_VERSION="${NEW_MAJOR}.0.0"
+    elif [[ "{{ version_type }}" == "minor" ]]; then
+        NEW_MINOR=$((MINOR + 1))
+        NEW_VERSION="${MAJOR}.${NEW_MINOR}.0"
+    else  # patch
+        NEW_PATCH=$((PATCH + 1))
+        NEW_VERSION="${MAJOR}.${MINOR}.${NEW_PATCH}"
+    fi
+
+    # Update version in pyproject.toml
+    sed -i.bak "s/^version = \".*\"/version = \"$NEW_VERSION\"/" pyproject.toml && rm pyproject.toml.bak
+
+    # Update version in __init__.py
+    sed -i.bak "s/^__version__ = \".*\"/__version__ = \"$NEW_VERSION\"/" src/syft_rds/__init__.py && rm src/syft_rds/__init__.py.bak
+
+    echo ""
+    echo -e "{{ _green }}✓ Version bumped: $CURRENT_VERSION → $NEW_VERSION{{ _nc }}"
+    echo ""
+    echo -e "{{ _cyan }}Updated files:{{ _nc }}"
+    echo "  • pyproject.toml"
+    echo "  • src/syft_rds/__init__.py"
+    echo ""
+    echo -e "{{ _cyan }}Next steps:{{ _nc }}"
+    echo "  0. just test"
+    echo "  1. git add pyproject.toml src/syft_rds/__init__.py"
+    echo "  2. git commit -m \"Bump version to $NEW_VERSION\""
+    echo "  3. git tag v$NEW_VERSION"
+    echo "  4. git push && git push --tags"
+    echo "  5. just build"
+
 # Build syft rds wheel
 [group('build')]
 build:
