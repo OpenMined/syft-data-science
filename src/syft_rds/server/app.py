@@ -71,7 +71,12 @@ def _write_app_info(app: SyftEvents) -> None:
 
 
 def create_app(client: Client | None = None) -> SyftEvents:
-    rds_app = SyftEvents(app_name=APP_NAME, client=client)
+    rds_app = SyftEvents(
+        app_name=APP_NAME,
+        client=client,
+        cleanup_expiry="1d",  # Keep request/response files for 1 days
+        cleanup_interval="1d",  # Run cleanup daily
+    )
 
     @rds_app.on_request("/health")
     def health() -> dict:
