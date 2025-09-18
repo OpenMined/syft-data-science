@@ -254,7 +254,7 @@ run-rds-stack client_names="data_owner@openmined.org data_scientist@openmined.or
 # Bump version in pyproject.toml and __init__.py
 # Usage: just bump-version patch/minor/major
 [group('build')]
-bump-version version_type="patch":
+bump version_type="patch":
     #!/bin/bash
     set -eou pipefail
 
